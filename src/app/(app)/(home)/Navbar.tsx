@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import NavbarSidebar from "./navbar-sidebar";
 import { Menu } from "lucide-react";
 import { trpc } from "@/trpc/client";
+import { CheckoutButton } from "@/modules/checkout/ui/components/checkout-button";
 
 const poppins = Poppins({
   weight: ["700"],
@@ -104,7 +105,8 @@ export function Navbar() {
       />
 
       
-      <div className="hidden lg:flex">
+      <div className="hidden lg:flex items-center gap-2">
+        <CheckoutButton hideIfEmpty={false} />
         {isLoggedIn ? (
           <>
             <Button
@@ -148,7 +150,8 @@ export function Navbar() {
         )}
       </div>
 
-      <div className="flex lg:hidden items-center justify-center">
+      <div className="flex lg:hidden items-center gap-2">
+        <CheckoutButton hideIfEmpty={false} />
         <Button
           variant="ghost"
           className="size-12 border-transparent bg-white"

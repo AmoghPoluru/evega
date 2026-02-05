@@ -1,6 +1,5 @@
 /// <reference types="next" />
 import { Poppins } from "next/font/google"
-import { Navbar } from "./Navbar"
 import { SearchFilter } from "./search-filter/index"
 import configPromise from "@payload-config"
 import { getPayload } from "payload"
@@ -59,7 +58,6 @@ const Layout = async ({ children }: Props) => {
 
   return (
     <div className={`flex flex-col min-h-screen ${poppins.className}`}>
-      <Navbar />
       <SearchFilter data={formattedData} />
       {children}
     </div>

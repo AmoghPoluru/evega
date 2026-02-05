@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { baseProcedure, createTRPCRouter } from '../init';
-import type { Category, Product } from '@/payload-types';
+import type { Category } from '@/payload-types';
 import { authRouter } from '@/modules/auth/server/procedures';
+import { productsRouter } from '@/modules/products/server/procedures';
+import { checkoutRouter } from '@/modules/checkout/server/procedures';
 
 export const appRouter = createTRPCRouter({
   hello: baseProcedure
@@ -56,58 +58,8 @@ export const appRouter = createTRPCRouter({
 
       return formattedData;
     }),
-  products: baseProcedure
-    .query(async ({ ctx }) => {
-      const products = await ctx.db.find({
-        collection: 'products',
-        depth: 2,
-        limit: 100,
-        where: {
-          isPrivate: {
-            equals: false,
-          },
-          isArchived: {
-            equals: false,
-          },
-        },
-        sort: 'name',
-      });
-
-      return products.docs;
-    }),
-  product: baseProcedure
-    .input(
-      z.object({
-        id: z.string().optional(),
-        slug: z.string().optional(),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      if (!input.id && !input.slug) {
-        throw new Error('Either id or slug must be provided');
-      }
-
-      const where: any = {};
-      if (input.id) {
-        where.id = { equals: input.id };
-      }
-      if (input.slug) {
-        where.slug = { equals: input.slug };
-      }
-
-      const product = await ctx.db.find({
-        collection: 'products',
-        where,
-        limit: 1,
-        depth: 2,
-      });
-
-      if (!product.docs[0]) {
-        throw new Error('Product not found');
-      }
-
-      return product.docs[0];
-    }),
+  products: productsRouter,
+  checkout: checkoutRouter,
 });
 // export type definition of API
 export type AppRouter = typeof appRouter;

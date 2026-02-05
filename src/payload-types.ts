@@ -222,9 +222,9 @@ export interface Product {
    */
   category: string | Category;
   /**
-   * Select a subcategory for this product
+   * Select a subcategory for this product (optional)
    */
-  subcategory: string | Category;
+  subcategory?: (string | null) | Category;
   image?: (string | null) | Media;
   cover?: (string | null) | Media;
   refundPolicy?: ('30-day' | '14-day' | '7-day' | '3-day' | '1-day' | 'no-refunds') | null;

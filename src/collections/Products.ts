@@ -125,9 +125,9 @@ export const Products: CollectionConfig = {
       type: "relationship",
       relationTo: "categories",
       hasMany: false,
-      required: true,
+      required: false,
       admin: {
-        description: "Select a subcategory for this product"
+        description: "Select a subcategory for this product (optional)"
       }
     },
     {

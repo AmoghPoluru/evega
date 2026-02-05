@@ -3,7 +3,11 @@
 import { trpc } from "@/trpc/client";
 
 export function ProductsDisplay() {
-  const { data: products, isLoading, error } = trpc.products.useQuery();
+  const { data, isLoading, error } = trpc.products.getMany.useQuery({
+    cursor: 1,
+    limit: 100,
+  });
+  const products = data?.docs || [];
 
   if (isLoading) {
     return (
