@@ -5,9 +5,20 @@ import config from "@payload-config";
 // ==================== CATEGORIES DATA ====================
 const categories = [
   {
-    name: "BRASS 3D DESIGNS",
+    name: "Retail",
     color: "#B8860B", // Dark goldenrod (brass color)
-    slug: "brass-3d-designs",
+    slug: "retail",
+    subcategories: [
+      {
+        name: "Brass 3d design",
+        slug: "brass-3d-design",
+      },
+    ],
+  },
+  {
+    name: "Hotelmart",
+    color: "#4169E1", // Royal blue
+    slug: "hotelmart",
     subcategories: [],
   },
 ];
@@ -18,56 +29,64 @@ const products = [
     name: "Vastu Trunk Up Brass 3d Elephant Statue",
     description: "Elevate your living spaces with Agromech's stunning Brass 3D Designs. This beautifully crafted elephant statue with trunk raised brings positive energy and prosperity to your home. Handcrafted with intricate details and premium brass quality.",
     price: 3299.00,
-    categorySlug: "brass-3d-designs",
+    categorySlug: "retail",
+    subcategorySlug: "brass-3d-design",
     refundPolicy: "30-day",
   },
   {
     name: "Small Brass 3D Fine Kamdhenu Cow With Calf",
     description: "A divine representation of Kamdhenu, the wish-fulfilling cow, with her calf. This handcrafted brass statue features exquisite 3D detailing and is perfect for home decor, mandir, or as a thoughtful gift. Made with premium brass for lasting beauty.",
     price: 2760.00,
-    categorySlug: "brass-3d-designs",
+    categorySlug: "retail",
+    subcategorySlug: "brass-3d-design",
     refundPolicy: "30-day",
   },
   {
     name: "Small 3D Brass Goddess Lakshmi & Lord Ganesha",
     description: "A beautiful brass statue featuring Goddess Lakshmi and Lord Ganesha seated together. This divine piece brings blessings of wealth and wisdom to your home. Expertly crafted with intricate 3D designs and premium brass quality.",
     price: 3150.00,
-    categorySlug: "brass-3d-designs",
+    categorySlug: "retail",
+    subcategorySlug: "brass-3d-design",
     refundPolicy: "30-day",
   },
   {
     name: "Brass Tirupati Balaji Idol With Garuda Base",
     description: "A divine brass idol of Tirupati Balaji (Lord Venkateswara) standing on a Garuda base. This handcrafted piece features multiple arms holding various attributes and is perfect for your mandir or home altar. Made with premium brass for timeless elegance.",
     price: 2499.00,
-    categorySlug: "brass-3d-designs",
+    categorySlug: "retail",
+    subcategorySlug: "brass-3d-design",
     refundPolicy: "30-day",
   },
   {
     name: "Brass Narayana/Vishnu Lakshmi On Ananta-Sajya",
     description: "A magnificent brass statue depicting Lord Vishnu (Narayana) reclining on the multi-headed serpent Sheshnag, with Goddess Lakshmi seated at his feet. This divine piece features intricate 3D detailing and is perfect for home decor or mandir.",
     price: 4999.00,
-    categorySlug: "brass-3d-designs",
+    categorySlug: "retail",
+    subcategorySlug: "brass-3d-design",
     refundPolicy: "30-day",
   },
   {
     name: "Brass Lord Vishnu Murti - 6\" Standing Idol For Mandir",
     description: "A beautiful standing brass idol of Lord Vishnu with four arms holding his traditional attributes. This 6-inch statue stands on a lotus-shaped base and is perfect for your mandir or home altar. Handcrafted with premium brass and intricate details.",
     price: 3499.00,
-    categorySlug: "brass-3d-designs",
+    categorySlug: "retail",
+    subcategorySlug: "brass-3d-design",
     refundPolicy: "30-day",
   },
   {
     name: "Brass Lakshmi Idol Standing On Lotus",
     description: "A divine brass statue of Goddess Lakshmi standing on a lotus pedestal. This handcrafted piece features four arms holding lotus flowers and in a gesture of blessing. Perfect for home decor, mandir, or as a gift. Made with premium brass quality.",
     price: 2899.00,
-    categorySlug: "brass-3d-designs",
+    categorySlug: "retail",
+    subcategorySlug: "brass-3d-design",
     refundPolicy: "30-day",
   },
   {
     name: "Brass Durga Maa Murti With Lion - 6\" Standing Idol For Mandir",
     description: "A powerful brass statue of Goddess Durga Maa with multiple arms holding weapons, riding a lion. This 6-inch standing idol is perfect for your mandir or home altar. Handcrafted with intricate 3D details and premium brass for lasting beauty.",
     price: 3299.00,
-    categorySlug: "brass-3d-designs",
+    categorySlug: "retail",
+    subcategorySlug: "brass-3d-design",
     refundPolicy: "30-day",
   },
 ];
@@ -173,21 +192,19 @@ const seedCategories = async (payload: any) => {
       if (category.subcategories && category.subcategories.length > 0) {
         for (const subCategory of category.subcategories) {
           try {
-            // Check if subcategory already exists
+            // Check if subcategory already exists (by slug only, since slug is unique)
             const existingSubcategory = await payload.find({
               collection: "categories",
               where: {
                 slug: {
                   equals: subCategory.slug,
                 },
-                parent: {
-                  equals: categoryDoc.id,
-                },
               },
               limit: 1,
             });
 
             if (existingSubcategory.docs.length === 0) {
+              // Create new subcategory
               await payload.create({
                 collection: "categories",
                 data: {
@@ -198,7 +215,20 @@ const seedCategories = async (payload: any) => {
               });
               console.log(`  ✓ Created subcategory: ${subCategory.name}`);
             } else {
-              console.log(`  ⏭️  Subcategory already exists: ${subCategory.name}`);
+              // Subcategory exists - update its parent if needed
+              const existing = existingSubcategory.docs[0];
+              if (existing.parent !== categoryDoc.id) {
+                await payload.update({
+                  collection: "categories",
+                  id: existing.id,
+                  data: {
+                    parent: categoryDoc.id,
+                  },
+                });
+                console.log(`  ✓ Updated subcategory parent: ${subCategory.name}`);
+              } else {
+                console.log(`  ⏭️  Subcategory already exists: ${subCategory.name}`);
+              }
             }
           } catch (error) {
             console.error(`  ❌ Error creating subcategory ${subCategory.name}:`, error);

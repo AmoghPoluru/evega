@@ -1,5 +1,5 @@
 import { TRPCReactProvider } from "@/trpc/client";
-import { Navbar } from "./(home)/Navbar";
+import { Navbar } from "./(home)/navbar/Navbar";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 
 interface Props {
