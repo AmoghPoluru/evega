@@ -64,54 +64,106 @@ export const CheckoutView = () => {
 
   if (isLoading) {
     return (
-      <div className="lg:pt-16 pt-4 px-4 lg:px-12">
-        <div className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-y-4 bg-white w-full rounded-lg">
-          <LoaderIcon className="text-muted-foreground animate-spin" />
+      <div className="bg-gray-100 min-h-screen py-4">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="bg-white border border-gray-300 rounded-lg flex items-center justify-center p-8 flex-col gap-y-4">
+            <LoaderIcon className="text-gray-400 animate-spin size-8" />
+          </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (data?.totalDocs === 0) {
     return (
-      <div className="lg:pt-16 pt-4 px-4 lg:px-12">
-        <div className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-y-4 bg-white w-full rounded-lg">
-          <InboxIcon />
-          <p className="text-base font-medium">No products found</p>
+      <div className="bg-gray-100 min-h-screen py-4">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="bg-white border border-gray-300 rounded-lg flex items-center justify-center p-8 flex-col gap-y-4">
+            <InboxIcon className="size-12 text-gray-400" />
+            <p className="text-lg font-medium text-gray-700">Your cart is empty</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="lg:pt-16 pt-4 px-4 lg:px-12">
-      <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 lg:gap-16">
-
-        <div className="lg:col-span-4">
-          <div className="border rounded-md overflow-hidden bg-white">
-            {data?.docs.map((product, index) => (
-              <CheckoutItem
-                key={product.id}
-                isLast={index === data.docs.length - 1}
-                imageUrl={product.image?.url}
-                name={product.name}
-                productUrl={`/products/${product.id}`}
-                price={product.price}
-                onRemove={() => removeProduct(product.id)}
-              />
-            ))}
+    <div className="bg-gray-100 min-h-screen py-4">
+      <div className="max-w-7xl mx-auto px-4">
+        {/* Promotional Banner */}
+        <div className="bg-white border border-gray-300 rounded-lg mb-4 px-6 py-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-900">
+              Get a $150 Gift Card upon approval for Store Card.{" "}
+              <a href="#" className="text-blue-600 hover:text-orange-600 hover:underline">
+                Find out how
+              </a>
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-600">Apply and pay only</p>
+            <p className="text-gray-400 line-through text-sm">$35.18</p>
+            <p className="text-lg font-bold text-gray-900">$0.00</p>
+            <p className="text-xs text-gray-600">for this order</p>
           </div>
         </div>
 
-        <div className="lg:col-span-3">
-          <CheckoutSidebar
-            total={data?.totalPrice || 0}
-            onPurchase={() => purchase.mutate({ productIds })}
-            isCanceled={states.cancel}
-            disabled={purchase.isPending}
-          />
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Cart Items */}
+          <div className="lg:col-span-2">
+            <div className="bg-white border border-gray-300 rounded-lg overflow-hidden">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-gray-300">
+                <div className="flex items-baseline justify-between">
+                  <h1 className="text-2xl font-medium text-gray-900">Shopping Cart</h1>
+                  <span className="text-sm text-gray-600 ml-auto mr-6">Price</span>
+                </div>
+                <button 
+                  onClick={clearCart}
+                  className="text-sm text-blue-600 hover:text-orange-600 hover:underline mt-1"
+                >
+                  Deselect all items
+                </button>
+              </div>
 
+              {/* Cart Items */}
+              <div>
+                {data?.docs.map((product, index) => (
+                  <CheckoutItem
+                    key={product.id}
+                    isLast={index === data.docs.length - 1}
+                    imageUrl={product.image?.url || undefined}
+                    name={product.name}
+                    productUrl={`/products/${product.id}`}
+                    price={product.price}
+                    onRemove={() => removeProduct(product.id)}
+                  />
+                ))}
+              </div>
+
+              {/* Subtotal Footer */}
+              <div className="px-6 py-4 border-t border-gray-300 bg-white">
+                <div className="flex justify-end">
+                  <p className="text-lg text-gray-900">
+                    Subtotal ({data?.totalDocs} item{data?.totalDocs !== 1 ? 's' : ''}): 
+                    <span className="font-bold ml-2">${data?.totalPrice?.toFixed(2)}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            <CheckoutSidebar
+              total={data?.totalPrice || 0}
+              itemCount={data?.totalDocs || 0}
+              onPurchase={() => purchase.mutate({ productIds })}
+              isCanceled={states.cancel || false}
+              disabled={purchase.isPending}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
