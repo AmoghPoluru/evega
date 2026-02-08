@@ -72,6 +72,7 @@ export interface Config {
     categories: Category;
     products: Product;
     tags: Tag;
+    'hero-banners': HeroBanner;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -88,6 +89,7 @@ export interface Config {
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     products: ProductsSelect<false> | ProductsSelect<true>;
     tags: TagsSelect<false> | TagsSelect<true>;
+    'hero-banners': HeroBannersSelect<false> | HeroBannersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -274,6 +276,39 @@ export interface Tag {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "hero-banners".
+ */
+export interface HeroBanner {
+  id: string;
+  /**
+   * Title for the hero banner section
+   */
+  title: string;
+  /**
+   * Optional subtitle text
+   */
+  subtitle?: string | null;
+  /**
+   * Optional background image for the banner
+   */
+  backgroundImage?: (string | null) | Media;
+  /**
+   * Select products to display in this hero banner
+   */
+  products: (string | Product)[];
+  /**
+   * Only active banners will be displayed on the homepage
+   */
+  isActive?: boolean | null;
+  /**
+   * Display order (lower numbers appear first)
+   */
+  order?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -315,6 +350,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'tags';
         value: string | Tag;
+      } | null)
+    | ({
+        relationTo: 'hero-banners';
+        value: string | HeroBanner;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -440,6 +479,20 @@ export interface ProductsSelect<T extends boolean = true> {
 export interface TagsSelect<T extends boolean = true> {
   name?: T;
   products?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "hero-banners_select".
+ */
+export interface HeroBannersSelect<T extends boolean = true> {
+  title?: T;
+  subtitle?: T;
+  backgroundImage?: T;
+  products?: T;
+  isActive?: T;
+  order?: T;
   updatedAt?: T;
   createdAt?: T;
 }

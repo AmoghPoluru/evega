@@ -12,6 +12,8 @@
     "generate:importmap": "payload generate:importmap",
     "db:fresh": "payload migrate:fresh",
     "db:seed": "npx tsx src/seed.ts",
+    "db:seed:hero-banners": "npx tsx src/seed-hero-banners.ts",
+    "db:update:tags": "npx tsx src/update-products-tags.ts",
     "db:refresh": "npm run db:fresh && npm run db:seed",
     "clean": "rm -rf .next .turbo node_modules/.cache"
   },

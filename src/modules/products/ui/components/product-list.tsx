@@ -12,11 +12,10 @@ import { useProductFilters } from "../../hooks/use-product-filters";
 
 interface Props {
   category?: string;
-  tenantSlug?: string;
   narrowView?: boolean;
 };
 
-export const ProductList = ({ category, tenantSlug, narrowView }: Props) => {
+export const ProductList = ({ category, narrowView }: Props) => {
   const [filters] = useProductFilters();
 
   const { 
@@ -59,8 +58,6 @@ export const ProductList = ({ category, tenantSlug, narrowView }: Props) => {
             id={product.id}
             name={product.name}
             imageUrl={product.image?.url}
-            tenantSlug={product.tenant?.slug}
-            tenantImageUrl={product.tenant?.image?.url}
             reviewRating={product.reviewRating}
             reviewCount={product.reviewCount}
             price={product.price}

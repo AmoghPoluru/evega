@@ -29,12 +29,13 @@ export const CartButton = ({ productId, isPurchased }: Props) => {
 
   return (
     <Button
-      variant={cart.isProductInCart(productId) ? "outline" : "default"}
+      variant="default"
+      size="lg"
       className={cn(
-        "flex-1",
+        "w-full font-medium rounded-full",
         cart.isProductInCart(productId)
-          ? "bg-gray-200 border-gray-400 text-gray-600 hover:bg-gray-300"
-          : "bg-pink-400 hover:bg-pink-500"
+          ? "bg-gray-200 hover:bg-gray-300 text-gray-900"
+          : "bg-orange-400 hover:bg-orange-500 text-gray-900"
       )}
       onClick={() => cart.toggleProduct(productId)}
     >

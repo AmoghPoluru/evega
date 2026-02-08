@@ -1,13 +1,14 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useMemo } from "react";
+import { PriceRangeSlider } from "./price-range-slider";
 
 interface PriceFilterProps {
   minPrice: string;
   maxPrice: string;
   onMinPriceChange: (value: string) => void;
   onMaxPriceChange: (value: string) => void;
+  products?: Array<{ price: number }>;
 }
 
 export const PriceFilter = ({
@@ -15,37 +16,43 @@ export const PriceFilter = ({
   maxPrice,
   onMinPriceChange,
   onMaxPriceChange,
+  products = [],
 }: PriceFilterProps) => {
+  // Calculate min/max from products
+  const { productMin, productMax } = useMemo(() => {
+    if (products.length === 0) {
+      return { productMin: 0, productMax: 10000 };
+    }
+    const prices = products.map((p) => p.price);
+    return {
+      productMin: Math.floor(Math.min(...prices)),
+      productMax: Math.ceil(Math.max(...prices)),
+    };
+  }, [products]);
+
+  // Convert string values to numbers, defaulting to product range
+  const currentMin = minPrice ? parseFloat(minPrice) : productMin;
+  const currentMax = maxPrice ? parseFloat(maxPrice) : productMax;
+
+  // Ensure values are within bounds
+  const sliderMin = Math.max(productMin, currentMin);
+  const sliderMax = Math.min(productMax, currentMax);
+
+  const handleChange = ([newMin, newMax]: [number, number]) => {
+    // Always update when slider changes
+    onMinPriceChange(newMin === productMin ? "" : newMin.toString());
+    onMaxPriceChange(newMax === productMax ? "" : newMax.toString());
+  };
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2">
-        <Label htmlFor="min-price" className="w-20 shrink-0">
-          Min Price
-        </Label>
-        <Input
-          id="min-price"
-          type="number"
-          placeholder="0"
-          value={minPrice}
-          onChange={(e) => onMinPriceChange(e.target.value)}
-          min="0"
-          step="0.01"
-        />
-      </div>
-      <div className="flex items-center gap-2">
-        <Label htmlFor="max-price" className="w-20 shrink-0">
-          Max Price
-        </Label>
-        <Input
-          id="max-price"
-          type="number"
-          placeholder="1000"
-          value={maxPrice}
-          onChange={(e) => onMaxPriceChange(e.target.value)}
-          min="0"
-          step="0.01"
-        />
-      </div>
+    <div className="px-2 py-4">
+      <PriceRangeSlider
+        minPrice={productMin}
+        maxPrice={productMax}
+        value={[sliderMin, sliderMax]}
+        onChange={handleChange}
+        step={10}
+      />
     </div>
   );
 };

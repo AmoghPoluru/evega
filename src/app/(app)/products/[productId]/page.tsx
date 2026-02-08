@@ -1,4 +1,4 @@
-import { ProductView, ProductViewSkeleton } from "@/modules/products/ui/views/product-view";
+import { ProductView, ProductViewSkeleton } from "@/modules/products/ui/components/product-view";
 import { Suspense } from "react";
 
 interface Props {

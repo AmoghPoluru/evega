@@ -4,19 +4,17 @@ import { useMemo } from "react";
 import { X } from "lucide-react";
 import { ProductFilters } from "./product-filters";
 import { ProductFiltersProvider, useProductFilters } from "./product-filters-provider";
-// @ts-expect-error - Component import works at runtime with NodeNext resolution
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/product-card";
+import type { Media } from "@/payload-types";
 
 interface Product {
   id: string;
   name: string;
   description?: string | any;
   price: number;
-  image?: {
-    url?: string;
-  } | null;
-  refundPolicy?: string;
+  image?: Media | string | null;
+  refundPolicy?: '30-day' | '14-day' | '7-day' | '3-day' | '1-day' | 'no-refunds' | null;
   tags?: Array<{
     id: string;
     name: string;
@@ -117,7 +115,7 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
       {/* Filters Sidebar */}
       <aside className="hidden lg:block w-64 shrink-0">
         <div className="sticky top-4">
-          <ProductFilters availableTags={availableTags} />
+          <ProductFilters availableTags={availableTags} products={products} />
         </div>
       </aside>
 
@@ -179,8 +177,10 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
 
 export const ProductsList = ({ products, title = "Products" }: ProductsListProps) => {
   return (
-    <ProductFiltersProvider>
-      <ProductsListContent products={products} title={title} />
-    </ProductFiltersProvider>
+    <div className="bg-gray-50 p-6 rounded-lg">
+      <ProductFiltersProvider>
+        <ProductsListContent products={products} title={title} />
+      </ProductFiltersProvider>
+    </div>
   );
 };

@@ -4,6 +4,7 @@ import type { Category } from '@/payload-types';
 import { authRouter } from '@/modules/auth/server/procedures';
 import { productsRouter } from '@/modules/products/server/procedures';
 import { checkoutRouter } from '@/modules/checkout/server/procedures';
+import { tagsRouter } from '@/modules/tags/server/procedures';
 
 export const appRouter = createTRPCRouter({
   hello: baseProcedure
@@ -60,6 +61,39 @@ export const appRouter = createTRPCRouter({
     }),
   products: productsRouter,
   checkout: checkoutRouter,
+  tags: tagsRouter,
+  heroBanners: baseProcedure
+    .query(async ({ ctx }) => {
+      const banners = await ctx.db.find({
+        collection: 'hero-banners',
+        where: {
+          isActive: {
+            equals: true,
+          },
+        },
+        sort: 'order',
+        limit: 10,
+        depth: 2, // Populate products and their images
+      });
+
+      return banners.docs.map((banner: any) => ({
+        id: banner.id,
+        title: banner.title,
+        subtitle: banner.subtitle || null,
+        backgroundImage: banner.backgroundImage?.url || null,
+        products: Array.isArray(banner.products)
+          ? banner.products
+              .filter((p: any) => typeof p === 'object' && p !== null)
+              .map((product: any) => ({
+                id: product.id,
+                name: product.name,
+                slug: product.slug,
+                price: product.price,
+                image: product.image?.url || null,
+              }))
+          : [],
+      }));
+    }),
 });
 // export type definition of API
 export type AppRouter = typeof appRouter;

@@ -42,9 +42,10 @@ const ProductFilter = ({ title, className, children }: ProductFilterProps) => {
 
 interface ProductFiltersProps {
   availableTags?: string[];
+  products?: Array<{ price: number }>;
 }
 
-export const ProductFilters = ({ availableTags = [] }: ProductFiltersProps) => {
+export const ProductFilters = ({ availableTags = [], products = [] }: ProductFiltersProps) => {
   const [filters, setFilters] = useProductFilters();
 
   const hasAnyFilters = Object.entries(filters).some(([key, value]) => {
@@ -95,6 +96,7 @@ export const ProductFilters = ({ availableTags = [] }: ProductFiltersProps) => {
           maxPrice={filters.maxPrice}
           onMinPriceChange={(value: string) => onChange("minPrice", value)}
           onMaxPriceChange={(value: string) => onChange("maxPrice", value)}
+          products={products}
         />
       </ProductFilter>
       {availableTags.length > 0 && (

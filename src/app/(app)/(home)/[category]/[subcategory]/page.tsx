@@ -1,8 +1,6 @@
 import { getPayload } from "payload";
 import config from "@payload-config";
-// @ts-expect-error - Next.js link module works at runtime with NodeNext resolution
 import Link from "next/link";
-// @ts-expect-error - Component import works at runtime with NodeNext resolution
 import { ProductsList } from "@/components/product-filters";
 
 interface Props {

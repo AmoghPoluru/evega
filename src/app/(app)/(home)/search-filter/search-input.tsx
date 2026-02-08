@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { SearchIcon, ChevronDown } from "lucide-react";
 
 import { useProductFilters } from "@/modules/products/hooks/use-product-filters";
@@ -19,6 +20,7 @@ export const SearchInput = ({
   onChange,
   categories = [],
 }: Props) => {
+  const router = useRouter();
   const [searchValue, setSearchValue] = useState(defaultValue || "");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -31,27 +33,36 @@ export const SearchInput = ({
     }
   }, [filters.search]);
 
-  // Function to trigger search immediately
-  const handleSearch = () => {
+  // Function to trigger search - only called on button click or Enter key
+  const handleSearch = (e?: { preventDefault: () => void }) => {
+    e?.preventDefault();
     const trimmedValue = searchValue.trim();
-    if (filters.search !== trimmedValue) {
-      setFilters({ search: trimmedValue || "" });
+    
+    if (!trimmedValue) {
+      // If no search term, clear search and stay on current page
+      setFilters({ 
+        ...filters,
+        search: "" 
+      });
+      onChange?.("");
+      return;
     }
+
+    // Build search URL with optional category filter
+    let searchUrl = `/search?search=${encodeURIComponent(trimmedValue)}`;
+    
+    // If a category is selected (not "All"), add it to the URL
+    if (selectedCategory !== "All") {
+      const categoryObj = categories.find(cat => cat.name === selectedCategory);
+      if (categoryObj) {
+        searchUrl += `&category=${encodeURIComponent(categoryObj.slug)}`;
+      }
+    }
+
+    // Navigate to search results page
+    router.push(searchUrl);
     onChange?.(trimmedValue);
   };
-
-  // Update URL params when search value changes (with debounce)
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      const trimmedValue = searchValue.trim();
-      if (filters.search !== trimmedValue) {
-        setFilters({ search: trimmedValue || "" });
-      }
-      onChange?.(trimmedValue);
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchValue, filters.search, setFilters, onChange]);
 
   // Handle Enter key press
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -77,10 +88,7 @@ export const SearchInput = ({
   return (
     <form 
       className="flex items-center w-full shadow-xl rounded-xl"
-      onSubmit={(e) => {
-        e.preventDefault();
-        handleSearch();
-      }}
+      onSubmit={handleSearch}
     >
       <div className="relative">
         <button

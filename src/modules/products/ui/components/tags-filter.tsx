@@ -1,8 +1,8 @@
-import { LoaderIcon } from "lucide-react";
+"use client";
 
+import { LoaderIcon } from "lucide-react";
 import { trpc } from "@/trpc/client";
 import { DEFAULT_LIMIT } from "@/constants";
-import { Checkbox } from "@/components/ui/checkbox";
 
 interface TagsFilterProps {
   value?: string[] | null;
@@ -27,42 +27,56 @@ export const TagsFilter = ({ value, onChange }: TagsFilterProps) => {
     }
   );
 
-  const onClick = (tag: string) => {
-    if (value?.includes(tag)) {
-      onChange(value?.filter((t) => t !== tag) || []);
-    } else {
-      onChange([...(value || []), tag]);
-    }
+  const handleTagToggle = (tag: string) => {
+    const currentTags = value || [];
+    const newTags = currentTags.includes(tag)
+      ? currentTags.filter((t) => t !== tag)
+      : [...currentTags, tag];
+    onChange(newTags);
   };
 
+  const availableTags = data?.pages.flatMap((page) => 
+    page.docs.map((tag: any) => tag.name)
+  ) || [];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <LoaderIcon className="size-4 animate-spin" />
+      </div>
+    );
+  }
+
+  if (availableTags.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="flex flex-col gap-y-2">
-      {isLoading ? (
-        <div className="flex items-center justify-center p-4">
-          <LoaderIcon className="size-4 animate-spin" />
-        </div>
-      ) : (
-        data?.pages.map((page) => 
-          page.docs.map((tag) => (
-            <div
-              key={tag.id}
-              className="flex items-center justify-between cursor-pointer"
-              onClick={() => onClick(tag.name)}
-            >
-              <p className="font-medium">{tag.name}</p>
-              <Checkbox
-                checked={value?.includes(tag.name)}
-                onCheckedChange={() => onClick(tag.name)}
-              />
-            </div>
-          ))
-        )
-      )}
+    <div className="space-y-3">
+      {availableTags.map((tag) => (
+        <label
+          key={tag}
+          className="flex items-center cursor-pointer group"
+        >
+          <input
+            type="checkbox"
+            checked={(value || []).includes(tag)}
+            onChange={() => handleTagToggle(tag)}
+            className="w-5 h-5 border-2 border-gray-300 rounded cursor-pointer
+                     checked:bg-black checked:border-black
+                     focus:ring-2 focus:ring-offset-2 focus:ring-black
+                     transition-colors"
+          />
+          <span className="ml-3 text-base font-normal text-gray-900 group-hover:text-black">
+            {tag}
+          </span>
+        </label>
+      ))}
       {hasNextPage && (
         <button
           disabled={isFetchingNextPage}
           onClick={() => fetchNextPage()}
-          className="underline font-medium justify-start text-start disabled:opacity-50 cursor-pointer"
+          className="text-sm text-gray-600 hover:text-black underline disabled:opacity-50 cursor-pointer"
         >
           Load more...
         </button>

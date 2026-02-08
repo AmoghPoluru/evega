@@ -165,10 +165,26 @@ export const productsRouter = createTRPCRouter({
 
       if (input.search && input.search.trim()) {
         const searchTerm = input.search.trim();
-        // Use contains for case-insensitive partial matching
-        where["name"] = {
-          contains: searchTerm,
-        };
+        // Search across name, tags, and description
+        where["or"] = [
+          {
+            name: {
+              contains: searchTerm,
+            },
+          },
+          {
+            "tags.name": {
+              contains: searchTerm,
+            },
+          },
+          // Note: Description is richText (Lexical format), so we search in the text content
+          // This searches within the Lexical structure's text nodes
+          {
+            description: {
+              contains: searchTerm,
+            },
+          },
+        ];
       }
 
       const data = await ctx.db.find({
