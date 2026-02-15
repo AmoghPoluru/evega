@@ -73,6 +73,7 @@ export interface Config {
     products: Product;
     tags: Tag;
     'hero-banners': HeroBanner;
+    orders: Order;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -90,6 +91,7 @@ export interface Config {
     products: ProductsSelect<false> | ProductsSelect<true>;
     tags: TagsSelect<false> | TagsSelect<true>;
     'hero-banners': HeroBannersSelect<false> | HeroBannersSelect<true>;
+    orders: OrdersSelect<false> | OrdersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -134,8 +136,20 @@ export interface UserAuthOperations {
  */
 export interface User {
   id: string;
-  username: string;
+  username?: string | null;
+  name?: string | null;
   roles?: ('super-admin' | 'user')[] | null;
+  oauthProviders?: {
+    google?: {
+      id?: string | null;
+      email?: string | null;
+    };
+    facebook?: {
+      id?: string | null;
+      email?: string | null;
+    };
+  };
+  profilePicture?: string | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -309,6 +323,26 @@ export interface HeroBanner {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "orders".
+ */
+export interface Order {
+  id: string;
+  name: string;
+  user: string | User;
+  product: string | Product;
+  /**
+   * Stripe checkout session associated with the order
+   */
+  stripeCheckoutSessionId: string;
+  /**
+   * Stripe account associated with the order
+   */
+  stripeAccountId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -354,6 +388,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'hero-banners';
         value: string | HeroBanner;
+      } | null)
+    | ({
+        relationTo: 'orders';
+        value: string | Order;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -403,7 +441,25 @@ export interface PayloadMigration {
  */
 export interface UsersSelect<T extends boolean = true> {
   username?: T;
+  name?: T;
   roles?: T;
+  oauthProviders?:
+    | T
+    | {
+        google?:
+          | T
+          | {
+              id?: T;
+              email?: T;
+            };
+        facebook?:
+          | T
+          | {
+              id?: T;
+              email?: T;
+            };
+      };
+  profilePicture?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -493,6 +549,19 @@ export interface HeroBannersSelect<T extends boolean = true> {
   products?: T;
   isActive?: T;
   order?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "orders_select".
+ */
+export interface OrdersSelect<T extends boolean = true> {
+  name?: T;
+  user?: T;
+  product?: T;
+  stripeCheckoutSessionId?: T;
+  stripeAccountId?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CheckIcon, LinkIcon, ChevronDown } from "lucide-react";
 import { RichText } from "@payloadcms/richtext-lexical/react";
@@ -11,6 +12,7 @@ import { RichText } from "@payloadcms/richtext-lexical/react";
 import { trpc } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
+import { useCart } from "@/modules/checkout/hooks/use-cart";
 
 const CartButton = dynamic(
   () => import("./cart-button").then(
@@ -27,10 +29,47 @@ interface ProductViewProps {
 }
 
 export const ProductView = ({ productId }: ProductViewProps) => {
+  const router = useRouter();
+  const { removeProduct } = useCart();
   const { data, isLoading, error } = trpc.products.getOne.useQuery({ id: productId });
 
   const [isCopied, setIsCopied] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [isBuyNowLoading, setIsBuyNowLoading] = useState(false);
+
+  // Buy Now mutation - purchases single product directly
+  const buyNow = trpc.checkout.purchase.useMutation({
+    onMutate: () => {
+      setIsBuyNowLoading(true);
+    },
+    onSuccess: (data) => {
+      if (data.url) {
+        // Redirect to Stripe checkout
+        // Product will be removed from cart after successful payment and order creation
+        window.location.href = data.url;
+      } else {
+        toast.success("Purchase completed successfully");
+        setIsBuyNowLoading(false);
+      }
+    },
+    onError: (error) => {
+      setIsBuyNowLoading(false);
+      if (error.data?.code === "UNAUTHORIZED") {
+        router.push("/sign-in");
+      } else {
+        toast.error(error.message || "Failed to initiate checkout");
+      }
+    },
+  });
+
+  const handleBuyNow = () => {
+    // Purchase only this product directly
+    // Include buyNow flag and productId in the request
+    buyNow.mutate({
+      productIds: [productId],
+      buyNow: true, // Flag to indicate this is a "Buy Now" purchase
+    });
+  };
 
   if (isLoading) {
     return <ProductViewSkeleton />;
@@ -247,10 +286,12 @@ export const ProductView = ({ productId }: ProductViewProps) => {
 
                 {/* Buy Now Button */}
                 <Button 
-                  className="w-full bg-orange-400 hover:bg-orange-500 text-gray-900 font-medium rounded-full"
+                  onClick={handleBuyNow}
+                  disabled={isBuyNowLoading}
+                  className="w-full bg-orange-400 hover:bg-orange-500 text-gray-900 font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
                   size="lg"
                 >
-                  Buy Now
+                  {isBuyNowLoading ? "Processing..." : "Buy Now"}
                 </Button>
 
                 {/* Share Button */}

@@ -1,0 +1,11 @@
+{
+  // Disable preview mode - files will open in permanent tabs instead of preview tabs
+  "workbench.editor.enablePreview": false,
+  "workbench.editor.enablePreviewFromQuickOpen": false,
+  "workbench.editor.enablePreviewFromCodeNavigation": false,
+  
+  // Font size settings
+  "editor.fontSize": 13,
+  "terminal.integrated.fontSize": 13,
+  "window.zoomLevel": 0
+}

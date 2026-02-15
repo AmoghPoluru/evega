@@ -1,7 +1,9 @@
 import z from "zod";
+import type Stripe from "stripe";
 
 import { TRPCError } from "@trpc/server";
 
+import { stripe } from "@/lib/stripe";
 import { Media } from "@/payload-types";
 import { baseProcedure, createTRPCRouter, protectedProcedure } from "@/trpc/init";
 
@@ -10,6 +12,7 @@ export const checkoutRouter = createTRPCRouter({
     .input(
       z.object({
         productIds: z.array(z.string()).min(1),
+        buyNow: z.boolean().optional().default(false), // Flag for "Buy Now" purchases
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -36,13 +39,53 @@ export const checkoutRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND", message: "Products not found" });
       }
 
-      // TODO: Implement payment processing here
-      // For now, return success without actual payment processing
-      return { 
-        success: true,
-        message: "Purchase completed successfully",
-        productIds: input.productIds,
-      };
+      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
+        products.docs.map((product) => ({
+          quantity: 1,
+          price_data: {
+            unit_amount: Math.round(product.price * 100), // Stripe handles prices in cents
+            currency: "usd",
+            product_data: {
+              name: product.name,
+              metadata: {
+                id: product.id,
+                name: product.name,
+                price: product.price.toString(),
+              }
+            }
+          }
+        }));
+
+      // Build success URL - include productIds if it's a "Buy Now" purchase
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const successUrl = input.buyNow
+        ? `${baseUrl}/checkout?success=true&buyNow=true&productIds=${input.productIds.join(',')}`
+        : `${baseUrl}/checkout?success=true`;
+
+      const checkout = await stripe.checkout.sessions.create({
+        customer_email: ctx.session.user.email,
+        success_url: successUrl,
+        cancel_url: `${baseUrl}/checkout?cancel=true`,
+        mode: "payment",
+        line_items: lineItems,
+        invoice_creation: {
+          enabled: true,
+        },
+        metadata: {
+          userId: ctx.session.user.id,
+          productIds: input.productIds.join(','),
+          buyNow: input.buyNow.toString(), // Store buyNow flag in metadata
+        }
+      });
+
+      if (!checkout.url) {
+        throw new TRPCError({ 
+          code: "INTERNAL_SERVER_ERROR", 
+          message: "Failed to create checkout session" 
+        });
+      }
+
+      return { url: checkout.url };
     })
   ,
   getProducts: baseProcedure

@@ -27,6 +27,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { loginSchema } from "../../schemas";
+import { SocialLoginButtons } from "../components/social-login-buttons";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -75,7 +76,7 @@ export const SignInView = () => {
             <div className="flex items-center justify-between mb-8">
               <Link href="/">
                 <span className={cn("text-2xl font-semibold", poppins.className)}>
-                  funroad
+                  Evega
                 </span>
               </Link>
               <Button
@@ -90,7 +91,7 @@ export const SignInView = () => {
               </Button>
             </div>
             <h1 className="text-4xl font-medium">
-              Welcome back to Funroad.
+              Welcome back to Evega.
             </h1>
             {errorMessage && (
               <Alert variant="destructive" className="bg-red-500 text-white border-red-600">
@@ -127,11 +128,21 @@ export const SignInView = () => {
               disabled={login.isPending}
               type="submit"
               size="lg"
-              variant="elevated"
               className="bg-black text-white hover:bg-pink-400 hover:text-primary"
             >
               Log in
             </Button>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-[#F4F4F0] px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+            <SocialLoginButtons />
           </form>
         </Form>
       </div>

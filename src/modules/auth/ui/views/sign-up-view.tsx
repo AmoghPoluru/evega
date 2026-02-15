@@ -74,7 +74,7 @@ export const SignUpView = () => {
             <div className="flex items-center justify-between mb-8">
               <Link href="/">
                 <span className={cn("text-2xl font-semibold", poppins.className)}>
-                  funroad
+                  Evega
                 </span>
               </Link>
               <Button
@@ -89,7 +89,7 @@ export const SignUpView = () => {
               </Button>
             </div>
             <h1 className="text-4xl font-medium">
-              Join over 1,580 creators earning money on Funroad.
+              Create your account and start shopping.
             </h1>
             <FormField
               name="username"
@@ -102,9 +102,7 @@ export const SignUpView = () => {
                   <FormDescription
                     className={cn("hidden", showPreview && "block")}
                   >
-                    Your store will be available at&nbsp;
-                    {/* TODO: Use proper method to generate preview url */}
-                    <strong>{username}</strong>.shop.com
+                    Your username: <strong>{username}</strong>
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -138,7 +136,6 @@ export const SignUpView = () => {
               disabled={register.isPending}
               type="submit"
               size="lg"
-              variant="elevated"
               className="bg-black text-white hover:bg-pink-400 hover:text-primary"
             >
               Create account

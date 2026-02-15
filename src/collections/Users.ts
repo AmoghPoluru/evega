@@ -11,8 +11,14 @@ export const Users: CollectionConfig = {
     {
       name: "username",
       type: "text",
-      required: true,
+      required: false, // OAuth users may not have username initially
       unique: true,
+    },
+    {
+      name: "name",
+      type: "text",
+      label: "Full Name",
+      required: false,
     },
     {
       name: "roles",
@@ -23,6 +29,50 @@ export const Users: CollectionConfig = {
       admin: {
         position: "sidebar",
       },
+    },
+    // OAuth provider fields
+    {
+      name: "oauthProviders",
+      type: "group",
+      fields: [
+        {
+          name: "google",
+          type: "group",
+          fields: [
+            {
+              name: "id",
+              type: "text",
+              label: "Google ID",
+            },
+            {
+              name: "email",
+              type: "email",
+              label: "Google Email",
+            },
+          ],
+        },
+        {
+          name: "facebook",
+          type: "group",
+          fields: [
+            {
+              name: "id",
+              type: "text",
+              label: "Facebook ID",
+            },
+            {
+              name: "email",
+              type: "email",
+              label: "Facebook Email",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      name: "profilePicture",
+      type: "text",
+      label: "Profile Picture URL",
     },
     // Add more fields as needed
   ],

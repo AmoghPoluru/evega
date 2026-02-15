@@ -28,8 +28,13 @@ export const CheckoutView = () => {
       setStates({ success: false, cancel: false });
     },
     onSuccess: (data) => {
-      toast.success(data.message || "Purchase completed successfully");
-      setStates({ success: true, cancel: false });
+      if (data.url) {
+        // Redirect to Stripe checkout
+        window.location.href = data.url;
+      } else {
+        toast.success("Purchase completed successfully");
+        setStates({ success: true, cancel: false });
+      }
     },
     onError: (error) => {
       if (error.data?.code === "UNAUTHORIZED") {
@@ -42,14 +47,32 @@ export const CheckoutView = () => {
 
   useEffect(() => {
     if (states.success) {
+      // Check if this is a "Buy Now" purchase (single product purchase)
+      const urlParams = new URLSearchParams(window.location.search);
+      const buyNow = urlParams.get('buyNow') === 'true';
+      const productIdsParam = urlParams.get('productIds');
+
+      if (buyNow && productIdsParam) {
+        // This was a "Buy Now" purchase - remove only the purchased product(s) from cart
+        // This happens after successful payment and order creation via webhook
+        const purchasedProductIds = productIdsParam.split(',');
+        purchasedProductIds.forEach((id) => {
+          removeProduct(id);
+        });
+        toast.success("Purchase completed! Item removed from cart.");
+      } else {
+        // Regular checkout - clear entire cart
+        clearCart();
+      }
+
       setStates({ success: false, cancel: false });
-      clearCart();
       queryClient.invalidateQueries({ queryKey: [["checkout", "getProducts"]] });
       router.push("/");
     }
   }, [
     states.success, 
     clearCart, 
+    removeProduct,
     router, 
     setStates,
     queryClient,
