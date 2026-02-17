@@ -11,11 +11,14 @@
     "generate:types": "payload generate:types",
     "generate:importmap": "payload generate:importmap",
     "db:fresh": "payload migrate:fresh",
-    "db:seed": "npx tsx src/seed.ts",
-    "db:seed:hero-banners": "npx tsx src/seed-hero-banners.ts",
+    "db:seed": "npx tsx src/seed/seed.ts",
+    "db:seed:hero-banners": "npx tsx src/seed/seed-hero-banners.ts",
+    "db:seed:variants": "npx tsx src/seed/seed-variants.ts",
+    "db:seed:prices": "npx tsx src/seed/seed-prices.ts",
+    "db:seed:colors": "npx tsx src/seed/seed-colors.ts",
     "db:update:tags": "npx tsx src/update-products-tags.ts",
     "db:refresh": "npm run db:fresh && npm run db:seed",
-    "db:refresh:users": "npx tsx src/seed-users.ts",
+    "db:refresh:users": "npx tsx src/seed/seed-users.ts",
     "clean": "rm -rf .next .turbo node_modules/.cache"
   },
   "dependencies": {

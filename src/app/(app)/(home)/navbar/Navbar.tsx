@@ -14,6 +14,7 @@ import { trpc } from "@/trpc/client";
 import { CheckoutButton } from "@/modules/checkout/ui/components/checkout-button";
 import { SearchInput } from "../search-filter/search-input";
 import { Categories } from "../search-filter/categories";
+import { ProfileDropdown } from "@/components/profile-dropdown";
 
 const poppins = Poppins({
   weight: ["700"],
@@ -64,26 +65,17 @@ export function Navbar() {
       <div className="hidden lg:flex items-center gap-2">
         <CheckoutButton hideIfEmpty={false} />
         {isLoggedIn ? (
+          <ProfileDropdown />
+        ) : (
           <Button
-            onClick={handleLogout}
-            disabled={logout.isPending}
+            asChild
             variant="secondary"
             className="border-l border-gray-700 border-t-0 border-b-0 border-r-0 px-12 h-full rounded-none bg-transparent hover:bg-gray-800 transition-colors text-lg text-white"
           >
-            {logout.isPending ? "Logging out..." : "Log out"}
+            <Link href="/sign-in">
+              Log in
+            </Link>
           </Button>
-        ) : (
-          <>
-            <Button
-              asChild
-              variant="secondary"
-              className="border-l border-gray-700 border-t-0 border-b-0 border-r-0 px-12 h-full rounded-none bg-transparent hover:bg-gray-800 transition-colors text-lg text-white"
-            >
-              <Link href="/sign-in">
-                Log in
-              </Link>
-            </Button>
-          </>
         )}
       </div>
 

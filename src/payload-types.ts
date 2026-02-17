@@ -150,6 +150,91 @@ export interface User {
     };
   };
   profilePicture?: string | null;
+  /**
+   * Manage multiple shipping addresses. Set one as default for faster checkout.
+   */
+  shippingAddresses?:
+    | {
+        /**
+         * e.g., Home, Work, Office
+         */
+        label: string;
+        /**
+         * Set as default shipping address
+         */
+        isDefault?: boolean | null;
+        /**
+         * Recipient's full name
+         */
+        fullName: string;
+        /**
+         * Contact phone number (e.g., +1-555-123-4567)
+         */
+        phone: string;
+        /**
+         * Street address, apartment, suite, etc.
+         */
+        street: string;
+        city: string;
+        state:
+          | 'AL'
+          | 'AK'
+          | 'AZ'
+          | 'AR'
+          | 'CA'
+          | 'CO'
+          | 'CT'
+          | 'DE'
+          | 'FL'
+          | 'GA'
+          | 'HI'
+          | 'ID'
+          | 'IL'
+          | 'IN'
+          | 'IA'
+          | 'KS'
+          | 'KY'
+          | 'LA'
+          | 'ME'
+          | 'MD'
+          | 'MA'
+          | 'MI'
+          | 'MN'
+          | 'MS'
+          | 'MO'
+          | 'MT'
+          | 'NE'
+          | 'NV'
+          | 'NH'
+          | 'NJ'
+          | 'NM'
+          | 'NY'
+          | 'NC'
+          | 'ND'
+          | 'OH'
+          | 'OK'
+          | 'OR'
+          | 'PA'
+          | 'RI'
+          | 'SC'
+          | 'SD'
+          | 'TN'
+          | 'TX'
+          | 'UT'
+          | 'VT'
+          | 'VA'
+          | 'WA'
+          | 'WV'
+          | 'WI'
+          | 'WY'
+          | 'DC';
+        /**
+         * 5-digit ZIP code or ZIP+4 format (e.g., 12345 or 12345-6789)
+         */
+        zipcode: string;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -274,6 +359,30 @@ export interface Product {
    * Select tags for this product
    */
   tags?: (string | Tag)[] | null;
+  /**
+   * Add size and color variants with inventory and price adjustments. Leave empty if product has no variants.
+   */
+  variants?:
+    | {
+        /**
+         * Size variant (optional if using color only)
+         */
+        size?: ('XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL') | null;
+        /**
+         * Color variant (e.g., Red, Blue, Black) - optional if using size only
+         */
+        color?: string | null;
+        /**
+         * Available inventory for this variant
+         */
+        stock: number;
+        /**
+         * Price for this specific variant. If not set, uses the product's base price. Each size/color combination can have its own price.
+         */
+        price?: number | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -460,6 +569,19 @@ export interface UsersSelect<T extends boolean = true> {
             };
       };
   profilePicture?: T;
+  shippingAddresses?:
+    | T
+    | {
+        label?: T;
+        isDefault?: T;
+        fullName?: T;
+        phone?: T;
+        street?: T;
+        city?: T;
+        state?: T;
+        zipcode?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -525,6 +647,15 @@ export interface ProductsSelect<T extends boolean = true> {
   isPrivate?: T;
   isArchived?: T;
   tags?: T;
+  variants?:
+    | T
+    | {
+        size?: T;
+        color?: T;
+        stock?: T;
+        price?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }

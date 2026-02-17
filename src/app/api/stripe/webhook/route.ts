@@ -50,44 +50,125 @@ export async function POST(req: Request) {
 
       // Extract metadata
       const userId = session.metadata?.userId;
-      const productIds = session.metadata?.productIds?.split(",") || [];
+      const cartItemsJson = session.metadata?.cartItems;
 
-      if (!userId || productIds.length === 0) {
-        console.error("Missing userId or productIds in session metadata");
+      if (!userId) {
+        console.error("Missing userId in session metadata");
         return NextResponse.json(
           { error: "Invalid session metadata" },
           { status: 400 }
         );
       }
 
-      // Create orders for each product
+      // Parse cartItems from metadata (new format) or fallback to productIds (legacy)
+      let cartItems: Array<{
+        productId: string;
+        size?: string;
+        color?: string;
+        quantity: number;
+      }> = [];
+
+      if (cartItemsJson) {
+        try {
+          cartItems = JSON.parse(cartItemsJson);
+        } catch (error) {
+          console.error("Failed to parse cartItems from metadata:", error);
+          // Fallback to legacy productIds format
+          const productIds = session.metadata?.productIds?.split(",") || [];
+          cartItems = productIds.map((id) => ({ productId: id, quantity: 1 }));
+        }
+      } else {
+        // Legacy format: productIds
+        const productIds = session.metadata?.productIds?.split(",") || [];
+        cartItems = productIds.map((id) => ({ productId: id, quantity: 1 }));
+      }
+
+      if (cartItems.length === 0) {
+        console.error("No cart items found in session metadata");
+        return NextResponse.json(
+          { error: "Invalid session metadata" },
+          { status: 400 }
+        );
+      }
+
+      // Create orders and update inventory
       try {
-        for (const productId of productIds) {
-          // Get product to create order name
+        for (const cartItem of cartItems) {
+          // Get product with variants
           const product = await payload.findByID({
             collection: "products",
-            id: productId,
+            id: cartItem.productId,
             depth: 0,
           });
 
-          // Create order using db.create to bypass access control (for webhooks)
+          // Find matching variant if size/color specified
+          let variant = null;
+          if (product.variants && Array.isArray(product.variants)) {
+            variant = product.variants.find((v: any) => {
+              const sizeMatch = !cartItem.size || v.size === cartItem.size;
+              const colorMatch = !cartItem.color || v.color === cartItem.color;
+              return sizeMatch && colorMatch;
+            });
+          }
+
+          // Update variant stock if variant exists
+          if (variant) {
+            const newStock = Math.max(0, variant.stock - cartItem.quantity);
+            
+            // Update the variant in the product's variants array
+            const updatedVariants = product.variants.map((v: any) => {
+              if (
+                (!cartItem.size || v.size === cartItem.size) &&
+                (!cartItem.color || v.color === cartItem.color)
+              ) {
+                return {
+                  ...v,
+                  stock: newStock,
+                };
+              }
+              return v;
+            });
+
+            // Update product with new variant stock
+            await payload.update({
+              collection: "products",
+              id: cartItem.productId,
+              data: {
+                variants: updatedVariants,
+              },
+            });
+
+            console.log(
+              `Updated stock for ${product.name}${cartItem.size ? ` (${cartItem.size})` : ''}${cartItem.color ? ` - ${cartItem.color}` : ''}: ${variant.stock} → ${newStock}`
+            );
+          } else if (product.variants && product.variants.length > 0) {
+            console.warn(
+              `Variant not found for ${product.name}${cartItem.size ? ` (${cartItem.size})` : ''}${cartItem.color ? ` - ${cartItem.color}` : ''}, skipping stock update`
+            );
+          }
+
+          // Create order
+          const orderName = cartItem.size || cartItem.color
+            ? `Order for ${product.name}${cartItem.size ? ` (${cartItem.size})` : ''}${cartItem.color ? ` - ${cartItem.color}` : ''}`
+            : `Order for ${product.name}`;
+
           await payload.db.create({
             collection: "orders",
             data: {
-              name: `Order for ${product.name}`,
+              name: orderName,
               user: userId,
-              product: productId,
+              product: cartItem.productId,
               stripeCheckoutSessionId: session.id,
               stripeAccountId: session.account || null,
             },
           });
         }
 
-        console.log(`Created ${productIds.length} order(s) for session ${session.id}`);
+        console.log(`Created ${cartItems.length} order(s) and updated inventory for session ${session.id}`);
       } catch (error) {
-        console.error("Error creating orders:", error);
+        console.error("Error creating orders or updating inventory:", error);
         return NextResponse.json(
-          { error: "Failed to create orders" },
+          { error: "Failed to process order" },
           { status: 500 }
         );
       }

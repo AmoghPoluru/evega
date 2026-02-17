@@ -13,6 +13,7 @@ import { trpc } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { useCart } from "@/modules/checkout/hooks/use-cart";
+import { ShippingAddressDisplay } from "./shipping-address-display";
 
 const CartButton = dynamic(
   () => import("./cart-button").then(
@@ -35,7 +36,62 @@ export const ProductView = ({ productId }: ProductViewProps) => {
 
   const [isCopied, setIsCopied] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [selectedSize, setSelectedSize] = useState<string | undefined>(undefined);
+  const [selectedColor, setSelectedColor] = useState<string | undefined>(undefined);
   const [isBuyNowLoading, setIsBuyNowLoading] = useState(false);
+  
+  // Check if product has variants
+  const hasVariants = data?.variants && Array.isArray(data.variants) && data.variants.length > 0;
+  
+  // Get unique sizes - show all sizes that exist (standalone or with any color)
+  const availableSizes = hasVariants && data?.variants
+    ? Array.from(new Set(
+        data.variants
+          .filter((v: any) => v.size && v.stock > 0)
+          .map((v: any) => v.size)
+      ))
+    : [];
+  
+  // Get unique colors - show all colors that exist (standalone or with any size)
+  const availableColors = hasVariants && data?.variants
+    ? Array.from(new Set(
+        data.variants
+          .filter((v: any) => v.color && v.stock > 0)
+          .map((v: any) => v.color)
+      ))
+    : [];
+  
+  // Get selected variant - exact match: both size AND color must match if both are selected
+  // Priority: exact match (size+color) > size-only > color-only
+  const selectedVariant = hasVariants && data?.variants
+    ? data.variants.find((v: any) => {
+        if (selectedSize && selectedColor) {
+          // Both selected: must match exactly (size+color combination)
+          return v.size === selectedSize && v.color === selectedColor;
+        } else if (selectedSize) {
+          // Only size selected: prefer size-only variant, but also accept size+any color if no size-only exists
+          const sizeOnly = v.size === selectedSize && !v.color;
+          if (sizeOnly) return true;
+          // If no size-only variant, accept any size variant (will use first one found)
+          return v.size === selectedSize;
+        } else if (selectedColor) {
+          // Only color selected: prefer color-only variant, but also accept any size+color if no color-only exists
+          const colorOnly = v.color === selectedColor && !v.size;
+          if (colorOnly) return true;
+          // If no color-only variant, accept any color variant (will use first one found)
+          return v.color === selectedColor;
+        }
+        return false;
+      })
+    : null;
+  
+  const stockForSelectedVariant = selectedVariant?.stock || 0;
+  
+  // Price is determined by color selection only (sizes don't affect price)
+  // If color is selected, use color variant price, otherwise use base price
+  const variantPrice = selectedColor && selectedVariant && (selectedVariant as any).price !== undefined && (selectedVariant as any).price !== null
+    ? (selectedVariant as any).price
+    : (data?.price || 0);
 
   // Buy Now mutation - purchases single product directly
   const buyNow = trpc.checkout.purchase.useMutation({
@@ -62,14 +118,6 @@ export const ProductView = ({ productId }: ProductViewProps) => {
     },
   });
 
-  const handleBuyNow = () => {
-    // Purchase only this product directly
-    // Include buyNow flag and productId in the request
-    buyNow.mutate({
-      productIds: [productId],
-      buyNow: true, // Flag to indicate this is a "Buy Now" purchase
-    });
-  };
 
   if (isLoading) {
     return <ProductViewSkeleton />;
@@ -179,15 +227,16 @@ export const ProductView = ({ productId }: ProductViewProps) => {
               {/* Price Section */}
               <div className="space-y-2">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-sm text-red-700 font-medium">-14%</span>
                   <span className="text-3xl font-normal text-gray-900">
-                    {formatCurrency(data.price)}
+                    {formatCurrency(variantPrice)}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <span>List Price:</span>
-                  <span className="line-through">{formatCurrency(data.price * 1.14)}</span>
-                </div>
+                {selectedVariant && selectedVariant.price !== undefined && selectedVariant.price !== null && selectedVariant.price !== data?.price && data && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span>Base Price:</span>
+                    <span className="line-through">{formatCurrency(data.price)}</span>
+                  </div>
+                )}
               </div>
 
               {/* Free Returns */}
@@ -231,8 +280,15 @@ export const ProductView = ({ productId }: ProductViewProps) => {
             <div className="border border-gray-300 rounded-lg p-4 bg-white sticky top-6">
               <div className="space-y-4">
                 {/* Price */}
-                <div className="text-3xl font-normal text-gray-900">
-                  {formatCurrency(data.price)}
+                <div className="space-y-1">
+                  <div className="text-3xl font-normal text-gray-900">
+                    {formatCurrency(variantPrice)}
+                  </div>
+                  {selectedVariant && (selectedVariant as any).price !== undefined && (selectedVariant as any).price !== null && (selectedVariant as any).price !== data?.price && data && (
+                    <div className="text-sm text-gray-600">
+                      Base: {formatCurrency(data.price)}
+                    </div>
+                  )}
                 </div>
 
                 {/* Premium Badge */}
@@ -254,25 +310,184 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                   </p>
                 </div>
 
-                {/* Location */}
-                <div className="flex items-center gap-1 text-sm text-blue-600 cursor-pointer hover:text-orange-600">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                  </svg>
-                  <span>Delivering to Nashville 37217 - Update location</span>
-                </div>
+                {/* Shipping Address */}
+                <ShippingAddressDisplay />
+
+                {/* Size Selector (if product has variants with sizes) */}
+                {hasVariants && availableSizes.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">
+                        Size: {selectedSize || "Select a size"}
+                      </label>
+                      {selectedSize && stockForSelectedVariant > 0 && (
+                        <span className="text-xs text-gray-500">
+                          {stockForSelectedVariant} in stock
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {availableSizes.map((size: string) => {
+                        // Find variant: if color is selected, prefer size+color combo, otherwise size-only
+                        let variant = null;
+                        if (selectedColor) {
+                          // Color selected: look for size+color combination first
+                          variant = data?.variants?.find((v: any) => v.size === size && v.color === selectedColor);
+                          // If no combination exists, check if size exists at all (standalone)
+                          if (!variant) {
+                            variant = data?.variants?.find((v: any) => v.size === size && !v.color);
+                          }
+                        } else {
+                          // No color selected: prefer size-only variant
+                          variant = data?.variants?.find((v: any) => v.size === size && !v.color);
+                          // If no size-only exists, use any size variant (first one found)
+                          if (!variant) {
+                            variant = data?.variants?.find((v: any) => v.size === size);
+                          }
+                        }
+                        
+                        const isOutOfStock = !variant || variant.stock === 0;
+                        const isSelected = selectedSize === size;
+                        const stockCount = variant?.stock || 0;
+                        
+                        return (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => setSelectedSize(size)}
+                            disabled={!variant || isOutOfStock}
+                            className={`
+                              px-4 py-2 border-2 rounded-lg text-sm font-medium transition-all relative
+                              ${isSelected
+                                ? "border-orange-500 bg-orange-50 text-orange-700"
+                                : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+                              }
+                              ${(!variant || isOutOfStock)
+                                ? "opacity-50 cursor-not-allowed line-through"
+                                : "cursor-pointer"
+                              }
+                            `}
+                          >
+                            <div className="flex flex-col items-center">
+                              <span>{size}</span>
+                              {variant && !isOutOfStock && (
+                                <span className="text-xs text-gray-600 font-medium">
+                                  {stockCount} in stock
+                                </span>
+                              )}
+                            </div>
+                            {(!variant || isOutOfStock) && <span className="text-xs">(Out of Stock)</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {!selectedSize && (
+                      <p className="text-xs text-red-600">Please select a size</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Color Selector (if product has variants with colors) */}
+                {hasVariants && availableColors.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">
+                        Color: {selectedColor || "Select a color"}
+                      </label>
+                      {selectedColor && stockForSelectedVariant > 0 && (
+                        <span className="text-xs text-gray-500">
+                          {stockForSelectedVariant} in stock
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {availableColors.map((color: string) => {
+                        // Find variant: if size is selected, prefer size+color combo, otherwise color-only
+                        let variant = null;
+                        if (selectedSize) {
+                          // Size selected: look for size+color combination first
+                          variant = data?.variants?.find((v: any) => v.color === color && v.size === selectedSize);
+                          // If no combination exists, check if color exists at all (standalone)
+                          if (!variant) {
+                            variant = data?.variants?.find((v: any) => v.color === color && !v.size);
+                          }
+                        } else {
+                          // No size selected: prefer color-only variant
+                          variant = data?.variants?.find((v: any) => v.color === color && !v.size);
+                          // If no color-only exists, use any color variant (first one found)
+                          if (!variant) {
+                            variant = data?.variants?.find((v: any) => v.color === color);
+                          }
+                        }
+                        
+                        const isOutOfStock = !variant || variant.stock === 0;
+                        const isSelected = selectedColor === color;
+                        // Colors always have their own price (or use base price if no color-specific price)
+                        const colorPrice = variant && (variant as any)?.price !== undefined && (variant as any).price !== null 
+                          ? (variant as any).price 
+                          : (data?.price || 0);
+                        
+                        return (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => setSelectedColor(color)}
+                            disabled={!variant || isOutOfStock}
+                            className={`
+                              px-4 py-3 border-2 rounded-lg text-sm font-medium transition-all
+                              ${isSelected
+                                ? "border-orange-500 bg-orange-50 text-orange-700"
+                                : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+                              }
+                              ${(!variant || isOutOfStock)
+                                ? "opacity-50 cursor-not-allowed line-through"
+                                : "cursor-pointer"
+                              }
+                            `}
+                          >
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="font-semibold">{color}</span>
+                              {variant && !isOutOfStock && (
+                                <span className="text-sm font-bold text-gray-900">
+                                  {formatCurrency(colorPrice)}
+                                </span>
+                              )}
+                            </div>
+                            {(!variant || isOutOfStock) && <span className="text-xs">(Out of Stock)</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {!selectedColor && (
+                      <p className="text-xs text-red-600">Please select a color</p>
+                    )}
+                  </div>
+                )}
 
                 {/* Stock Status */}
-                <p className="text-lg text-green-700 font-medium">In Stock</p>
+                {hasVariants ? (
+                  (selectedSize || selectedColor) ? (
+                    stockForSelectedVariant > 0 ? (
+                      <p className="text-lg text-green-700 font-medium">In Stock</p>
+                    ) : (
+                      <p className="text-lg text-red-700 font-medium">Out of Stock</p>
+                    )
+                  ) : (
+                    <p className="text-sm text-gray-500">Select {availableSizes.length > 0 && availableColors.length > 0 ? 'size and color' : availableSizes.length > 0 ? 'a size' : 'a color'} to see availability</p>
+                  )
+                ) : (
+                  <p className="text-lg text-green-700 font-medium">In Stock</p>
+                )}
 
                 {/* Quantity Selector */}
                 <div className="relative">
                   <select 
                     value={quantity}
                     onChange={(e) => setQuantity(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer appearance-none pr-8"
+                    disabled={Boolean(hasVariants && ((availableSizes.length > 0 && !selectedSize) || (availableColors.length > 0 && !selectedColor) || stockForSelectedVariant === 0))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer appearance-none pr-8 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                    {Array.from({ length: Math.min(10, stockForSelectedVariant || 10) }, (_, i) => i + 1).map((num) => (
                       <option key={num} value={num}>
                         Quantity: {num}
                       </option>
@@ -282,12 +497,44 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                 </div>
 
                 {/* Add to Cart Button */}
-                <CartButton productId={productId} />
+                <CartButton 
+                  productId={productId} 
+                  size={hasVariants && availableSizes.length > 0 ? selectedSize : undefined}
+                  color={hasVariants && availableColors.length > 0 ? selectedColor : undefined}
+                  variantPrice={selectedVariant ? variantPrice : undefined}
+                  disabled={Boolean(hasVariants && ((availableSizes.length > 0 && !selectedSize) || (availableColors.length > 0 && !selectedColor) || stockForSelectedVariant === 0))}
+                />
 
                 {/* Buy Now Button */}
                 <Button 
-                  onClick={handleBuyNow}
-                  disabled={isBuyNowLoading}
+                  onClick={() => {
+                    if (hasVariants) {
+                      if (availableSizes.length > 0 && !selectedSize) {
+                        toast.error("Please select a size");
+                        return;
+                      }
+                      if (availableColors.length > 0 && !selectedColor) {
+                        toast.error("Please select a color");
+                        return;
+                      }
+                      if (stockForSelectedVariant === 0) {
+                        toast.error("Product is out of stock");
+                        return;
+                      }
+                    }
+                    
+                    buyNow.mutate({ 
+                      cartItems: [{
+                        productId,
+                        size: selectedSize,
+                        color: selectedColor,
+                        quantity: quantity,
+                        variantPrice: selectedVariant ? variantPrice : undefined,
+                      }],
+                      buyNow: true,
+                    });
+                  }}
+                  disabled={Boolean(isBuyNowLoading || (hasVariants && ((availableSizes.length > 0 && !selectedSize) || (availableColors.length > 0 && !selectedColor) || stockForSelectedVariant === 0)))}
                   className="w-full bg-orange-400 hover:bg-orange-500 text-gray-900 font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
                   size="lg"
                 >

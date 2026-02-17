@@ -28,17 +28,40 @@ const seedUsers = async () => {
       console.log("No existing users found");
     }
 
-    // Create admin user
-    await payload.create({
+    // Create admin user with sample addresses
+    const adminUser = await payload.create({
       collection: "users",
       data: {
         email: "admin@example.com",
         password: "admin123",
         username: "admin",
         roles: ["super-admin"],
+        shippingAddresses: [
+          {
+            label: "Home",
+            isDefault: true,
+            fullName: "Admin User",
+            phone: "+1-555-123-4567",
+            street: "123 Main Street, Apt 4B",
+            city: "Nashville",
+            state: "TN",
+            zipcode: "37217",
+          },
+          {
+            label: "Work",
+            isDefault: false,
+            fullName: "Admin User",
+            phone: "+1-555-987-6543",
+            street: "456 Business Park Drive, Suite 200",
+            city: "Nashville",
+            state: "TN",
+            zipcode: "37203",
+          },
+        ],
       },
     });
     console.log("✓ Admin user created: admin@example.com / admin123");
+    console.log("✓ Added 2 shipping addresses (Home - default, Work)");
 
     console.log("\n" + "=".repeat(50));
     console.log("✅ Users collection refresh completed successfully!");

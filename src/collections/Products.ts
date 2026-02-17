@@ -181,5 +181,57 @@ export const Products: CollectionConfig = {
         description: "Select tags for this product"
       },
     },
+    {
+      name: "variants",
+      type: "array",
+      label: "Product Variants (Sizes & Colors)",
+      admin: {
+        description: "Add size and color variants with inventory and price adjustments. Leave empty if product has no variants.",
+      },
+      fields: [
+        {
+          name: "size",
+          type: "select",
+          required: false,
+          options: [
+            { label: "XS", value: "XS" },
+            { label: "S", value: "S" },
+            { label: "M", value: "M" },
+            { label: "L", value: "L" },
+            { label: "XL", value: "XL" },
+            { label: "XXL", value: "XXL" },
+          ],
+          admin: {
+            description: "Size variant (optional if using color only)",
+          },
+        },
+        {
+          name: "color",
+          type: "text",
+          required: false,
+          admin: {
+            description: "Color variant (e.g., Red, Blue, Black) - optional if using size only",
+          },
+        },
+        {
+          name: "stock",
+          type: "number",
+          required: true,
+          defaultValue: 0,
+          min: 0,
+          admin: {
+            description: "Available inventory for this variant",
+          },
+        },
+        {
+          name: "price",
+          type: "number",
+          required: false,
+          admin: {
+            description: "Price for this specific variant. If not set, uses the product's base price. Each size/color combination can have its own price.",
+          },
+        },
+      ],
+    },
   ],
 };

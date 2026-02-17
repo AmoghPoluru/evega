@@ -11,11 +11,18 @@ export const checkoutRouter = createTRPCRouter({
   purchase: protectedProcedure
     .input(
       z.object({
-        productIds: z.array(z.string()).min(1),
+        cartItems: z.array(z.object({
+          productId: z.string(),
+          size: z.string().optional(),
+          color: z.string().optional(),
+          quantity: z.number().min(1).default(1),
+          variantPrice: z.number().optional(), // Variant price (base + adjustment)
+        })).min(1),
         buyNow: z.boolean().optional().default(false), // Flag for "Buy Now" purchases
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const productIds = input.cartItems.map(item => item.productId);
       const products = await ctx.db.find({
         collection: "products",
         depth: 2,
@@ -23,7 +30,7 @@ export const checkoutRouter = createTRPCRouter({
           and: [
             {
               id: {
-                in: input.productIds,
+                in: productIds,
               }
             },
             {
@@ -35,31 +42,79 @@ export const checkoutRouter = createTRPCRouter({
         }
       })
 
-      if (products.totalDocs !== input.productIds.length) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Products not found" });
+      if (products.totalDocs !== productIds.length) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Some products not found" });
       }
 
-      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
-        products.docs.map((product) => ({
-          quantity: 1,
+      // Validate stock and build line items
+      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+      
+      for (const cartItem of input.cartItems) {
+        const product = products.docs.find(p => p.id === cartItem.productId);
+        if (!product) {
+          throw new TRPCError({ code: "NOT_FOUND", message: `Product ${cartItem.productId} not found` });
+        }
+
+        // Find matching variant if size/color specified
+        let variant = null;
+        if (cartItem.size || cartItem.color) {
+          variant = product.variants?.find((v: any) => {
+            const sizeMatch = !cartItem.size || v.size === cartItem.size;
+            const colorMatch = !cartItem.color || v.color === cartItem.color;
+            return sizeMatch && colorMatch;
+          });
+        }
+
+        // Validate stock
+        if (variant) {
+          if (variant.stock < cartItem.quantity) {
+            throw new TRPCError({ 
+              code: "BAD_REQUEST", 
+              message: `Not enough stock for ${product.name}${cartItem.size ? ` (${cartItem.size})` : ''}${cartItem.color ? ` - ${cartItem.color}` : ''}` 
+            });
+          }
+        } else if (product.variants && product.variants.length > 0) {
+          throw new TRPCError({ 
+            code: "BAD_REQUEST", 
+            message: `Variant not found for ${product.name}` 
+          });
+        }
+
+        // Price is determined by color only (sizes don't affect price)
+        // Use color variant price if color is selected, otherwise use base price
+        const finalPrice = (variant && cartItem.color && (variant as any)?.price !== undefined && (variant as any).price !== null)
+          ? (variant as any).price
+          : (cartItem.variantPrice ?? product.price);
+        
+        // Build product name with variant info
+        let productName = product.name;
+        if (cartItem.size) productName += ` (${cartItem.size})`;
+        if (cartItem.color) productName += ` - ${cartItem.color}`;
+        
+        lineItems.push({
+          quantity: cartItem.quantity,
           price_data: {
-            unit_amount: Math.round(product.price * 100), // Stripe handles prices in cents
+            unit_amount: Math.round(finalPrice * 100), // Stripe handles prices in cents
             currency: "usd",
             product_data: {
-              name: product.name,
+              name: productName,
               metadata: {
                 id: product.id,
                 name: product.name,
-                price: product.price.toString(),
+                price: finalPrice.toString(),
+                size: cartItem.size || '',
+                color: cartItem.color || '',
+                quantity: cartItem.quantity.toString(),
               }
             }
           }
-        }));
+        });
+      }
 
-      // Build success URL - include productIds if it's a "Buy Now" purchase
+      // Build success URL - include cartItems if it's a "Buy Now" purchase
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
       const successUrl = input.buyNow
-        ? `${baseUrl}/checkout?success=true&buyNow=true&productIds=${input.productIds.join(',')}`
+        ? `${baseUrl}/checkout?success=true&buyNow=true&cartItems=${encodeURIComponent(JSON.stringify(input.cartItems))}`
         : `${baseUrl}/checkout?success=true`;
 
       const checkout = await stripe.checkout.sessions.create({
@@ -73,7 +128,7 @@ export const checkoutRouter = createTRPCRouter({
         },
         metadata: {
           userId: ctx.session.user.id,
-          productIds: input.productIds.join(','),
+          cartItems: JSON.stringify(input.cartItems),
           buyNow: input.buyNow.toString(), // Store buyNow flag in metadata
         }
       });

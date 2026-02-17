@@ -7,11 +7,16 @@ import { useCart } from "@/modules/checkout/hooks/use-cart";
 
 interface Props {
   productId: string;
+  size?: string;
+  color?: string;
+  variantPrice?: number;
   isPurchased?: boolean;
+  disabled?: boolean;
 }
 
-export const CartButton = ({ productId, isPurchased }: Props) => {
+export const CartButton = ({ productId, size, color, variantPrice, isPurchased, disabled }: Props) => {
   const cart = useCart();
+  const isInCart = cart.isProductInCart(productId, size, color);
 
   if (isPurchased) {
     return (
@@ -31,15 +36,17 @@ export const CartButton = ({ productId, isPurchased }: Props) => {
     <Button
       variant="default"
       size="lg"
+      disabled={disabled}
       className={cn(
         "w-full font-medium rounded-full",
-        cart.isProductInCart(productId)
+        isInCart
           ? "bg-gray-200 hover:bg-gray-300 text-gray-900"
-          : "bg-orange-400 hover:bg-orange-500 text-gray-900"
+          : "bg-orange-400 hover:bg-orange-500 text-gray-900",
+        disabled && "opacity-50 cursor-not-allowed"
       )}
-      onClick={() => cart.toggleProduct(productId)}
+      onClick={() => cart.toggleProduct(productId, size, color, variantPrice)}
     >
-      {cart.isProductInCart(productId)
+      {isInCart
         ? "Remove from cart"
         : "Add to cart"}
     </Button>

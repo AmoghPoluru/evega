@@ -10,6 +10,9 @@ interface CheckoutItemProps {
   name: string;
   productUrl: string;
   price: number;
+  size?: string;
+  color?: string;
+  quantity?: number;
   onRemove: () => void;
   isLast?: boolean;
 }
@@ -19,17 +22,20 @@ export const CheckoutItem = ({
   name,
   productUrl,
   price,
+  size,
+  color,
+  quantity: initialQuantity = 1,
   onRemove,
   isLast = false,
 }: CheckoutItemProps) => {
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(initialQuantity);
   const [isSelected, setIsSelected] = useState(true);
 
   return (
     <div className={`px-6 py-5 ${!isLast ? 'border-b border-gray-300' : ''}`}>
       <div className="flex gap-4">
         {/* Checkbox */}
-        <div className="flex-shrink-0 pt-1">
+        <div className="shrink-0 pt-1">
           <input
             type="checkbox"
             checked={isSelected}
@@ -41,7 +47,7 @@ export const CheckoutItem = ({
         </div>
 
         {/* Product Image */}
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           <Link href={productUrl}>
             <div className="relative w-32 h-32 border border-gray-300 rounded-lg overflow-hidden bg-white hover:shadow-md transition-shadow">
               <Image
@@ -69,7 +75,20 @@ export const CheckoutItem = ({
               <p className="text-sm text-gray-600 mt-1">
                 by <span className="text-blue-600 hover:text-orange-600 cursor-pointer">Evega Store</span>
               </p>
-              <p className="text-sm font-medium text-gray-900 mt-1">Hardcover</p>
+              {(size || color) && (
+                <div className="flex gap-4 mt-1">
+                  {size && (
+                    <p className="text-sm font-medium text-gray-900">
+                      Size: <span className="font-semibold">{size}</span>
+                    </p>
+                  )}
+                  {color && (
+                    <p className="text-sm font-medium text-gray-900">
+                      Color: <span className="font-semibold">{color}</span>
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Stock Status */}
               <p className="text-sm text-red-600 font-medium mt-2">
@@ -159,7 +178,7 @@ export const CheckoutItem = ({
             </div>
 
             {/* Price */}
-            <div className="flex-shrink-0 ml-6">
+            <div className="shrink-0 ml-6">
               <p className="text-lg font-bold text-gray-900">${price.toFixed(2)}</p>
             </div>
           </div>

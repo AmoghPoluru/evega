@@ -6,6 +6,7 @@ import { productsRouter } from '@/modules/products/server/procedures';
 import { checkoutRouter } from '@/modules/checkout/server/procedures';
 import { tagsRouter } from '@/modules/tags/server/procedures';
 import { ordersRouter } from '@/modules/orders/server/procedures';
+import { addressesRouter } from '@/modules/addresses/server/procedures';
 
 export const appRouter = createTRPCRouter({
   hello: baseProcedure
@@ -64,6 +65,7 @@ export const appRouter = createTRPCRouter({
   checkout: checkoutRouter,
   tags: tagsRouter,
   orders: ordersRouter,
+  addresses: addressesRouter,
   heroBanners: baseProcedure
     .query(async ({ ctx }) => {
       const banners = await ctx.db.find({
