@@ -1,70 +1,83 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
-import { signIn } from "next-auth/react";
+import { signIn, getProviders } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export const SocialLoginButtons = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
+  const [providers, setProviders] = useState<Record<string, any> | null>(null);
+
+  useEffect(() => {
+    // Check which providers are available
+    getProviders().then((provs) => {
+      setProviders(provs);
+      if (!provs?.google) {
+        console.warn("Google OAuth provider is not configured. Check your .env.local file.");
+      }
+    });
+  }, []);
 
   const handleGoogleSignIn = async () => {
     try {
       setIsGoogleLoading(true);
+      
+      // Check if Google provider is configured
       const result = await signIn("google", {
         callbackUrl: "/",
-        redirect: false,
+        redirect: true, // Let NextAuth handle the redirect
       });
       
-      if (result?.error) {
-        setIsGoogleLoading(false);
-        if (result.error.includes("pattern") || result.error.includes("secret")) {
-          toast.error("OAuth not configured. Please add credentials to .env.local");
-        } else {
-          toast.error(`Failed to sign in: ${result.error}`);
-        }
-        console.error("Google sign in error:", result.error);
-      } else if (result?.ok) {
-        // Redirect will happen automatically
-        window.location.href = result.url || "/";
-      }
+      // If redirect is true, this code won't execute (browser redirects)
+      // But if there's an error before redirect, we'll catch it
     } catch (error) {
       setIsGoogleLoading(false);
       const errorMessage = error instanceof Error ? error.message : "Failed to sign in with Google";
       console.error("Google sign in error:", error);
-      toast.error(errorMessage);
+      
+      // Check for common configuration errors
+      if (errorMessage.includes("pattern") || errorMessage.includes("secret") || errorMessage.includes("NEXTAUTH")) {
+        toast.error("OAuth not configured. Please check your .env.local file for GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and NEXTAUTH_SECRET");
+      } else if (errorMessage.includes("Configuration")) {
+        toast.error("Google OAuth is not configured. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env.local");
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
   const handleFacebookSignIn = async () => {
     try {
       setIsFacebookLoading(true);
+      
+      // Check if Facebook provider is configured
       const result = await signIn("facebook", {
         callbackUrl: "/",
-        redirect: false,
+        redirect: true, // Let NextAuth handle the redirect
       });
       
-      if (result?.error) {
-        setIsFacebookLoading(false);
-        if (result.error.includes("pattern") || result.error.includes("secret")) {
-          toast.error("OAuth not configured. Please add credentials to .env.local");
-        } else {
-          toast.error(`Failed to sign in: ${result.error}`);
-        }
-        console.error("Facebook sign in error:", result.error);
-      } else if (result?.ok) {
-        // Redirect will happen automatically
-        window.location.href = result.url || "/";
-      }
+      // If redirect is true, this code won't execute (browser redirects)
+      // But if there's an error before redirect, we'll catch it
     } catch (error) {
       setIsFacebookLoading(false);
       const errorMessage = error instanceof Error ? error.message : "Failed to sign in with Facebook";
       console.error("Facebook sign in error:", error);
-      toast.error(errorMessage);
+      
+      // Check for common configuration errors
+      if (errorMessage.includes("pattern") || errorMessage.includes("secret") || errorMessage.includes("NEXTAUTH")) {
+        toast.error("OAuth not configured. Please check your .env.local file for FACEBOOK_CLIENT_ID, FACEBOOK_CLIENT_SECRET, and NEXTAUTH_SECRET");
+      } else if (errorMessage.includes("Configuration")) {
+        toast.error("Facebook OAuth is not configured. Please add FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET to .env.local");
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
+
+  const isGoogleAvailable = providers?.google !== undefined;
 
   return (
     <div className="flex flex-col gap-4">
@@ -73,8 +86,9 @@ export const SocialLoginButtons = () => {
         variant="outline"
         size="lg"
         onClick={handleGoogleSignIn}
-        disabled={isGoogleLoading || isFacebookLoading}
-        className="w-full border-2 hover:bg-gray-50"
+        disabled={isGoogleLoading || isFacebookLoading || !isGoogleAvailable}
+        className="w-full border-2 hover:bg-gray-50 disabled:opacity-50"
+        title={!isGoogleAvailable ? "Google OAuth is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env.local" : undefined}
       >
         {isGoogleLoading ? (
           <>
@@ -111,8 +125,9 @@ export const SocialLoginButtons = () => {
         variant="outline"
         size="lg"
         onClick={handleFacebookSignIn}
-        disabled={isGoogleLoading || isFacebookLoading}
-        className="w-full border-2 hover:bg-gray-50"
+        disabled={isGoogleLoading || isFacebookLoading || !providers?.facebook}
+        className="w-full border-2 hover:bg-gray-50 disabled:opacity-50"
+        title={!providers?.facebook ? "Facebook OAuth is not configured. Add FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET to .env.local" : undefined}
       >
         {isFacebookLoading ? (
           <>

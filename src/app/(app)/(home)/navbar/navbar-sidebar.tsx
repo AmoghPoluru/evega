@@ -1,11 +1,10 @@
 "use client"
 
-// @ts-expect-error - Next.js link module works at runtime with NodeNext resolution
 import Link from "next/link";
-// @ts-expect-error - Next.js navigation module works at runtime with NodeNext resolution
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Store } from "lucide-react";
 import { trpc } from "@/trpc/client";
 
 import {
@@ -35,7 +34,35 @@ export default function NavbarSidebar({
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: session } = trpc.auth.session.useQuery();
+  const { data: vendorStatus, isLoading: isLoadingVendorStatus } = trpc.vendor.getStatus.useQuery(undefined, {
+    enabled: !!session?.user,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Refetch every 30 seconds to check for approval status changes
+  });
   const isLoggedIn = !!session?.user;
+
+  // Show "Become vendor" ONLY if user has NO vendor at all
+  // Hide button if user has ANY vendor (pending, approved, rejected, suspended)
+  const hasAnyVendor = Boolean(vendorStatus?.hasVendor);
+  const isApprovedVendor = Boolean(
+    vendorStatus?.hasVendor && 
+    vendorStatus?.status === "approved" && 
+    vendorStatus?.isActive === true
+  );
+  
+  const showBecomeVendor = Boolean(
+    isLoggedIn && 
+    !hasAnyVendor && // Only show if user has NO vendor
+    !isLoadingVendorStatus &&
+    vendorStatus !== undefined
+  );
+  
+  const showVendorDashboard = Boolean(
+    isLoggedIn &&
+    isApprovedVendor &&
+    !isLoadingVendorStatus
+  );
 
   const logout = trpc.auth.logout.useMutation({
     onError: (error) => {
@@ -85,6 +112,33 @@ export default function NavbarSidebar({
                 >
                   My Account
                 </Link>
+                <Link 
+                  onClick={() => onOpenChange(false)} 
+                  href="/orders" 
+                  className="w-full text-left p-4 hover:bg-black hover:text-white flex items-center text-base font-medium"
+                >
+                  My Orders
+                </Link>
+                {showVendorDashboard && (
+                  <Link 
+                    onClick={() => onOpenChange(false)} 
+                    href="/vendor/dashboard" 
+                    className="w-full text-left p-4 hover:bg-black hover:text-white flex items-center text-base font-medium gap-2"
+                  >
+                    <Store className="h-4 w-4" />
+                    Vendor Dashboard
+                  </Link>
+                )}
+                {showBecomeVendor && (
+                  <Link 
+                    onClick={() => onOpenChange(false)} 
+                    href="/become-vendor" 
+                    className="w-full text-left p-4 hover:bg-black hover:text-white flex items-center text-base font-medium gap-2"
+                  >
+                    <Store className="h-4 w-4" />
+                    Become Vendor
+                  </Link>
+                )}
                 <Link 
                   onClick={() => onOpenChange(false)} 
                   href="/admin" 

@@ -46,6 +46,30 @@ export const checkoutRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND", message: "Some products not found" });
       }
 
+      // Validate all products are from the same vendor
+      const vendors = new Set(
+        products.docs
+          .map((p: any) => {
+            const vendor = p.vendor;
+            return typeof vendor === "string" ? vendor : vendor?.id;
+          })
+          .filter(Boolean)
+      );
+
+      if (vendors.size === 0) {
+        throw new TRPCError({ 
+          code: "BAD_REQUEST", 
+          message: "Products must have a vendor assigned" 
+        });
+      }
+
+      if (vendors.size > 1) {
+        throw new TRPCError({ 
+          code: "BAD_REQUEST", 
+          message: "All items in cart must be from the same vendor. Please complete your current order or remove items from different vendors." 
+        });
+      }
+
       // Validate stock and build line items
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
       

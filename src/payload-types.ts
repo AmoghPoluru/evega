@@ -74,6 +74,8 @@ export interface Config {
     tags: Tag;
     'hero-banners': HeroBanner;
     orders: Order;
+    vendors: Vendor;
+    roles: Role;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -92,6 +94,8 @@ export interface Config {
     tags: TagsSelect<false> | TagsSelect<true>;
     'hero-banners': HeroBannersSelect<false> | HeroBannersSelect<true>;
     orders: OrdersSelect<false> | OrdersSelect<true>;
+    vendors: VendorsSelect<false> | VendorsSelect<true>;
+    roles: RolesSelect<false> | RolesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -138,7 +142,22 @@ export interface User {
   id: string;
   username?: string | null;
   name?: string | null;
+  /**
+   * ⚠️ DEPRECATED: Use appRole and vendorRole instead. Kept for backward compatibility.
+   */
   roles?: ('super-admin' | 'user')[] | null;
+  /**
+   * The vendor/shop this user belongs to. Required for all users except App Admins.
+   */
+  vendor?: (string | null) | Vendor;
+  /**
+   * Role within the vendor organization (e.g., Vendor Owner, Vendor Manager, Vendor Staff)
+   */
+  vendorRole?: (string | null) | Role;
+  /**
+   * Application-level role (e.g., App Admin, App Support, Customer). App Admin does not require a vendor.
+   */
+  appRole?: (string | null) | Role;
   oauthProviders?: {
     google?: {
       id?: string | null;
@@ -254,6 +273,104 @@ export interface User {
   password?: string | null;
 }
 /**
+ * Vendors/Sellers in the marketplace
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendors".
+ */
+export interface Vendor {
+  id: string;
+  /**
+   * Business/Vendor name
+   */
+  name: string;
+  /**
+   * URL-friendly identifier (auto-generated from name)
+   */
+  slug: string;
+  /**
+   * Vendor description/bio
+   */
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Vendor logo image
+   */
+  logo?: (string | null) | Media;
+  /**
+   * Vendor cover/banner image
+   */
+  coverImage?: (string | null) | Media;
+  /**
+   * Business email address
+   */
+  email: string;
+  /**
+   * Business phone number
+   */
+  phone?: string | null;
+  /**
+   * Business website URL
+   */
+  website?: string | null;
+  address?: {
+    street?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zipcode?: string | null;
+    country?: string | null;
+  };
+  /**
+   * Quick action to approve and activate this vendor
+   */
+  approveAction?: string | null;
+  /**
+   * Vendor approval status. Use 'Approve & Activate' button to approve vendors.
+   */
+  status?: ('pending' | 'approved' | 'suspended' | 'rejected') | null;
+  /**
+   * Active vendors can sell products. Use 'Approve & Activate' button above to activate vendors.
+   */
+  isActive?: boolean | null;
+  /**
+   * Stripe Connect account ID for payouts
+   */
+  stripeAccountId?: string | null;
+  /**
+   * Platform commission rate (%)
+   */
+  commissionRate?: number | null;
+  /**
+   * Business verification documents (business license, tax ID, etc.)
+   */
+  verificationDocuments?:
+    | {
+        document: string | Media;
+        type: 'business-license' | 'tax-id' | 'identity' | 'other';
+        /**
+         * Additional notes about this document
+         */
+        notes?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
  */
@@ -271,6 +388,49 @@ export interface Media {
   height?: number | null;
   focalX?: number | null;
   focalY?: number | null;
+}
+/**
+ * Application and vendor-level roles for user permissions
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "roles".
+ */
+export interface Role {
+  id: string;
+  /**
+   * Role name (e.g., 'Vendor Owner', 'App Admin')
+   */
+  name: string;
+  /**
+   * URL-friendly identifier (auto-generated from name)
+   */
+  slug: string;
+  /**
+   * Role type: Application roles are for app-level access, Vendor roles are for vendor organization access
+   */
+  type: 'app' | 'vendor';
+  /**
+   * Description of what this role allows
+   */
+  description?: string | null;
+  /**
+   * List of permissions granted by this role
+   */
+  permissions?:
+    | {
+        /**
+         * Permission name (e.g., 'manage-products', 'view-orders')
+         */
+        permission: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Active roles can be assigned to users
+   */
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -318,6 +478,10 @@ export interface Product {
    * Price in USD
    */
   price: number;
+  /**
+   * The vendor/shop that owns this product
+   */
+  vendor: string | Vendor;
   /**
    * Select a category for this product
    */
@@ -436,9 +600,48 @@ export interface HeroBanner {
  */
 export interface Order {
   id: string;
+  /**
+   * Unique order number (auto-generated)
+   */
+  orderNumber: string;
   name: string;
   user: string | User;
+  /**
+   * Vendor that should fulfill this order (auto-assigned from product)
+   */
+  vendor: string | Vendor;
   product: string | Product;
+  /**
+   * Order status workflow: Pending → Payment Done → Processing → Complete
+   */
+  status: 'pending' | 'payment_done' | 'processing' | 'complete' | 'canceled' | 'refunded';
+  /**
+   * History of status changes
+   */
+  statusHistory?:
+    | {
+        status?: ('pending' | 'payment_done' | 'processing' | 'complete' | 'canceled' | 'refunded') | null;
+        timestamp?: string | null;
+        note?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Total order amount in USD
+   */
+  total: number;
+  /**
+   * Quantity of items ordered
+   */
+  quantity: number;
+  /**
+   * Product size variant (if applicable)
+   */
+  size?: string | null;
+  /**
+   * Product color variant (if applicable)
+   */
+  color?: string | null;
   /**
    * Stripe checkout session associated with the order
    */
@@ -447,6 +650,51 @@ export interface Order {
    * Stripe account associated with the order
    */
   stripeAccountId?: string | null;
+  /**
+   * Stripe payment intent ID
+   */
+  stripePaymentIntentId?: string | null;
+  /**
+   * Shipping tracking number
+   */
+  trackingNumber?: string | null;
+  /**
+   * Shipping carrier
+   */
+  carrier?: ('usps' | 'fedex' | 'ups' | 'dhl' | 'other') | null;
+  /**
+   * Tracking URL (auto-generated if carrier is selected)
+   */
+  trackingUrl?: string | null;
+  /**
+   * Estimated delivery date
+   */
+  estimatedDelivery?: string | null;
+  /**
+   * Payout details for the vendor
+   */
+  vendorPayout?: {
+    /**
+     * Amount to be paid to vendor (after commission)
+     */
+    amount?: number | null;
+    /**
+     * Platform commission amount
+     */
+    commissionAmount?: number | null;
+    /**
+     * Payout status
+     */
+    status?: ('pending' | 'processing' | 'completed' | 'failed') | null;
+    /**
+     * Date when payout was processed
+     */
+    payoutDate?: string | null;
+    /**
+     * Stripe transfer/payout transaction ID
+     */
+    transactionId?: string | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -501,6 +749,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'orders';
         value: string | Order;
+      } | null)
+    | ({
+        relationTo: 'vendors';
+        value: string | Vendor;
+      } | null)
+    | ({
+        relationTo: 'roles';
+        value: string | Role;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -552,6 +808,9 @@ export interface UsersSelect<T extends boolean = true> {
   username?: T;
   name?: T;
   roles?: T;
+  vendor?: T;
+  vendorRole?: T;
+  appRole?: T;
   oauthProviders?:
     | T
     | {
@@ -638,6 +897,7 @@ export interface ProductsSelect<T extends boolean = true> {
   name?: T;
   description?: T;
   price?: T;
+  vendor?: T;
   category?: T;
   subcategory?: T;
   image?: T;
@@ -688,11 +948,97 @@ export interface HeroBannersSelect<T extends boolean = true> {
  * via the `definition` "orders_select".
  */
 export interface OrdersSelect<T extends boolean = true> {
+  orderNumber?: T;
   name?: T;
   user?: T;
+  vendor?: T;
   product?: T;
+  status?: T;
+  statusHistory?:
+    | T
+    | {
+        status?: T;
+        timestamp?: T;
+        note?: T;
+        id?: T;
+      };
+  total?: T;
+  quantity?: T;
+  size?: T;
+  color?: T;
   stripeCheckoutSessionId?: T;
   stripeAccountId?: T;
+  stripePaymentIntentId?: T;
+  trackingNumber?: T;
+  carrier?: T;
+  trackingUrl?: T;
+  estimatedDelivery?: T;
+  vendorPayout?:
+    | T
+    | {
+        amount?: T;
+        commissionAmount?: T;
+        status?: T;
+        payoutDate?: T;
+        transactionId?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendors_select".
+ */
+export interface VendorsSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
+  logo?: T;
+  coverImage?: T;
+  email?: T;
+  phone?: T;
+  website?: T;
+  address?:
+    | T
+    | {
+        street?: T;
+        city?: T;
+        state?: T;
+        zipcode?: T;
+        country?: T;
+      };
+  approveAction?: T;
+  status?: T;
+  isActive?: T;
+  stripeAccountId?: T;
+  commissionRate?: T;
+  verificationDocuments?:
+    | T
+    | {
+        document?: T;
+        type?: T;
+        notes?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "roles_select".
+ */
+export interface RolesSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  type?: T;
+  description?: T;
+  permissions?:
+    | T
+    | {
+        permission?: T;
+        id?: T;
+      };
+  isActive?: T;
   updatedAt?: T;
   createdAt?: T;
 }

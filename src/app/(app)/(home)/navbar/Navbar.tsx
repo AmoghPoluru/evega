@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Poppins } from "next/font/google"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -23,11 +23,17 @@ const poppins = Poppins({
 
 export function Navbar() {
   const router = useRouter()
+  const pathname = usePathname()
   const queryClient = useQueryClient()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const { data: session } = trpc.auth.session.useQuery()
   const { data: categoriesData } = trpc.categories.useQuery()
   const isLoggedIn = !!session?.user
+
+  // Hide navbar on vendor pages
+  if (pathname?.startsWith("/vendor")) {
+    return null
+  }
 
   const logout = trpc.auth.logout.useMutation({
     onError: (error) => {

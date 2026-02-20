@@ -1,6 +1,6 @@
 "use client";
 
-import { User, MapPin, LogOut, Settings } from "lucide-react";
+import { Store, MapPin, LogOut, Settings, Package } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -21,6 +21,35 @@ export function ProfileDropdown() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: session } = trpc.auth.session.useQuery();
+  const { data: vendorStatus, isLoading: isLoadingVendorStatus } = trpc.vendor.getStatus.useQuery(undefined, {
+    enabled: !!session?.user,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Refetch every 30 seconds to check for approval status changes
+  });
+
+  // Show "Become vendor" ONLY if user has NO vendor at all
+  // Hide button if user has ANY vendor (pending, approved, rejected, suspended)
+  // Approved vendors should see "Vendor Dashboard" link instead (to be added)
+  const hasAnyVendor = Boolean(vendorStatus?.hasVendor);
+  const isApprovedVendor = Boolean(
+    vendorStatus?.hasVendor && 
+    vendorStatus?.status === "approved" && 
+    vendorStatus?.isActive === true
+  );
+  
+  const showBecomeVendor = Boolean(
+    session?.user && 
+    !hasAnyVendor && // Only show if user has NO vendor
+    !isLoadingVendorStatus &&
+    vendorStatus !== undefined // Only show/hide when we have vendor status data
+  );
+  
+  const showVendorDashboard = Boolean(
+    session?.user &&
+    isApprovedVendor &&
+    !isLoadingVendorStatus
+  );
 
   const logout = trpc.auth.logout.useMutation({
     onError: (error) => {
@@ -86,6 +115,28 @@ export function ProfileDropdown() {
             Shipping Addresses
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/orders" className="flex items-center cursor-pointer">
+            <Package className="mr-2 h-4 w-4" />
+            My Orders
+          </Link>
+        </DropdownMenuItem>
+        {showVendorDashboard && (
+          <DropdownMenuItem asChild>
+            <Link href="/vendor/dashboard" className="flex items-center cursor-pointer">
+              <Store className="mr-2 h-4 w-4" />
+              Vendor Dashboard
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {showBecomeVendor && (
+          <DropdownMenuItem asChild>
+            <Link href="/become-vendor" className="flex items-center cursor-pointer">
+              <Store className="mr-2 h-4 w-4" />
+              Become Vendor
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => logout.mutate()}

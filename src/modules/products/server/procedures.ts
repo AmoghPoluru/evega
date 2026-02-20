@@ -23,7 +23,7 @@ export const productsRouter = createTRPCRouter({
       const product = await ctx.db.findByID({
         collection: "products",
         id: input.id,
-        depth: 2, // Load the "product.image", "product.category"
+        depth: 2, // Load the "product.image", "product.category", "product.vendor"
         select: {
           content: false,
         },
@@ -75,6 +75,7 @@ export const productsRouter = createTRPCRouter({
         limit: z.number().default(DEFAULT_LIMIT),
         search: z.string().nullable().optional(),
         category: z.string().nullable().optional(),
+        vendor: z.string().nullable().optional(), // Add vendor filter
         minPrice: z.string().nullable().optional(),
         maxPrice: z.string().nullable().optional(),
         tags: z.array(z.string()).nullable().optional(),
@@ -121,6 +122,13 @@ export const productsRouter = createTRPCRouter({
         not_equals: true,
       };
       
+      // Filter by vendor if provided
+      if (input.vendor) {
+        where.vendor = {
+          equals: input.vendor,
+        };
+      }
+
       if (input.category) {
         const categoriesData = await ctx.db.find({
           collection: "categories",
@@ -189,7 +197,7 @@ export const productsRouter = createTRPCRouter({
 
       const data = await ctx.db.find({
         collection: "products",
-        depth: 2, // Populate "category", "image"
+        depth: 2, // Populate "category", "image", "vendor"
         where,
         sort,
         page: input.cursor,

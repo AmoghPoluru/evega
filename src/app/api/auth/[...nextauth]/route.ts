@@ -64,42 +64,44 @@ const { handlers } = NextAuth({
             oauthData.profilePicture = user.image;
           }
 
+          // For OAuth login, we need to ensure the user has a password to log in with Payload CMS
+          // Generate a password if user doesn't have one (OAuth-only users)
+          const userHasPassword = !!(existingUser as any).password;
+          
+          let loginPassword: string;
+          
+          if (!userHasPassword) {
+            // User doesn't have a password (OAuth-only user), generate one
+            loginPassword = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}-${Math.random().toString(36).substring(2, 15)}`;
+            oauthData.password = loginPassword;
+          } else {
+            // User has existing password - we can't retrieve it, so generate a new one for OAuth sessions
+            // Note: This will allow OAuth login but user will need to reset password for email/password login
+            loginPassword = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}-${Math.random().toString(36).substring(2, 15)}`;
+            oauthData.password = loginPassword;
+          }
+
+          // Update user with OAuth data and password
           await payload.update({
             collection: "users",
             id: existingUser.id,
             data: oauthData,
           });
 
-          // Generate random password for OAuth users if needed
-          // Only set password if user doesn't have one (OAuth-only user)
-          const hasOAuthData = 
-            (existingUser as any).oauthProviders?.google?.id || 
-            (existingUser as any).oauthProviders?.facebook?.id;
+          // Always log in the user with Payload CMS after OAuth authentication
+          const loginData = await payload.login({
+            collection: "users",
+            data: {
+              email: user.email!,
+              password: loginPassword,
+            },
+          });
 
-          if (hasOAuthData) {
-            const randomPassword = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}-${Math.random().toString(36).substring(2, 15)}`;
-            
-            await payload.update({
-              collection: "users",
-              id: existingUser.id,
-              data: { password: randomPassword },
+          if (loginData.token) {
+            await generateAuthCookie({
+              prefix: payload.config.cookiePrefix,
+              value: loginData.token,
             });
-
-            // Login with the random password
-            const loginData = await payload.login({
-              collection: "users",
-              data: {
-                email: user.email!,
-                password: randomPassword,
-              },
-            });
-
-            if (loginData.token) {
-              await generateAuthCookie({
-                prefix: payload.config.cookiePrefix,
-                value: loginData.token,
-              });
-            }
           }
         } else {
           // Create new user with OAuth data

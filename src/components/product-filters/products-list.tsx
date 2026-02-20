@@ -14,6 +14,12 @@ interface Product {
   description?: string | any;
   price: number;
   image?: Media | string | null;
+  vendor?: {
+    id: string;
+    name?: string;
+    slug?: string;
+    logo?: { url?: string | null } | string | null;
+  } | string | null;
   refundPolicy?: '30-day' | '14-day' | '7-day' | '3-day' | '1-day' | 'no-refunds' | null;
   tags?: Array<{
     id: string;
@@ -156,9 +162,8 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
                   name={product.name}
                   imageUrl={imageUrl}
                   price={product.price}
-                  // Optional fields - can be added later when you have tenant/review data
-                  // tenantSlug={product.tenantSlug}
-                  // tenantImageUrl={product.tenantImageUrl}
+                  vendor={product.vendor}
+                  // Optional fields - can be added later when you have review data
                   // reviewRating={product.reviewRating}
                   // reviewCount={product.reviewCount}
                 />

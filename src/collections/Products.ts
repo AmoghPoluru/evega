@@ -1,16 +1,68 @@
 import type { CollectionConfig } from "payload";
+import type { Where } from "payload";
 
-import { isSuperAdmin } from "@/lib/access";
+import { isSuperAdmin, isVendor, getVendorId } from "@/lib/access";
 
 export const Products: CollectionConfig = {
   slug: "products",
   access: {
+    read: ({ req }) => {
+      const user = req.user;
+      // Public can read published products from all vendors
+      const where: Where = {
+        isArchived: { equals: false },
+        isPrivate: { equals: false },
+      };
+
+      // Vendors can also see their own drafts
+      if (user && isVendor(user) && user.vendor) {
+        const vendorId = getVendorId(user);
+        if (vendorId) {
+          return {
+            or: [
+              where,
+              {
+                and: [
+                  { vendor: { equals: vendorId } },
+                  { isArchived: { equals: false } },
+                ],
+              },
+            ],
+          };
+        }
+      }
+
+      return where;
+    },
     create: ({ req }) => {
       if (isSuperAdmin(req.user)) return true;
-      // Allow authenticated users to create products
-      return Boolean(req.user);
+      // Only vendors can create products
+      return isVendor(req.user);
     },
-    delete: ({ req }) => isSuperAdmin(req.user),
+    update: ({ req }) => {
+      const user = req.user;
+      if (isSuperAdmin(user)) return true;
+      if (user && isVendor(user) && user.vendor) {
+        const vendorId = getVendorId(user);
+        if (vendorId) {
+          const where: Where = { vendor: { equals: vendorId } };
+          return where;
+        }
+      }
+      return false;
+    },
+    delete: ({ req }) => {
+      const user = req.user;
+      if (isSuperAdmin(user)) return true;
+      if (user && isVendor(user) && user.vendor) {
+        const vendorId = getVendorId(user);
+        if (vendorId) {
+          const where: Where = { vendor: { equals: vendorId } };
+          return where;
+        }
+      }
+      return false;
+    },
   },
   admin: {
     useAsTitle: "name",
@@ -18,7 +70,7 @@ export const Products: CollectionConfig = {
   },
   hooks: {
     beforeValidate: [
-      async ({ data, operation }) => {
+      async ({ data, operation, req }) => {
         // Convert string descriptions to Lexical format for richText fields
         if (data?.description && typeof data.description === "string") {
           data.description = {
@@ -50,6 +102,31 @@ export const Products: CollectionConfig = {
               version: 1,
             },
           };
+        }
+        return data;
+      },
+    ],
+    beforeChange: [
+      async ({ data, operation, req }) => {
+        const user = req.user;
+        // Auto-assign vendor for vendors when creating
+        if (operation === "create" && user && isVendor(user) && user.vendor && !data.vendor) {
+          const vendorId = getVendorId(user);
+          if (vendorId) {
+            data.vendor = vendorId;
+          }
+        }
+
+        // Prevent vendors from changing vendor field
+        if (operation === "update" && user && isVendor(user) && user.vendor) {
+          const vendorId = getVendorId(user);
+          if (data.vendor && data.vendor !== vendorId) {
+            throw new Error("You cannot change the vendor of this product");
+          }
+          // Force vendor to match vendor's vendor
+          if (vendorId) {
+            data.vendor = vendorId;
+          }
         }
         return data;
       },
@@ -109,6 +186,15 @@ export const Products: CollectionConfig = {
       admin: {
         description: "Price in USD"
       }
+    },
+    {
+      name: "vendor",
+      type: "relationship",
+      relationTo: "vendors",
+      required: true,
+      admin: {
+        description: "The vendor/shop that owns this product",
+      },
     },
     {
       name: "category",

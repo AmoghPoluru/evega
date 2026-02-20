@@ -1,28 +1,31 @@
 "use client";
 
 import { toast } from "sonner";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { InboxIcon, LoaderIcon } from "lucide-react";
+import { InboxIcon, LoaderIcon, ShoppingCart, ChevronDown } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 
 import { trpc } from "@/trpc/client";
 
 import { useCart } from "../../hooks/use-cart";
 import { CheckoutItem } from "../components/checkout-item";
-import { CheckoutSidebar } from "../components/checkout-sidebar";
 import { useCheckoutStates } from "../../hooks/use-checkout-states";
+import { DeliverySection } from "../components/delivery-section";
+import { PaymentSection } from "../components/payment-section";
+import { OrderSummary } from "../components/order-summary";
 
 export const CheckoutView = () => {
   const router = useRouter();
   const [states, setStates] = useCheckoutStates();
-  const { productIds, items, removeProduct, clearCart } = useCart();
+  const { items, removeCartItem, clearCart } = useCart();
   
   const queryClient = useQueryClient();
-  // Get unique product IDs from cart items (for backward compatibility)
-  const uniqueProductIds = Array.from(new Set(items.map(item => item.productId)));
+  const productIds = Array.from(new Set(items.map(item => item.productId)));
+  
   const { data, error, isLoading } = trpc.checkout.getProducts.useQuery({
-    ids: uniqueProductIds.length > 0 ? uniqueProductIds : productIds,
+    ids: productIds.length > 0 ? productIds : [],
   });
 
   const purchase = trpc.checkout.purchase.useMutation({
@@ -42,49 +45,29 @@ export const CheckoutView = () => {
       if (error.data?.code === "UNAUTHORIZED") {
         router.push("/sign-in");
       }
-
       toast.error(error.message);
     },
   });
 
   useEffect(() => {
     if (states.success) {
-      // Check if this is a "Buy Now" purchase (single product purchase)
       const urlParams = new URLSearchParams(window.location.search);
       const buyNow = urlParams.get('buyNow') === 'true';
-      const productIdsParam = urlParams.get('productIds');
+      const cartItemsParam = urlParams.get('cartItems');
 
-      if (buyNow) {
-        const cartItemsParam = urlParams.get('cartItems');
-        if (cartItemsParam) {
-          try {
-            // Parse cart items from URL
-            const purchasedItems = JSON.parse(decodeURIComponent(cartItemsParam));
-            purchasedItems.forEach((item: any) => {
-              removeProduct(item.productId, item.size, item.color);
-            });
-            toast.success("Purchase completed! Item(s) removed from cart.");
-          } catch (e) {
-            console.error("Failed to parse cartItems:", e);
-            clearCart();
-            toast.success("Purchase completed! Cart cleared.");
-          }
-        } else {
-          // Fallback: Legacy productIds
-          const productIdsParam = urlParams.get('productIds');
-          if (productIdsParam) {
-            const purchasedProductIds = productIdsParam.split(',');
-            purchasedProductIds.forEach((id) => {
-              removeProduct(id);
-            });
-            toast.success("Purchase completed! Item removed from cart.");
-          } else {
-            clearCart();
-            toast.success("Purchase completed! Cart cleared.");
-          }
+      if (buyNow && cartItemsParam) {
+        try {
+          const purchasedCartItems = JSON.parse(decodeURIComponent(cartItemsParam));
+          purchasedCartItems.forEach((item: any) => {
+            removeCartItem(item.productId, item.size, item.color);
+          });
+          toast.success("Purchase completed! Item(s) removed from cart.");
+        } catch (e) {
+          console.error("Failed to parse cartItems from URL:", e);
+          clearCart();
+          toast.success("Purchase completed! Cart cleared.");
         }
       } else {
-        // Regular checkout - clear entire cart
         clearCart();
       }
 
@@ -93,10 +76,10 @@ export const CheckoutView = () => {
       router.push("/");
     }
   }, [
-    states.success, 
-    clearCart, 
-    removeProduct,
-    router, 
+    states.success,
+    clearCart,
+    removeCartItem,
+    router,
     setStates,
     queryClient,
   ]);
@@ -104,9 +87,41 @@ export const CheckoutView = () => {
   useEffect(() => {
     if (error?.data?.code === "NOT_FOUND") {
       clearCart();
-      toast.warning("Invalid products found, cart cleared");
+      toast.warning("Some products in your cart are invalid or out of stock, cart cleared.");
+    } else if (error?.data?.code === "BAD_REQUEST") {
+      toast.error(error.message);
     }
   }, [error, clearCart]);
+
+  // Calculate totals
+  const orderItems = useMemo(() => {
+    if (!data?.docs) return [];
+    return items.map(cartItem => {
+      const product = data.docs.find(p => p.id === cartItem.productId);
+      if (!product) return null;
+      const price = cartItem.variantPrice ?? product.price;
+      return {
+        productId: cartItem.productId,
+        name: product.name,
+        price: price,
+        quantity: cartItem.quantity || 1,
+        size: cartItem.size,
+        color: cartItem.color,
+      };
+    }).filter(Boolean) as Array<{
+      productId: string;
+      name: string;
+      price: number;
+      quantity: number;
+      size?: string;
+      color?: string;
+    }>;
+  }, [items, data?.docs]);
+
+  const subtotal = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const shipping = subtotal >= 75 ? 0 : 2.99; // Free shipping over $75
+  const tax = subtotal * 0.08; // 8% tax (placeholder - should use actual tax calculation)
+  const total = subtotal + shipping + tax;
 
   if (isLoading) {
     return (
@@ -120,13 +135,16 @@ export const CheckoutView = () => {
     );
   }
 
-  if (data?.totalDocs === 0) {
+  if (data?.docs.length === 0 || items.length === 0) {
     return (
       <div className="bg-gray-100 min-h-screen py-4">
         <div className="max-w-7xl mx-auto px-4">
           <div className="bg-white border border-gray-300 rounded-lg flex items-center justify-center p-8 flex-col gap-y-4">
             <InboxIcon className="size-12 text-gray-400" />
             <p className="text-lg font-medium text-gray-700">Your cart is empty</p>
+            <Link href="/" className="text-blue-600 hover:text-orange-600 hover:underline">
+              Continue shopping
+            </Link>
           </div>
         </div>
       </div>
@@ -134,138 +152,94 @@ export const CheckoutView = () => {
   }
 
   return (
-    <div className="bg-gray-100 min-h-screen py-4">
-      <div className="max-w-7xl mx-auto px-4">
-        {/* Promotional Banner */}
-        <div className="bg-white border border-gray-300 rounded-lg mb-4 px-6 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-900">
-              Get a $150 Gift Card upon approval for Store Card.{" "}
-              <a href="#" className="text-blue-600 hover:text-orange-600 hover:underline">
-                Find out how
-              </a>
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-gray-600">Apply and pay only</p>
-            <p className="text-gray-400 line-through text-sm">$35.18</p>
-            <p className="text-lg font-bold text-gray-900">$0.00</p>
-            <p className="text-xs text-gray-600">for this order</p>
+    <div className="bg-gray-100 min-h-screen">
+      {/* Header */}
+      <div className="bg-gray-800 text-white py-3">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h1 className="text-lg font-medium">Secure checkout</h1>
+              <ChevronDown className="w-4 h-4" />
+            </div>
+            <Link href="/checkout" className="flex items-center gap-2 hover:text-orange-400">
+              <ShoppingCart className="w-5 h-5" />
+              <span>Cart</span>
+            </Link>
           </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Cart Items */}
-          <div className="lg:col-span-2">
-            <div className="bg-white border border-gray-300 rounded-lg overflow-hidden">
-              {/* Header */}
-              <div className="px-6 py-4 border-b border-gray-300">
-                <div className="flex items-baseline justify-between">
-                  <h1 className="text-2xl font-medium text-gray-900">Shopping Cart</h1>
-                  <span className="text-sm text-gray-600 ml-auto mr-6">Price</span>
-                </div>
-                <button 
-                  onClick={clearCart}
-                  className="text-sm text-blue-600 hover:text-orange-600 hover:underline mt-1"
-                >
-                  Deselect all items
-                </button>
-              </div>
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Delivery & Payment */}
+          <div className="lg:col-span-2 space-y-4">
+            {/* Delivery Section */}
+            <DeliverySection />
 
-              {/* Cart Items */}
-              <div>
-                {items.length > 0 ? (
-                  // New: Use cart items with variants
-                  items.map((cartItem, index) => {
-                    const product = data?.docs.find((p) => p.id === cartItem.productId);
-                    if (!product) return null;
-                    
-                    // Use variant price if available, otherwise base price
-                    const itemPrice = cartItem.variantPrice ?? product.price;
-                    
-                    return (
-                      <CheckoutItem
-                        key={`${cartItem.productId}:${cartItem.size || ''}:${cartItem.color || ''}`}
-                        isLast={index === items.length - 1}
-                        imageUrl={product.image?.url || undefined}
-                        name={product.name}
-                        productUrl={`/products/${product.id}`}
-                        price={itemPrice}
-                        size={cartItem.size}
-                        color={cartItem.color}
-                        quantity={cartItem.quantity || 1}
-                        onRemove={() => removeProduct(cartItem.productId, cartItem.size, cartItem.color)}
-                      />
-                    );
-                  })
-                ) : (
-                  // Fallback: Legacy productIds (for backward compatibility)
-                  data?.docs.map((product, index) => (
-                    <CheckoutItem
-                      key={product.id}
-                      isLast={index === data.docs.length - 1}
-                      imageUrl={product.image?.url || undefined}
-                      name={product.name}
-                      productUrl={`/products/${product.id}`}
-                      price={product.price}
-                      onRemove={() => removeProduct(product.id)}
-                    />
-                  ))
-                )}
-              </div>
+            {/* Payment Section */}
+            <PaymentSection />
 
-              {/* Subtotal Footer */}
-              <div className="px-6 py-4 border-t border-gray-300 bg-white">
-                <div className="flex justify-end">
-                  <p className="text-lg text-gray-900">
-                    Subtotal ({items.length > 0 ? items.reduce((acc, item) => acc + (item.quantity || 1), 0) : data?.totalDocs} item{(items.length > 0 ? items.reduce((acc, item) => acc + (item.quantity || 1), 0) : data?.totalDocs) !== 1 ? 's' : ''}): 
-                    <span className="font-bold ml-2">
-                      ${items.length > 0 
-                        ? items.reduce((acc, item) => acc + ((item.variantPrice ?? 0) * (item.quantity || 1)), 0).toFixed(2)
-                        : data?.totalPrice?.toFixed(2)
-                      }
-                    </span>
-                  </p>
-                </div>
+            {/* Order Items Summary */}
+            <div className="bg-white border border-gray-300 rounded-lg p-4">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Order items</h2>
+              <div className="space-y-4">
+                {items.map((cartItem, index) => {
+                  const product = data?.docs.find((p) => p.id === cartItem.productId);
+                  if (!product) return null;
+                  
+                  const itemPrice = cartItem.variantPrice ?? product.price;
+                  
+                  return (
+                    <div key={`${cartItem.productId}:${cartItem.size || ''}:${cartItem.color || ''}`} className="flex gap-4 pb-4 border-b border-gray-200 last:border-0">
+                      <div className="relative w-20 h-20 border border-gray-300 rounded overflow-hidden bg-white shrink-0">
+                        <img
+                          src={product.image?.url || "/placeholder.png"}
+                          alt={product.name}
+                          className="w-full h-full object-contain p-1"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <Link href={`/products/${product.id}`} className="text-sm text-blue-600 hover:text-orange-600 hover:underline line-clamp-2">
+                          {product.name}
+                        </Link>
+                        {cartItem.size && (
+                          <p className="text-xs text-gray-600 mt-1">Size: {cartItem.size}</p>
+                        )}
+                        {cartItem.color && (
+                          <p className="text-xs text-gray-600">Color: {cartItem.color}</p>
+                        )}
+                        <p className="text-xs text-gray-600 mt-1">Quantity: {cartItem.quantity}</p>
+                        <p className="text-sm font-medium text-gray-900 mt-2">
+                          ${(itemPrice * (cartItem.quantity || 1)).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          {/* Sidebar */}
+          {/* Right Column - Order Summary */}
           <div className="lg:col-span-1">
-            <CheckoutSidebar
-              total={items.length > 0 
-                ? items.reduce((acc, item) => acc + ((item.variantPrice ?? 0) * (item.quantity || 1)), 0)
-                : (data?.totalPrice || 0)
-              }
-              itemCount={items.length > 0 
-                ? items.reduce((acc, item) => acc + (item.quantity || 1), 0)
-                : (data?.totalDocs || 0)
-              }
-              onPurchase={() => {
-                // Use cart items with variant info
-                if (items.length > 0) {
-                  purchase.mutate({ 
-                    cartItems: items.map(item => ({
-                      productId: item.productId,
-                      size: item.size,
-                      color: item.color,
-                      quantity: item.quantity || 1,
-                      variantPrice: item.variantPrice,
-                    })),
-                  });
-                } else {
-                  // Fallback: Legacy productIds
-                  purchase.mutate({ 
-                    cartItems: productIds.map(id => ({
-                      productId: id,
-                      quantity: 1,
-                    })),
-                  });
-                }
+            <OrderSummary
+              items={orderItems}
+              subtotal={subtotal}
+              shipping={shipping}
+              tax={tax}
+              total={total}
+              onPlaceOrder={() => {
+                purchase.mutate({
+                  cartItems: items.map(item => ({
+                    productId: item.productId,
+                    size: item.size,
+                    color: item.color,
+                    quantity: item.quantity || 1,
+                    variantPrice: item.variantPrice,
+                  })),
+                });
               }}
-              isCanceled={states.cancel || false}
-              disabled={purchase.isPending}
+              isProcessing={purchase.isPending}
             />
           </div>
         </div>

@@ -31,7 +31,7 @@ interface ProductViewProps {
 
 export const ProductView = ({ productId }: ProductViewProps) => {
   const router = useRouter();
-  const { removeProduct } = useCart();
+  const { removeProduct, addProduct } = useCart();
   const { data, isLoading, error } = trpc.products.getOne.useQuery({ id: productId });
 
   const [isCopied, setIsCopied] = useState(false);
@@ -93,30 +93,42 @@ export const ProductView = ({ productId }: ProductViewProps) => {
     ? (selectedVariant as any).price
     : (data?.price || 0);
 
-  // Buy Now mutation - purchases single product directly
-  const buyNow = trpc.checkout.purchase.useMutation({
-    onMutate: () => {
-      setIsBuyNowLoading(true);
-    },
-    onSuccess: (data) => {
-      if (data.url) {
-        // Redirect to Stripe checkout
-        // Product will be removed from cart after successful payment and order creation
-        window.location.href = data.url;
-      } else {
-        toast.success("Purchase completed successfully");
-        setIsBuyNowLoading(false);
+  // Handle Buy Now - add to cart and navigate to checkout page
+  const handleBuyNow = () => {
+    if (hasVariants) {
+      if (availableSizes.length > 0 && !selectedSize) {
+        toast.error("Please select a size");
+        return;
       }
-    },
-    onError: (error) => {
-      setIsBuyNowLoading(false);
-      if (error.data?.code === "UNAUTHORIZED") {
-        router.push("/sign-in");
-      } else {
-        toast.error(error.message || "Failed to initiate checkout");
+      if (availableColors.length > 0 && !selectedColor) {
+        toast.error("Please select a color");
+        return;
       }
-    },
-  });
+      if (stockForSelectedVariant === 0) {
+        toast.error("Product is out of stock");
+        return;
+      }
+    }
+
+    setIsBuyNowLoading(true);
+    
+    // Add product to cart with selected variants and quantity
+    // Add the product multiple times to match selected quantity
+    for (let i = 0; i < quantity; i++) {
+      addProduct(
+        productId,
+        selectedSize,
+        selectedColor,
+        variantPrice
+      );
+    }
+
+    // Navigate to checkout page
+    router.push("/checkout");
+    
+    setIsBuyNowLoading(false);
+    toast.success("Added to cart. Redirecting to checkout...");
+  };
 
 
   if (isLoading) {
@@ -185,6 +197,34 @@ export const ProductView = ({ productId }: ProductViewProps) => {
               <Link href="#" className="text-sm text-blue-600 hover:text-orange-600 hover:underline">
                 Visit the Store
               </Link>
+
+              {/* Vendor Information */}
+              {data?.vendor && (
+                <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
+                  {typeof data.vendor === "object" && data.vendor !== null && (
+                    <>
+                      {data.vendor.logo && typeof data.vendor.logo === "object" && data.vendor.logo.url && (
+                        <Image
+                          src={data.vendor.logo.url}
+                          alt={data.vendor.name || "Vendor"}
+                          width={32}
+                          height={32}
+                          className="rounded-full object-cover"
+                        />
+                      )}
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-500">Sold by</span>
+                        <Link
+                          href={data.vendor.slug ? `/vendor/${data.vendor.slug}` : "#"}
+                          className="text-sm font-medium text-blue-600 hover:text-orange-600 hover:underline"
+                        >
+                          {data.vendor.name || "Vendor"}
+                        </Link>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Rating */}
               <div className="flex items-center gap-2">
@@ -507,33 +547,7 @@ export const ProductView = ({ productId }: ProductViewProps) => {
 
                 {/* Buy Now Button */}
                 <Button 
-                  onClick={() => {
-                    if (hasVariants) {
-                      if (availableSizes.length > 0 && !selectedSize) {
-                        toast.error("Please select a size");
-                        return;
-                      }
-                      if (availableColors.length > 0 && !selectedColor) {
-                        toast.error("Please select a color");
-                        return;
-                      }
-                      if (stockForSelectedVariant === 0) {
-                        toast.error("Product is out of stock");
-                        return;
-                      }
-                    }
-                    
-                    buyNow.mutate({ 
-                      cartItems: [{
-                        productId,
-                        size: selectedSize,
-                        color: selectedColor,
-                        quantity: quantity,
-                        variantPrice: selectedVariant ? variantPrice : undefined,
-                      }],
-                      buyNow: true,
-                    });
-                  }}
+                  onClick={handleBuyNow}
                   disabled={Boolean(isBuyNowLoading || (hasVariants && ((availableSizes.length > 0 && !selectedSize) || (availableColors.length > 0 && !selectedColor) || stockForSelectedVariant === 0)))}
                   className="w-full bg-orange-400 hover:bg-orange-500 text-gray-900 font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
                   size="lg"

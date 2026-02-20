@@ -12,7 +12,13 @@ interface ProductCardProps {
   reviewRating?: number;
   reviewCount?: number;
   price: number;
-};
+  vendor?: {
+    id: string;
+    name?: string;
+    slug?: string;
+    logo?: { url?: string } | string | null;
+  } | string | null;
+}
 
 export const ProductCard = ({
   id,
@@ -21,7 +27,14 @@ export const ProductCard = ({
   reviewRating,
   reviewCount,
   price,
+  vendor,
 }: ProductCardProps) => {
+  const vendorName = typeof vendor === "object" && vendor !== null ? vendor.name : null;
+  const vendorSlug = typeof vendor === "object" && vendor !== null ? vendor.slug : null;
+  const vendorLogo = typeof vendor === "object" && vendor !== null
+    ? (typeof vendor.logo === "object" && vendor.logo !== null ? vendor.logo.url : null)
+    : null;
+
   return (
     <Link href={`/products/${id}`}>
       <div className="hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-shadow border rounded-md bg-white overflow-hidden h-full flex flex-col">
@@ -34,6 +47,26 @@ export const ProductCard = ({
           />
         </div>
         <div className="p-4 border-y flex flex-col gap-3 flex-1">
+          {vendorName && (
+            <div className="flex items-center gap-2">
+              {vendorLogo && (
+                <Image
+                  src={vendorLogo}
+                  alt={vendorName}
+                  width={20}
+                  height={20}
+                  className="rounded-full object-cover"
+                />
+              )}
+              <Link
+                href={vendorSlug ? `/vendor/${vendorSlug}` : "#"}
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs text-gray-600 hover:text-gray-900 font-medium"
+              >
+                {vendorName}
+              </Link>
+            </div>
+          )}
           <h2 className="text-lg font-medium line-clamp-4">{name}</h2>
           {reviewCount && reviewCount > 0 && reviewRating !== undefined && (
             <div className="flex items-center gap-1">

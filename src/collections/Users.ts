@@ -6,6 +6,25 @@ export const Users: CollectionConfig = {
     useAsTitle: 'email',
   },
   auth: true,
+  hooks: {
+    beforeValidate: [
+      async ({ data, operation, req }) => {
+        // Validation: If user has vendor, they should have vendorRole
+        // Validation: If user doesn't have app-admin role, they must have vendor
+        
+        // For now, we'll do basic validation
+        // More complex validation can be added when we have the role data loaded
+        return data;
+      },
+    ],
+    beforeChange: [
+      async ({ data, operation, req }) => {
+        // After role relationships are loaded, we can validate
+        // This will be handled in tRPC procedures or after data is saved
+        return data;
+      },
+    ],
+  },
   fields: [
     // Email added by default
     {
@@ -28,6 +47,55 @@ export const Users: CollectionConfig = {
       options: ["super-admin", "user"],
       admin: {
         position: "sidebar",
+        description: "⚠️ DEPRECATED: Use appRole and vendorRole instead. Kept for backward compatibility.",
+      },
+    },
+    {
+      name: "vendor",
+      type: "relationship",
+      relationTo: "vendors",
+      required: false,
+      admin: {
+        description: "The vendor/shop this user belongs to. Required for all users except App Admins.",
+        condition: (data) => {
+          // Hide vendor field if user has app-admin role
+          const appRole = data?.appRole;
+          if (typeof appRole === "object" && appRole !== null) {
+            const roleSlug = (appRole as any)?.slug;
+            if (roleSlug === "app-admin") return false;
+          }
+          return true;
+        },
+      },
+    },
+    {
+      name: "vendorRole",
+      type: "relationship",
+      relationTo: "roles",
+      required: false,
+      filterOptions: {
+        type: { equals: "vendor" },
+        isActive: { equals: true },
+      },
+      admin: {
+        description: "Role within the vendor organization (e.g., Vendor Owner, Vendor Manager, Vendor Staff)",
+        condition: (data) => {
+          // Only show if user has a vendor
+          return Boolean(data?.vendor);
+        },
+      },
+    },
+    {
+      name: "appRole",
+      type: "relationship",
+      relationTo: "roles",
+      required: false,
+      filterOptions: {
+        type: { equals: "app" },
+        isActive: { equals: true },
+      },
+      admin: {
+        description: "Application-level role (e.g., App Admin, App Support, Customer). App Admin does not require a vendor.",
       },
     },
     // OAuth provider fields

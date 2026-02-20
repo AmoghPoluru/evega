@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { baseProcedure, createTRPCRouter } from '../init';
 import type { Category } from '@/payload-types';
 import { authRouter } from '@/modules/auth/server/procedures';
+import { vendorRouter } from '@/modules/vendor/server/procedures';
 import { productsRouter } from '@/modules/products/server/procedures';
 import { checkoutRouter } from '@/modules/checkout/server/procedures';
 import { tagsRouter } from '@/modules/tags/server/procedures';
@@ -21,6 +22,7 @@ export const appRouter = createTRPCRouter({
       };
     }),
   auth: authRouter,
+  vendor: vendorRouter,
   categories: baseProcedure
     .query(async ({ ctx }) => {
       const categories = await ctx.db.find({

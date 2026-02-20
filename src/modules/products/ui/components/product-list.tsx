@@ -61,6 +61,7 @@ export const ProductList = ({ category, narrowView }: Props) => {
             reviewRating={product.reviewRating}
             reviewCount={product.reviewCount}
             price={product.price}
+            vendor={product.vendor}
           />
         ))}
       </div>
