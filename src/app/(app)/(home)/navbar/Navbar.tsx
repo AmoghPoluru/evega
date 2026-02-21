@@ -22,19 +22,13 @@ const poppins = Poppins({
 })
 
 export function Navbar() {
-  const router = useRouter()
+  // Call all hooks unconditionally first
   const pathname = usePathname()
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const { data: session } = trpc.auth.session.useQuery()
   const { data: categoriesData } = trpc.categories.useQuery()
-  const isLoggedIn = !!session?.user
-
-  // Hide navbar on vendor pages
-  if (pathname?.startsWith("/vendor")) {
-    return null
-  }
-
   const logout = trpc.auth.logout.useMutation({
     onError: (error) => {
       toast.error(error.message);
@@ -45,6 +39,12 @@ export function Navbar() {
       toast.success("Logged out successfully");
     },
   });
+  const isLoggedIn = !!session?.user
+
+  // Hide navbar on vendor pages - check after all hooks are called
+  if (pathname?.startsWith("/vendor")) {
+    return null
+  }
 
   const handleLogout = () => {
     logout.mutate();
