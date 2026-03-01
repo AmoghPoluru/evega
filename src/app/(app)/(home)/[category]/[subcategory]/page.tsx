@@ -23,7 +23,7 @@ export default async function SubcategoryPage({ params }: Props) {
       },
     },
     limit: 1,
-    depth: 1,
+    depth: 2, // Get nested subcategories
   });
 
   const subcategoryDoc = subcategoryData.docs[0];
@@ -53,12 +53,29 @@ export default async function SubcategoryPage({ params }: Props) {
     );
   }
 
-  // Fetch products for this subcategory
+  // Recursively get all child category IDs (including the subcategory itself)
+  const getAllChildCategoryIds = (cat: any): string[] => {
+    const ids = [cat.id];
+    const subcategories = Array.isArray(cat.subcategories)
+      ? cat.subcategories
+      : (cat.subcategories?.docs || []);
+    
+    for (const subcat of subcategories) {
+      if (typeof subcat === 'object' && subcat !== null && 'id' in subcat) {
+        ids.push(...getAllChildCategoryIds(subcat));
+      }
+    }
+    return ids;
+  };
+
+  const categoryIds = getAllChildCategoryIds(subcategoryDoc);
+
+  // Fetch products for this subcategory and all its child subcategories
   const productsData = await payload.find({
     collection: "products",
     where: {
       subcategory: {
-        equals: subcategoryDoc.id,
+        in: categoryIds,
       },
       isPrivate: {
         equals: false,

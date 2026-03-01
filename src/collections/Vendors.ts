@@ -67,6 +67,67 @@ export const Vendors: CollectionConfig = {
         return data;
       },
     ],
+    afterChange: [
+      async ({ doc, operation, req, previousDoc }) => {
+        // Send vendor approval email when status changes to "approved"
+        if (
+          operation === "update" &&
+          previousDoc &&
+          doc.status === "approved" &&
+          previousDoc.status !== "approved"
+        ) {
+          try {
+            // Fetch user associated with vendor
+            const users = await req.payload.find({
+              collection: "users",
+              where: {
+                vendor: { equals: doc.id },
+              },
+              limit: 1,
+            });
+
+            if (users.docs.length > 0 && users.docs[0].email) {
+              const { sendVendorApprovalEmail } = await import("@/lib/email");
+              await sendVendorApprovalEmail(users.docs[0].email, doc.name);
+            } else if (doc.email) {
+              // Fallback to vendor email if user not found
+              const { sendVendorApprovalEmail } = await import("@/lib/email");
+              await sendVendorApprovalEmail(doc.email, doc.name);
+            }
+          } catch (error) {
+            console.error("Failed to send vendor approval email:", error);
+          }
+        }
+
+        // Send vendor rejection email when status changes to "rejected"
+        if (
+          operation === "update" &&
+          previousDoc &&
+          doc.status === "rejected" &&
+          previousDoc.status !== "rejected"
+        ) {
+          try {
+            const users = await req.payload.find({
+              collection: "users",
+              where: {
+                vendor: { equals: doc.id },
+              },
+              limit: 1,
+            });
+
+            if (users.docs.length > 0 && users.docs[0].email) {
+              const { sendVendorRejectionEmail } = await import("@/lib/email");
+              await sendVendorRejectionEmail(users.docs[0].email, doc.name);
+            } else if (doc.email) {
+              const { sendVendorRejectionEmail } = await import("@/lib/email");
+              await sendVendorRejectionEmail(doc.email, doc.name);
+            }
+          } catch (error) {
+            console.error("Failed to send vendor rejection email:", error);
+          }
+        }
+      },
+    ],
   },
   fields: [
     {

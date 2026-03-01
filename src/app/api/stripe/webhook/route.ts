@@ -95,13 +95,76 @@ export async function POST(req: Request) {
 
       // Create orders and update inventory
       try {
+        console.log(`Processing checkout session ${session.id} with ${cartItems.length} item(s)`);
+        
+        // Get user with shipping addresses (once, outside the loop)
+        const user = await payload.findByID({
+          collection: "users",
+          id: userId,
+          depth: 0,
+        });
+
+        if (!user) {
+          console.error(`User ${userId} not found`);
+          throw new Error(`User ${userId} not found`);
+        }
+
+        // Get default address or first address
+        const userAddresses = user.shippingAddresses || [];
+        const defaultAddress = userAddresses.find((addr: any) => addr.isDefault) || userAddresses[0];
+
+        if (!defaultAddress) {
+          console.error(`❌ No shipping address found for user ${userId}`);
+          throw new Error(
+            `Shipping address is required but user ${userId} has no saved addresses. ` +
+            `Please ensure user adds a shipping address before checkout.`
+          );
+        }
+
+        // Map user's saved address to order format (reused for all orders)
+        const shippingAddress: any = {
+          fullName: defaultAddress.fullName,
+          phone: defaultAddress.phone || undefined,
+          street: defaultAddress.street,
+          city: defaultAddress.city,
+          state: defaultAddress.state,
+          zipcode: defaultAddress.zipcode,
+          country: "United States", // Default since addresses are US-focused
+        };
+
+        // Validate that all required shipping address fields are present
+        if (!shippingAddress.fullName || !shippingAddress.street || !shippingAddress.city || 
+            !shippingAddress.state || !shippingAddress.zipcode) {
+          console.error(`❌ Incomplete shipping address for user ${userId}:`, shippingAddress);
+          throw new Error(
+            `Shipping address is incomplete. Missing required fields: ` +
+            `${!shippingAddress.fullName ? 'fullName, ' : ''}` +
+            `${!shippingAddress.street ? 'street, ' : ''}` +
+            `${!shippingAddress.city ? 'city, ' : ''}` +
+            `${!shippingAddress.state ? 'state, ' : ''}` +
+            `${!shippingAddress.zipcode ? 'zipcode' : ''}`
+          );
+        }
+
+        // Track unique vendors for customer update (optimize to update customer once per checkout)
+        const uniqueVendorIds = new Set<string>();
+
         for (const cartItem of cartItems) {
+          console.log(`Processing cart item: productId=${cartItem.productId}, quantity=${cartItem.quantity}`);
+          
           // Get product with variants
           const product = await payload.findByID({
             collection: "products",
             id: cartItem.productId,
             depth: 0,
           });
+
+          if (!product) {
+            console.error(`Product ${cartItem.productId} not found`);
+            throw new Error(`Product ${cartItem.productId} not found`);
+          }
+
+          console.log(`Found product: ${product.name}, vendor: ${product.vendor}`);
 
           // Find matching variant if size/color specified
           let variant = null;
@@ -119,6 +182,14 @@ export async function POST(req: Request) {
             : (cartItem.variantPrice ?? product.price);
 
           const total = finalPrice * (cartItem.quantity || 1);
+
+          // Track vendor for customer update
+          const productVendorId = typeof product.vendor === "string" 
+            ? product.vendor 
+            : product.vendor?.id;
+          if (productVendorId) {
+            uniqueVendorIds.add(productVendorId);
+          }
 
           // Update variant stock if variant exists
           if (variant) {
@@ -165,44 +236,221 @@ export async function POST(req: Request) {
             : `Order for ${product.name}`;
 
           // Create order with status "payment_done" (payment successful)
-          await payload.db.create({
-            collection: "orders",
-            data: {
-              orderNumber,
-              name: orderName,
-              user: userId,
-              product: cartItem.productId,
-              status: "payment_done", // Payment successful, admin will move to processing then complete
-              total: total,
-              quantity: cartItem.quantity || 1,
-              size: cartItem.size || undefined,
-              color: cartItem.color || undefined,
-              stripeCheckoutSessionId: session.id,
-              stripeAccountId: (session as any).account || null,
-              stripePaymentIntentId: session.payment_intent as string || null,
-              statusHistory: [
-                {
-                  status: "pending",
-                  timestamp: new Date().toISOString(),
-                  note: "Order created",
-                },
-                {
-                  status: "payment_done",
-                  timestamp: new Date().toISOString(),
-                  note: "Payment successful",
-                },
-              ],
-            },
-          });
+          // Explicitly set vendor field (required) - get from product
+          const orderVendorId = typeof product.vendor === "string" 
+            ? product.vendor 
+            : product.vendor?.id;
 
-          console.log(`Created order ${orderNumber} for ${product.name}`);
+          if (!orderVendorId) {
+            console.error(`Product ${product.id} (${product.name}) has no vendor, cannot create order`);
+            throw new Error(`Product ${product.id} has no vendor assigned`);
+          }
+
+          console.log(`Creating order for product ${product.name}, vendor: ${orderVendorId}`);
+          // Shipping address is already fetched above and reused for all orders
+
+          const orderData: any = {
+            orderNumber,
+            name: orderName,
+            user: userId,
+            vendor: orderVendorId, // Explicitly set vendor (required field)
+            product: cartItem.productId,
+            status: "payment_done", // Payment successful, admin will move to processing then complete
+            total: total,
+            quantity: cartItem.quantity || 1,
+            size: cartItem.size || undefined,
+            color: cartItem.color || undefined,
+            stripeCheckoutSessionId: session.id,
+            stripeAccountId: (session as any).account || null,
+            stripePaymentIntentId: session.payment_intent as string || null,
+            shippingAddress: shippingAddress, // Required field
+            // statusHistory will be automatically created by the Orders collection hook
+          };
+
+          console.log(`Order data:`, JSON.stringify(orderData, null, 2));
+
+          let createdOrder;
+          try {
+            createdOrder = await payload.create({
+              collection: "orders",
+              data: orderData,
+            });
+            console.log(`✅ Created order ${orderNumber} (ID: ${createdOrder.id}) for ${product.name}`);
+            
+            // Send order confirmation email (async, don't block)
+            if (user?.email) {
+              try {
+                const { sendOrderConfirmationEmail } = await import("@/lib/email");
+                await sendOrderConfirmationEmail(
+                  user.email,
+                  orderNumber,
+                  lineItem.amount_total / 100, // Convert from cents
+                  [
+                    {
+                      name: product.title || product.name || "Product",
+                      quantity: lineItem.quantity || 1,
+                      price: lineItem.amount_total / 100,
+                    },
+                  ]
+                );
+                console.log(`📧 Sent order confirmation email to ${user.email}`);
+              } catch (emailError) {
+                // Log but don't fail order creation
+                console.error(`⚠️  Failed to send order confirmation email:`, emailError);
+              }
+            }
+          } catch (orderError) {
+            console.error(`❌ Failed to create order for product ${product.name}:`, orderError);
+            if (orderError instanceof Error) {
+              console.error("Error message:", orderError.message);
+              console.error("Error stack:", orderError.stack);
+            }
+            throw orderError; // Re-throw to be caught by outer try-catch
+          }
+
+          // Note: statusHistory is automatically created by the Orders collection hook
+          // The hook creates an entry with the current status ("payment_done") and note "Order created"
+          // If we need both "pending" and "payment_done" entries, we can add it here, but it's optional
         }
 
-        console.log(`Created ${cartItems.length} order(s) and updated inventory for session ${session.id}`);
+        // Create or update customer record once after all orders are created
+        console.log(`Processing customer creation/update for user ${userId} with ${uniqueVendorIds.size} vendor(s)`);
+        
+        if (uniqueVendorIds.size > 0) {
+          try {
+            // User is already fetched above, reuse it
+            console.log(`Found user: ${user.email || user.name || userId}`);
+
+            // Check if customer already exists
+            const existingCustomers = await payload.find({
+              collection: "customers",
+              where: {
+                user: { equals: userId },
+              },
+              limit: 1,
+            });
+
+            const orderDate = new Date();
+
+            if (existingCustomers.docs.length > 0) {
+              // Update existing customer
+              const customer = existingCustomers.docs[0];
+              const vendors = customer.vendors || [];
+              const vendorIds = Array.isArray(vendors) 
+                ? vendors.map((v: any) => typeof v === "string" ? v : v.id)
+                : [];
+
+              // Add all unique vendors from this checkout if not already in list
+              uniqueVendorIds.forEach((vendorId) => {
+                if (!vendorIds.includes(vendorId)) {
+                  vendorIds.push(vendorId);
+                }
+              });
+
+              // Calculate updated totals from all orders
+              const allOrders = await payload.find({
+                collection: "orders",
+                where: {
+                  user: { equals: userId },
+                  status: { not_equals: "canceled" },
+                },
+                limit: 10000,
+              });
+
+              const totalOrders = allOrders.docs.length;
+              const totalSpent = allOrders.docs.reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+              const orderDates = allOrders.docs.map((o: any) => new Date(o.createdAt));
+              const lastOrderDate = orderDates.length > 0 
+                ? orderDates.sort((a, b) => b.getTime() - a.getTime())[0]
+                : orderDate;
+              const firstOrderDate = orderDates.length > 0
+                ? orderDates.sort((a, b) => a.getTime() - b.getTime())[0]
+                : orderDate;
+
+              await payload.update({
+                collection: "customers",
+                id: customer.id,
+                data: {
+                  name: user.name || user.email || "Unknown",
+                  email: user.email || "",
+                  phone: (user as any).phone || undefined,
+                  vendors: vendorIds,
+                  totalOrders: totalOrders,
+                  totalSpent: totalSpent,
+                  lastOrderDate: lastOrderDate.toISOString(),
+                  firstOrderDate: firstOrderDate ? firstOrderDate.toISOString() : orderDate.toISOString(),
+                },
+              });
+
+              console.log(`✅ Updated customer record (ID: ${customer.id}) for user ${userId} with ${uniqueVendorIds.size} vendor(s)`);
+            } else {
+              // Create new customer
+              console.log(`Creating new customer record for user ${userId}`);
+              
+              // Calculate totals from all orders (should be at least the orders just created)
+              const allOrders = await payload.find({
+                collection: "orders",
+                where: {
+                  user: { equals: userId },
+                  status: { not_equals: "canceled" },
+                },
+                limit: 10000,
+              });
+
+              console.log(`Found ${allOrders.docs.length} order(s) for user ${userId}`);
+
+              const totalOrders = allOrders.docs.length;
+              const totalSpent = allOrders.docs.reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+              const orderDates = allOrders.docs.map((o: any) => new Date(o.createdAt));
+              const lastOrderDate = orderDates.length > 0 
+                ? orderDates.sort((a, b) => b.getTime() - a.getTime())[0]
+                : orderDate;
+              const firstOrderDate = orderDates.length > 0
+                ? orderDates.sort((a, b) => a.getTime() - b.getTime())[0]
+                : orderDate;
+
+              const customerData = {
+                user: userId,
+                name: user.name || user.email || "Unknown",
+                email: user.email || "",
+                phone: (user as any).phone || undefined,
+                vendors: Array.from(uniqueVendorIds),
+                totalOrders: totalOrders,
+                totalSpent: totalSpent,
+                lastOrderDate: lastOrderDate.toISOString(),
+                firstOrderDate: firstOrderDate.toISOString(),
+              };
+
+              console.log(`Customer data:`, JSON.stringify(customerData, null, 2));
+
+              const createdCustomer = await payload.create({
+                collection: "customers",
+                data: customerData,
+              });
+
+              console.log(`✅ Created new customer record (ID: ${createdCustomer.id}) for user ${userId} with ${uniqueVendorIds.size} vendor(s)`);
+            }
+          } catch (customerError) {
+            console.error("❌ Error creating/updating customer:", customerError);
+            if (customerError instanceof Error) {
+              console.error("Error message:", customerError.message);
+              console.error("Error stack:", customerError.stack);
+            }
+            // Don't fail the webhook if customer creation fails
+          }
+        } else {
+          console.warn(`⚠️ No vendors found in checkout, skipping customer creation`);
+        }
+
+        console.log(`✅ Successfully processed ${cartItems.length} order(s) and updated inventory for session ${session.id}`);
       } catch (error) {
-        console.error("Error creating orders or updating inventory:", error);
+        console.error("❌ Error creating orders or updating inventory:", error);
+        if (error instanceof Error) {
+          console.error("Error message:", error.message);
+          console.error("Error stack:", error.stack);
+        }
         return NextResponse.json(
-          { error: "Failed to process order" },
+          { error: "Failed to process order", details: error instanceof Error ? error.message : String(error) },
           { status: 500 }
         );
       }

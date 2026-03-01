@@ -28,6 +28,10 @@ export const CheckoutView = () => {
     ids: productIds.length > 0 ? productIds : [],
   });
 
+  // Check if user has a shipping address
+  const { data: userAddresses } = trpc.addresses.getUserAddresses.useQuery();
+  const hasShippingAddress = userAddresses?.shippingAddresses && userAddresses.shippingAddresses.length > 0;
+
   const purchase = trpc.checkout.purchase.useMutation({
     onMutate: () => {
       setStates({ success: false, cancel: false });
@@ -228,7 +232,13 @@ export const CheckoutView = () => {
               shipping={shipping}
               tax={tax}
               total={total}
+              hasShippingAddress={hasShippingAddress}
               onPlaceOrder={() => {
+                if (!hasShippingAddress) {
+                  toast.error("Please add a shipping address before placing your order");
+                  router.push("/account?tab=addresses");
+                  return;
+                }
                 purchase.mutate({
                   cartItems: items.map(item => ({
                     productId: item.productId,

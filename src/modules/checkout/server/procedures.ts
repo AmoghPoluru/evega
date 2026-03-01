@@ -150,6 +150,7 @@ export const checkoutRouter = createTRPCRouter({
         invoice_creation: {
           enabled: true,
         },
+        // Shipping address is collected before checkout, not in Stripe
         metadata: {
           userId: ctx.session.user.id,
           cartItems: JSON.stringify(input.cartItems),

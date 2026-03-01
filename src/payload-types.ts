@@ -76,6 +76,9 @@ export interface Config {
     orders: Order;
     vendors: Vendor;
     roles: Role;
+    customers: Customer;
+    'variant-types': VariantType;
+    'variant-options': VariantOption;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -96,6 +99,9 @@ export interface Config {
     orders: OrdersSelect<false> | OrdersSelect<true>;
     vendors: VendorsSelect<false> | VendorsSelect<true>;
     roles: RolesSelect<false> | RolesSelect<true>;
+    customers: CustomersSelect<false> | CustomersSelect<true>;
+    'variant-types': VariantTypesSelect<false> | VariantTypesSelect<true>;
+    'variant-options': VariantOptionsSelect<false> | VariantOptionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -447,6 +453,91 @@ export interface Category {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  variantConfig?: {
+    /**
+     * Variant types that are required for products in this category
+     */
+    requiredVariants?: (string | VariantType)[] | null;
+    /**
+     * Variant types that are optional for products in this category
+     */
+    optionalVariants?: (string | VariantType)[] | null;
+    /**
+     * Mapping of variant types to their allowed options (JSON format)
+     */
+    variantOptions?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    pricingRules?: {
+      /**
+       * Use base price from product
+       */
+      basePrice?: boolean | null;
+      /**
+       * Price overrides by size (e.g., { 'XL': 5, '2XL': 10 })
+       */
+      sizeOverrides?:
+        | {
+            [k: string]: unknown;
+          }
+        | unknown[]
+        | string
+        | number
+        | boolean
+        | null;
+      /**
+       * Price overrides by color (e.g., { 'Rose Gold': 20, 'Gold': 10 })
+       */
+      colorOverrides?:
+        | {
+            [k: string]: unknown;
+          }
+        | unknown[]
+        | string
+        | number
+        | boolean
+        | null;
+      /**
+       * Price overrides by material (e.g., { 'Silk': 20, 'Silver': 50 })
+       */
+      materialOverrides?:
+        | {
+            [k: string]: unknown;
+          }
+        | unknown[]
+        | string
+        | number
+        | boolean
+        | null;
+    };
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "variant-types".
+ */
+export interface VariantType {
+  id: string;
+  name: string;
+  slug: string;
+  type: 'select' | 'number' | 'text';
+  /**
+   * Unit for number type (e.g., 'inches', 'meters')
+   */
+  unit?: string | null;
+  /**
+   * Order in which this variant type should be displayed
+   */
+  displayOrder: number;
+  description?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -655,6 +746,107 @@ export interface Order {
    */
   stripePaymentIntentId?: string | null;
   /**
+   * Shipping address for this order (snapshot at time of order)
+   */
+  shippingAddress: {
+    /**
+     * Full name of the recipient
+     */
+    fullName: string;
+    /**
+     * Contact phone number for delivery
+     */
+    phone?: string | null;
+    /**
+     * Street address, apartment, suite, etc.
+     */
+    street: string;
+    city: string;
+    state:
+      | 'AL'
+      | 'AK'
+      | 'AZ'
+      | 'AR'
+      | 'CA'
+      | 'CO'
+      | 'CT'
+      | 'DE'
+      | 'FL'
+      | 'GA'
+      | 'HI'
+      | 'ID'
+      | 'IL'
+      | 'IN'
+      | 'IA'
+      | 'KS'
+      | 'KY'
+      | 'LA'
+      | 'ME'
+      | 'MD'
+      | 'MA'
+      | 'MI'
+      | 'MN'
+      | 'MS'
+      | 'MO'
+      | 'MT'
+      | 'NE'
+      | 'NV'
+      | 'NH'
+      | 'NJ'
+      | 'NM'
+      | 'NY'
+      | 'NC'
+      | 'ND'
+      | 'OH'
+      | 'OK'
+      | 'OR'
+      | 'PA'
+      | 'RI'
+      | 'SC'
+      | 'SD'
+      | 'TN'
+      | 'TX'
+      | 'UT'
+      | 'VT'
+      | 'VA'
+      | 'WA'
+      | 'WV'
+      | 'WI'
+      | 'WY'
+      | 'DC';
+    /**
+     * 5-digit ZIP code or ZIP+4 format (e.g., 12345 or 12345-6789)
+     */
+    zipcode: string;
+    /**
+     * Country for shipping
+     */
+    country?: string | null;
+  };
+  /**
+   * Shipping method selected for this order
+   */
+  shippingMethod?: ('standard' | 'express' | 'overnight' | 'international' | 'local' | 'pickup') | null;
+  /**
+   * Shipping cost in USD
+   */
+  shippingCost?: number | null;
+  /**
+   * Current shipping status
+   */
+  shippingStatus?:
+    | (
+        | 'pending'
+        | 'label_created'
+        | 'shipped'
+        | 'in_transit'
+        | 'out_for_delivery'
+        | 'delivered'
+        | 'exception'
+        | 'returned'
+      )
+    | null;
+  /**
    * Shipping tracking number
    */
   trackingNumber?: string | null;
@@ -670,6 +862,30 @@ export interface Order {
    * Estimated delivery date
    */
   estimatedDelivery?: string | null;
+  /**
+   * Actual delivery date (when package was delivered)
+   */
+  actualDeliveryDate?: string | null;
+  /**
+   * URL to shipping label PDF
+   */
+  shippingLabelUrl?: string | null;
+  /**
+   * Package weight in pounds (lbs)
+   */
+  packageWeight?: number | null;
+  /**
+   * Package dimensions for shipping calculations
+   */
+  packageDimensions?: {
+    length?: number | null;
+    width?: number | null;
+    height?: number | null;
+  };
+  /**
+   * Insurance value for the shipment in USD
+   */
+  insuranceValue?: number | null;
   /**
    * Payout details for the vendor
    */
@@ -695,6 +911,116 @@ export interface Order {
      */
     transactionId?: string | null;
   };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "customers".
+ */
+export interface Customer {
+  id: string;
+  /**
+   * The user account associated with this customer
+   */
+  user: string | User;
+  /**
+   * Customer name (synced from user)
+   */
+  name: string;
+  /**
+   * Customer email (synced from user)
+   */
+  email: string;
+  /**
+   * Customer phone number (optional)
+   */
+  phone?: string | null;
+  /**
+   * Vendors this customer has ordered from
+   */
+  vendors?: (string | Vendor)[] | null;
+  /**
+   * Total number of orders across all vendors
+   */
+  totalOrders?: number | null;
+  /**
+   * Total amount spent across all vendors
+   */
+  totalSpent?: number | null;
+  /**
+   * Date of most recent order
+   */
+  lastOrderDate?: string | null;
+  /**
+   * Date of first order
+   */
+  firstOrderDate?: string | null;
+  /**
+   * Customer tags/segments (can be vendor-specific or global)
+   */
+  tags?:
+    | {
+        tag: string;
+        /**
+         * Vendor who added this tag (null for global tags)
+         */
+        vendor?: (string | null) | Vendor;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Customer notes (vendor-specific)
+   */
+  notes?:
+    | {
+        text: string;
+        /**
+         * Vendor who added this note
+         */
+        vendor?: (string | null) | Vendor;
+        /**
+         * User who created this note
+         */
+        createdBy?: (string | null) | User;
+        createdAt?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "variant-options".
+ */
+export interface VariantOption {
+  id: string;
+  value: string;
+  /**
+   * Display label (if different from value)
+   */
+  label?: string | null;
+  /**
+   * The variant type this option belongs to
+   */
+  variantType: string | VariantType;
+  /**
+   * If set, this option is specific to this category. If null, it's global.
+   */
+  category?: (string | null) | Category;
+  /**
+   * Hex color code (for color variant options)
+   */
+  hexCode?: string | null;
+  /**
+   * Image for this option (e.g., color swatch)
+   */
+  image?: (string | null) | Media;
+  /**
+   * Order in which this option should be displayed
+   */
+  displayOrder?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -757,6 +1083,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'roles';
         value: string | Role;
+      } | null)
+    | ({
+        relationTo: 'customers';
+        value: string | Customer;
+      } | null)
+    | ({
+        relationTo: 'variant-types';
+        value: string | VariantType;
+      } | null)
+    | ({
+        relationTo: 'variant-options';
+        value: string | VariantOption;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -886,6 +1224,21 @@ export interface CategoriesSelect<T extends boolean = true> {
   color?: T;
   parent?: T;
   subcategories?: T;
+  variantConfig?:
+    | T
+    | {
+        requiredVariants?: T;
+        optionalVariants?: T;
+        variantOptions?: T;
+        pricingRules?:
+          | T
+          | {
+              basePrice?: T;
+              sizeOverrides?: T;
+              colorOverrides?: T;
+              materialOverrides?: T;
+            };
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -969,10 +1322,35 @@ export interface OrdersSelect<T extends boolean = true> {
   stripeCheckoutSessionId?: T;
   stripeAccountId?: T;
   stripePaymentIntentId?: T;
+  shippingAddress?:
+    | T
+    | {
+        fullName?: T;
+        phone?: T;
+        street?: T;
+        city?: T;
+        state?: T;
+        zipcode?: T;
+        country?: T;
+      };
+  shippingMethod?: T;
+  shippingCost?: T;
+  shippingStatus?: T;
   trackingNumber?: T;
   carrier?: T;
   trackingUrl?: T;
   estimatedDelivery?: T;
+  actualDeliveryDate?: T;
+  shippingLabelUrl?: T;
+  packageWeight?: T;
+  packageDimensions?:
+    | T
+    | {
+        length?: T;
+        width?: T;
+        height?: T;
+      };
+  insuranceValue?: T;
   vendorPayout?:
     | T
     | {
@@ -1039,6 +1417,68 @@ export interface RolesSelect<T extends boolean = true> {
         id?: T;
       };
   isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "customers_select".
+ */
+export interface CustomersSelect<T extends boolean = true> {
+  user?: T;
+  name?: T;
+  email?: T;
+  phone?: T;
+  vendors?: T;
+  totalOrders?: T;
+  totalSpent?: T;
+  lastOrderDate?: T;
+  firstOrderDate?: T;
+  tags?:
+    | T
+    | {
+        tag?: T;
+        vendor?: T;
+        id?: T;
+      };
+  notes?:
+    | T
+    | {
+        text?: T;
+        vendor?: T;
+        createdBy?: T;
+        createdAt?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "variant-types_select".
+ */
+export interface VariantTypesSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  type?: T;
+  unit?: T;
+  displayOrder?: T;
+  description?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "variant-options_select".
+ */
+export interface VariantOptionsSelect<T extends boolean = true> {
+  value?: T;
+  label?: T;
+  variantType?: T;
+  category?: T;
+  hexCode?: T;
+  image?: T;
+  displayOrder?: T;
   updatedAt?: T;
   createdAt?: T;
 }

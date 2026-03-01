@@ -4,6 +4,7 @@ import { DM_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "@/components/providers/session-provider";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
@@ -25,9 +26,11 @@ export default function RootLayout({
       <body
         className={`${dmSans.className} antialiased`}
       >
-        <SessionProvider>
-          {children}
-        </SessionProvider>
+        <ErrorBoundary>
+          <SessionProvider>
+            {children}
+          </SessionProvider>
+        </ErrorBoundary>
         <Toaster />
       </body>
     </html>

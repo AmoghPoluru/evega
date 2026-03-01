@@ -54,20 +54,46 @@ export function ProductImportView() {
     },
   });
 
-  const downloadTemplate = useCallback(() => {
-    const template = `name,price,category,description,stock,SKU,refundPolicy,tags
-"Sample Product 1","29.99","Electronics","This is a sample product description","10","SKU-001","30-day","tag1,tag2"
-"Sample Product 2","49.99","Clothing","Another sample product","5","SKU-002","14-day","tag3"`;
+  const downloadTemplate = useCallback(async () => {
+    try {
+      // Fetch the comprehensive template from public folder
+      const response = await fetch("/sample-products-import.csv");
+      if (response.ok) {
+        const csvContent = await response.text();
+        const blob = new Blob([csvContent], { type: "text/csv" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "sample-products-import.csv";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        toast.success("Template downloaded successfully");
+      } else {
+        // Fallback to inline template if file not found
+        throw new Error("Template file not found");
+      }
+    } catch (error) {
+      // Fallback template with proper format
+      const template = `name,price,category,subcategory,description,size,color,variant_stock,variant_price,SKU,refundPolicy,tags
+"Kanchipuram Silk Saree - Traditional Red","899.99","Sarees","Kanchipuram Silk","Exquisite handwoven Kanchipuram silk saree with intricate zari work. Perfect for weddings and special occasions.","","","15","","SKU-SAR-KAN-001","30-day","silk,traditional,wedding,premium"
+"Bridal Lehenga - Heavy Embroidered Red","3499.99","Lehengas","Heavy Embroidered","Stunning bridal lehenga with heavy embroidery. Perfect for your special day.","S","Red","20","3499.99","SKU-LEH-HE-RED-S","30-day","bridal,heavy-embroidered,wedding"
+"Bridal Lehenga - Heavy Embroidered Red","3499.99","Lehengas","Heavy Embroidered","Stunning bridal lehenga with heavy embroidery. Perfect for your special day.","M","Red","15","3499.99","SKU-LEH-HE-RED-M","30-day","bridal,heavy-embroidered,wedding"
+"Embroidered Belt","149.99","Accessories","Embroidered Belts","Beautiful embroidered belt. Perfect for traditional wear.","","","25","","SKU-ACC-BELT-EMB","30-day","belt,embroidered,traditional"
+"Gift Set - Premium","499.99","Miscellaneous & Other Items","Gift Sets","Beautiful premium gift set. Perfect for gifting.","","","10","","SKU-MIS-GIFT-SET","30-day","gift-set,premium,gifting"`;
 
-    const blob = new Blob([template], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "product-import-template.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+      const blob = new Blob([template], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "product-import-template.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success("Template downloaded successfully");
+    }
   }, []);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -113,11 +139,25 @@ export function ProductImportView() {
           const errors: string[] = [];
           data.forEach((row: any, index: number) => {
             if (!row.name || !row.price || !row.category) {
-              errors.push(`Row ${index + 2}: Missing required fields`);
+              errors.push(`Row ${index + 2}: Missing required fields (name, price, category)`);
             }
             const price = parseFloat(row.price);
             if (isNaN(price) || price <= 0) {
               errors.push(`Row ${index + 2}: Invalid price`);
+            }
+            // Validate variant_stock if provided
+            if (row.variant_stock && row.variant_stock.trim() !== "") {
+              const stock = parseInt(row.variant_stock, 10);
+              if (isNaN(stock) || stock < 0) {
+                errors.push(`Row ${index + 2}: Invalid variant_stock (must be >= 0)`);
+              }
+            }
+            // Validate variant_price if provided
+            if (row.variant_price && row.variant_price.trim() !== "") {
+              const variantPrice = parseFloat(row.variant_price);
+              if (isNaN(variantPrice) || variantPrice <= 0) {
+                errors.push(`Row ${index + 2}: Invalid variant_price (must be > 0)`);
+              }
             }
           });
 
@@ -170,8 +210,11 @@ export function ProductImportView() {
         </CardHeader>
         <CardContent>
           <ol className="list-decimal list-inside space-y-2 text-sm">
-            <li>Download the CSV template below</li>
+            <li>Download the CSV template below (includes sample data for all categories)</li>
             <li>Fill in your product information (name, price, category are required)</li>
+            <li><strong>For products with variants:</strong> Add multiple rows with same product name, different size/color, and variant_stock</li>
+            <li><strong>For products without variants:</strong> Leave size/color empty, use variant_stock for inventory</li>
+            <li><strong>Subcategories:</strong> Use leaf-level subcategories (categories with no children) - see category hierarchy diagram</li>
             <li>Upload your completed CSV file</li>
             <li>Review the preview and click Import</li>
             <li>Edit each product individually to add images and finalize</li>

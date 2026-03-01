@@ -66,6 +66,8 @@ const seedUsers = async () => {
     console.log("\n" + "=".repeat(50));
     console.log("✅ Users collection refresh completed successfully!");
     console.log("=".repeat(50));
+    
+    process.exit(0);
   } catch (error) {
     console.error("❌ Users refresh failed:", error);
     process.exit(1);

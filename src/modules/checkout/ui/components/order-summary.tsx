@@ -18,6 +18,7 @@ interface OrderSummaryProps {
   total: number;
   onPlaceOrder: () => void;
   isProcessing?: boolean;
+  hasShippingAddress?: boolean;
 }
 
 export function OrderSummary({
@@ -28,17 +29,24 @@ export function OrderSummary({
   total,
   onPlaceOrder,
   isProcessing = false,
+  hasShippingAddress = true,
 }: OrderSummaryProps) {
   return (
     <div className="bg-white border border-gray-300 rounded-lg p-4 sticky top-4">
       {/* Place Order Button */}
       <Button
         onClick={onPlaceOrder}
-        disabled={isProcessing}
-        className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium py-3 text-base mb-4"
+        disabled={isProcessing || !hasShippingAddress}
+        className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium py-3 text-base mb-4 disabled:bg-gray-300 disabled:cursor-not-allowed"
       >
-        {isProcessing ? "Processing..." : "Place your order"}
+        {isProcessing ? "Processing..." : hasShippingAddress ? "Place your order" : "Add shipping address"}
       </Button>
+      
+      {!hasShippingAddress && (
+        <p className="text-sm text-red-600 mb-4 text-center">
+          Please add a shipping address to continue
+        </p>
+      )}
 
       {/* Legal Text */}
       <p className="text-xs text-gray-600 mb-4">

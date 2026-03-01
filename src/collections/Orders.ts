@@ -111,6 +111,65 @@ export const Orders: CollectionConfig = {
         return data;
       },
     ],
+    afterChange: [
+      async ({ doc, operation, req, previousDoc }) => {
+        // Send order confirmation email when order is created
+        if (operation === "create" && doc.status === "payment_done") {
+          try {
+            // Fetch user to get email
+            const user = await req.payload.findByID({
+              collection: "users",
+              id: typeof doc.user === "string" ? doc.user : doc.user.id,
+              depth: 0,
+            });
+
+            // Fetch product to get name
+            const product = await req.payload.findByID({
+              collection: "products",
+              id: typeof doc.product === "string" ? doc.product : doc.product.id,
+              depth: 0,
+            });
+
+            if (user.email) {
+              const { sendOrderConfirmationEmail } = await import("@/lib/email");
+              await sendOrderConfirmationEmail(
+                user.email,
+                doc.orderNumber,
+                doc.total,
+                [
+                  {
+                    name: product.title || product.name || "Product",
+                    quantity: doc.quantity || 1,
+                    price: doc.total,
+                  },
+                ]
+              );
+            }
+          } catch (error) {
+            // Log error but don't fail order creation
+            console.error("Failed to send order confirmation email:", error);
+          }
+        }
+
+        // Send order status update email when status changes
+        if (operation === "update" && previousDoc && doc.status !== previousDoc.status) {
+          try {
+            const user = await req.payload.findByID({
+              collection: "users",
+              id: typeof doc.user === "string" ? doc.user : doc.user.id,
+              depth: 0,
+            });
+
+            if (user.email) {
+              // Status update emails can be added here if needed
+              // For now, we only send confirmation on creation
+            }
+          } catch (error) {
+            console.error("Failed to send order status update email:", error);
+          }
+        }
+      },
+    ],
   },
   fields: [
     {
@@ -254,11 +313,173 @@ export const Orders: CollectionConfig = {
       },
     },
     {
+      name: "shippingAddress",
+      type: "group",
+      label: "Shipping Address",
+      admin: {
+        description: "Shipping address for this order (snapshot at time of order)",
+      },
+      fields: [
+        {
+          name: "fullName",
+          type: "text",
+          label: "Recipient Name",
+          required: true,
+          admin: {
+            description: "Full name of the recipient",
+          },
+        },
+        {
+          name: "phone",
+          type: "text",
+          label: "Phone Number",
+          admin: {
+            description: "Contact phone number for delivery",
+          },
+        },
+        {
+          name: "street",
+          type: "text",
+          label: "Street Address",
+          required: true,
+          admin: {
+            description: "Street address, apartment, suite, etc.",
+          },
+        },
+        {
+          name: "city",
+          type: "text",
+          label: "City",
+          required: true,
+        },
+        {
+          name: "state",
+          type: "select",
+          label: "State",
+          required: true,
+          options: [
+            { label: "Alabama", value: "AL" },
+            { label: "Alaska", value: "AK" },
+            { label: "Arizona", value: "AZ" },
+            { label: "Arkansas", value: "AR" },
+            { label: "California", value: "CA" },
+            { label: "Colorado", value: "CO" },
+            { label: "Connecticut", value: "CT" },
+            { label: "Delaware", value: "DE" },
+            { label: "Florida", value: "FL" },
+            { label: "Georgia", value: "GA" },
+            { label: "Hawaii", value: "HI" },
+            { label: "Idaho", value: "ID" },
+            { label: "Illinois", value: "IL" },
+            { label: "Indiana", value: "IN" },
+            { label: "Iowa", value: "IA" },
+            { label: "Kansas", value: "KS" },
+            { label: "Kentucky", value: "KY" },
+            { label: "Louisiana", value: "LA" },
+            { label: "Maine", value: "ME" },
+            { label: "Maryland", value: "MD" },
+            { label: "Massachusetts", value: "MA" },
+            { label: "Michigan", value: "MI" },
+            { label: "Minnesota", value: "MN" },
+            { label: "Mississippi", value: "MS" },
+            { label: "Missouri", value: "MO" },
+            { label: "Montana", value: "MT" },
+            { label: "Nebraska", value: "NE" },
+            { label: "Nevada", value: "NV" },
+            { label: "New Hampshire", value: "NH" },
+            { label: "New Jersey", value: "NJ" },
+            { label: "New Mexico", value: "NM" },
+            { label: "New York", value: "NY" },
+            { label: "North Carolina", value: "NC" },
+            { label: "North Dakota", value: "ND" },
+            { label: "Ohio", value: "OH" },
+            { label: "Oklahoma", value: "OK" },
+            { label: "Oregon", value: "OR" },
+            { label: "Pennsylvania", value: "PA" },
+            { label: "Rhode Island", value: "RI" },
+            { label: "South Carolina", value: "SC" },
+            { label: "South Dakota", value: "SD" },
+            { label: "Tennessee", value: "TN" },
+            { label: "Texas", value: "TX" },
+            { label: "Utah", value: "UT" },
+            { label: "Vermont", value: "VT" },
+            { label: "Virginia", value: "VA" },
+            { label: "Washington", value: "WA" },
+            { label: "West Virginia", value: "WV" },
+            { label: "Wisconsin", value: "WI" },
+            { label: "Wyoming", value: "WY" },
+            { label: "District of Columbia", value: "DC" },
+          ],
+        },
+        {
+          name: "zipcode",
+          type: "text",
+          label: "ZIP Code",
+          required: true,
+          admin: {
+            description: "5-digit ZIP code or ZIP+4 format (e.g., 12345 or 12345-6789)",
+          },
+        },
+        {
+          name: "country",
+          type: "text",
+          label: "Country",
+          defaultValue: "United States",
+          admin: {
+            description: "Country for shipping",
+          },
+        },
+      ],
+    },
+    {
+      name: "shippingMethod",
+      type: "select",
+      label: "Shipping Method",
+      options: [
+        { label: "Standard Shipping", value: "standard" },
+        { label: "Express Shipping", value: "express" },
+        { label: "Overnight Shipping", value: "overnight" },
+        { label: "International Shipping", value: "international" },
+        { label: "Local Delivery", value: "local" },
+        { label: "Pickup", value: "pickup" },
+      ],
+      admin: {
+        description: "Shipping method selected for this order",
+      },
+    },
+    {
+      name: "shippingCost",
+      type: "number",
+      label: "Shipping Cost",
+      defaultValue: 0,
+      admin: {
+        description: "Shipping cost in USD",
+      },
+    },
+    {
+      name: "shippingStatus",
+      type: "select",
+      label: "Shipping Status",
+      options: [
+        { label: "Pending", value: "pending" },
+        { label: "Label Created", value: "label_created" },
+        { label: "Shipped", value: "shipped" },
+        { label: "In Transit", value: "in_transit" },
+        { label: "Out for Delivery", value: "out_for_delivery" },
+        { label: "Delivered", value: "delivered" },
+        { label: "Exception", value: "exception" },
+        { label: "Returned", value: "returned" },
+      ],
+      defaultValue: "pending",
+      admin: {
+        description: "Current shipping status",
+      },
+    },
+    {
       name: "trackingNumber",
       type: "text",
       admin: {
         description: "Shipping tracking number",
-        condition: (data) => data.status === "complete" || data.status === "refunded",
       },
     },
     {
@@ -273,7 +494,6 @@ export const Orders: CollectionConfig = {
       ],
       admin: {
         description: "Shipping carrier",
-        condition: (data) => data.status === "complete" || data.status === "refunded",
       },
     },
     {
@@ -288,6 +508,59 @@ export const Orders: CollectionConfig = {
       type: "date",
       admin: {
         description: "Estimated delivery date",
+      },
+    },
+    {
+      name: "actualDeliveryDate",
+      type: "date",
+      admin: {
+        description: "Actual delivery date (when package was delivered)",
+      },
+    },
+    {
+      name: "shippingLabelUrl",
+      type: "text",
+      admin: {
+        description: "URL to shipping label PDF",
+      },
+    },
+    {
+      name: "packageWeight",
+      type: "number",
+      admin: {
+        description: "Package weight in pounds (lbs)",
+      },
+    },
+    {
+      name: "packageDimensions",
+      type: "group",
+      label: "Package Dimensions",
+      admin: {
+        description: "Package dimensions for shipping calculations",
+      },
+      fields: [
+        {
+          name: "length",
+          type: "number",
+          label: "Length (inches)",
+        },
+        {
+          name: "width",
+          type: "number",
+          label: "Width (inches)",
+        },
+        {
+          name: "height",
+          type: "number",
+          label: "Height (inches)",
+        },
+      ],
+    },
+    {
+      name: "insuranceValue",
+      type: "number",
+      admin: {
+        description: "Insurance value for the shipment in USD",
       },
     },
     {

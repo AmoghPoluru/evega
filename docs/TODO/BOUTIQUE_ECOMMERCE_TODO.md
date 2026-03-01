@@ -1,64 +1,36 @@
 # Indian Boutique E-Commerce - TODO List
 ## For US Market (Selling Indian Products in USA)
 
-## Priority 1: Core E-Commerce Features (Must Have)
-
 > **Note**: This platform is for selling Indian boutique products to US customers
 
-### 1. Product Variants & Inventory
-- [ ] Add product variants (sizes: XS, S, M, L, XL, XXL)
-- [ ] Add color variants (if applicable)
-- [ ] Implement stock/inventory tracking per variant
-- [ ] Show "Out of Stock" when inventory is 0
-- [ ] Prevent adding out-of-stock items to cart
-- [ ] Update inventory after order completion
+## ✅ Completed Features
 
-**Files to modify:**
-- `src/collections/Products.ts` - Add variants array field
-- `src/modules/products/ui/components/product-view.tsx` - Add size/color selector
-- `src/modules/checkout/server/procedures.ts` - Check stock before checkout
+The following features have been implemented:
+- ✅ Product Variants & Inventory (sizes, colors, stock tracking, out-of-stock prevention, inventory updates)
+- ✅ Shipping Address Management (US addresses, validation, multiple addresses, address selection)
+- ✅ Order Management & Status (status workflow, order history page, order number generation, order tracking)
+- ✅ Stripe Payment Integration (webhooks, payment processing)
 
 ---
 
-### 2. Shipping Address Management (US Addresses)
-- [ ] Add shipping address fields to Users collection (name, phone, street, city, state, zipcode)
-- [ ] Create address management UI (add, edit, delete addresses)
-- [ ] Add address selection during checkout
-- [ ] Validate US zipcodes (5-digit or ZIP+4 format)
-- [ ] Validate US states (50 states + DC)
-- [ ] Store shipping address with each order
-- [ ] Support multiple saved addresses per user
+## Priority 1: Core E-Commerce Features (Must Have)
 
-**Files to create/modify:**
-- `src/collections/Users.ts` - Add addresses array field
-- `src/modules/checkout/ui/components/address-form.tsx` - New component (US format)
-- `src/modules/checkout/ui/components/address-selector.tsx` - New component
-- `src/collections/Orders.ts` - Add shipping address fields
-- `src/lib/address-validation.ts` - US address validation utilities
+### 1. Admin Order Management Dashboard
+- [ ] Create admin order management dashboard (`/admin/orders`)
+- [ ] Add order filtering and search
+- [ ] Add bulk order status updates
+- [ ] Add order export functionality
+
+**Files to create:**
+- `src/app/(app)/admin/orders/page.tsx` - Admin order management dashboard
+- `src/modules/admin/ui/components/order-management-table.tsx` - Order table component
 
 ---
 
-### 3. Order Management & Status
-- [ ] Add order status workflow (Pending → Confirmed → Processing → Shipped → Delivered)
-- [ ] Create order history page for users (`/orders`)
-- [ ] Create admin order management dashboard
-- [ ] Add order tracking
-- [ ] Add order number generation (e.g., ORD-2024-001)
-
-**Files to create/modify:**
-- `src/collections/Orders.ts` - Add status field, order number
-- `src/app/(app)/orders/page.tsx` - User order history page
-- `src/modules/orders/ui/components/order-card.tsx` - New component
-- `src/app/(app)/admin/orders/page.tsx` - Admin order management
-
----
-
-### 4. Payment Processing (US Market)
-- [ ] ✅ Stripe already integrated (perfect for US market)
+### 2. Additional Payment Methods
 - [ ] Add Apple Pay option (popular in US)
 - [ ] Add Google Pay option
 - [ ] Add PayPal option (optional, many US customers prefer it)
-- [ ] Handle payment callbacks and webhooks (already done)
 
 **Files to create/modify:**
 - `src/modules/checkout/ui/components/payment-methods.tsx` - Payment method selector
@@ -68,7 +40,7 @@
 
 ## Priority 2: User Experience Features (Should Have)
 
-### 5. Reviews & Ratings
+### 3. Reviews & Ratings
 - [ ] Create Reviews collection (product, user, rating, comment, images)
 - [ ] Add review submission form (only for purchased products)
 - [ ] Display reviews on product page
@@ -83,7 +55,7 @@
 
 ---
 
-### 6. Wishlist/Favorites
+### 4. Wishlist/Favorites
 - [ ] Add wishlist field to Users collection
 - [ ] Create wishlist page (`/wishlist`)
 - [ ] Add "Add to Wishlist" button on product page
@@ -98,7 +70,7 @@
 
 ---
 
-### 7. Coupon & Discount System
+### 5. Coupon & Discount System
 - [ ] Create Coupons collection (code, discount type, value, expiry, usage limit)
 - [ ] Add coupon code input at checkout
 - [ ] Apply discount to order total
@@ -112,7 +84,7 @@
 
 ---
 
-### 8. Email Notifications
+### 6. Email Notifications
 - [ ] Order confirmation email
 - [ ] Order shipped notification
 - [ ] Order delivered confirmation
@@ -128,7 +100,7 @@
 
 ## Priority 3: Business Features (Nice to Have)
 
-### 9. US Sales Tax Calculation
+### 7. US Sales Tax Calculation
 - [ ] Integrate tax calculation API (TaxJar, Avalara, or Stripe Tax)
 - [ ] Calculate sales tax based on shipping address (state-specific)
 - [ ] Handle tax-exempt states (if applicable)
@@ -138,20 +110,20 @@
 
 **Files to create/modify:**
 - `src/lib/tax-calculation.ts` - Tax calculation service
-- `src/collections/Orders.ts` - Add tax fields
+- `src/collections/Orders.ts` - Add tax fields (if not already present)
 - `src/modules/checkout/server/procedures.ts` - Add tax calculation
-- `src/modules/checkout/ui/views/checkout-view.tsx` - Show tax breakdown
+- `src/modules/checkout/ui/views/checkout-view.tsx` - Show tax breakdown (currently using placeholder 8%)
 
 ---
 
-### 10. US Shipping Cost Calculation
+### 8. US Shipping Cost Calculation
 - [ ] Add US shipping zones (based on state/zipcode)
 - [ ] Integrate shipping API (USPS, FedEx, UPS) or use flat rates
 - [ ] Calculate shipping cost based on weight/distance
-- [ ] Free shipping threshold (e.g., above $75 or $100)
 - [ ] Express delivery option (2-day, overnight)
 - [ ] International shipping option (if needed)
 - [ ] Show estimated delivery dates
+- [ ] Note: Free shipping threshold ($75) already implemented
 
 **Files to create:**
 - `src/collections/ShippingZones.ts` - US shipping zones collection
@@ -161,7 +133,7 @@
 
 ---
 
-### 11. Product Size Guide (US/Indian Conversion)
+### 9. Product Size Guide (US/Indian Conversion)
 - [ ] Add size chart images for clothing
 - [ ] Size guide modal on product page
 - [ ] US to Indian size conversion chart
@@ -176,21 +148,21 @@
 
 ---
 
-### 12. Multiple Product Images Gallery
-- [ ] Product image carousel/gallery
-- [ ] Zoom functionality on hover
-- [ ] Thumbnail navigation
-- [ ] Image lazy loading
+### 10. Multiple Product Images Gallery Enhancement
+- [ ] Enhance product image gallery with carousel functionality
+- [ ] Add zoom functionality on hover
+- [ ] Improve thumbnail navigation (currently basic implementation exists)
+- [ ] Add image lazy loading
+- [ ] Use existing images array from Products collection
 
 **Files to modify:**
-- `src/modules/products/ui/components/product-view.tsx` - Add image gallery
-- `src/collections/Products.ts` - Already has images array, just need UI
+- `src/modules/products/ui/components/product-view.tsx` - Enhance image gallery
 
 ---
 
 ## Priority 4: Admin & Analytics
 
-### 13. Admin Dashboard
+### 11. Admin Dashboard
 - [ ] Sales overview (revenue, orders, customers)
 - [ ] Recent orders table
 - [ ] Low stock alerts
@@ -204,7 +176,7 @@
 
 ---
 
-### 14. Inventory Management
+### 12. Inventory Management
 - [ ] Low stock notifications
 - [ ] Bulk stock update
 - [ ] Stock history tracking
@@ -218,7 +190,7 @@
 
 ## Priority 5: Mobile & Performance
 
-### 15. Mobile Optimization
+### 13. Mobile Optimization
 - [ ] Responsive design improvements
 - [ ] Mobile-first checkout flow
 - [ ] Touch-friendly buttons and inputs
@@ -226,7 +198,7 @@
 
 ---
 
-### 16. Search & Filters Enhancement
+### 14. Search & Filters Enhancement
 - [ ] Advanced search with filters (price range, size, color, category)
 - [ ] Search suggestions/autocomplete
 - [ ] Recently viewed products
@@ -240,14 +212,12 @@
 
 ## Quick Wins (Can be done quickly)
 
-1. **Add "Out of Stock" badge** - Simple UI change
-2. **Add product image gallery** - Use existing images array
-3. **Add order number** - Simple field addition
-4. **Add US sales tax calculation** - Use Stripe Tax API (easiest)
-5. **Add size selector** - UI component for variants
-6. **Add wishlist button** - Simple toggle functionality
-7. **Add "Made in India" badge** - Marketing differentiator
-8. **Add estimated delivery date** - Show shipping timeline
+1. **Enhance product image gallery** - Add carousel and zoom to existing basic gallery
+2. **Add US sales tax calculation** - Use Stripe Tax API (easiest)
+3. **Add wishlist button** - Simple toggle functionality
+4. **Add "Made in India" badge** - Marketing differentiator
+5. **Add estimated delivery date** - Show shipping timeline
+6. **Add size guide modal** - Quick implementation for product pages
 
 ---
 
@@ -256,18 +226,19 @@
 ### Payment & Currency
 - **Payment**: ✅ Stripe already integrated (perfect for US market)
 - **Currency**: ✅ USD already implemented
-- **Additional Options**: Apple Pay, Google Pay, PayPal (optional)
+- **Additional Options**: Apple Pay, Google Pay, PayPal (pending)
 
 ### Tax & Compliance
 - **Sales Tax**: Varies by state (0% to ~10%), use Stripe Tax API (easiest) or TaxJar
 - **Tax Nexus**: Only charge tax in states where you have nexus
 - **No GST**: Not applicable for US sales
+- **Current**: Placeholder 8% tax in checkout (needs proper calculation)
 
 ### Shipping
-- **Address Format**: US format (street, city, state, zipcode)
+- **Address Format**: ✅ US format (street, city, state, zipcode) - Implemented
 - **Carriers**: USPS (cheapest), FedEx, UPS (faster, more expensive)
 - **Options**: Flat rate, weight-based, or carrier API integration
-- **Free Shipping**: Common threshold is $75-$100 in US
+- **Free Shipping**: ✅ $75 threshold implemented
 - **International**: If shipping from India, consider customs/duties notice
 
 ### Product Information
@@ -292,14 +263,14 @@
 
 ## Estimated Timeline
 
-- **Priority 1** (Core features): 4-6 weeks
+- **Priority 1** (Remaining core features): 1-2 weeks
 - **Priority 2** (UX features): 3-4 weeks
 - **Priority 3** (Business features): 2-3 weeks
 - **Priority 4** (Admin): 2 weeks
 - **Priority 5** (Polish): Ongoing
 
-**Total**: ~12-15 weeks for full-featured boutique platform
+**Total**: ~8-11 weeks for remaining features
 
 ---
 
-**Last Updated**: [Current Date]
+**Last Updated**: 2024-12-19
