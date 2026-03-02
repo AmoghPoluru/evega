@@ -439,6 +439,8 @@ export interface Role {
   createdAt: string;
 }
 /**
+ * Manage product categories and their variant configurations
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "categories".
  */
@@ -521,6 +523,8 @@ export interface Category {
   createdAt: string;
 }
 /**
+ * Define variant types (e.g., Size, Color, Material). These are assigned to categories.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "variant-types".
  */
@@ -583,6 +587,10 @@ export interface Product {
   subcategory?: (string | null) | Category;
   image?: (string | null) | Media;
   cover?: (string | null) | Media;
+  /**
+   * Product video (MP4, WebM, etc.) - vendors can upload product demonstration videos
+   */
+  video?: (string | null) | Media;
   refundPolicy?: ('30-day' | '14-day' | '7-day' | '3-day' | '1-day' | 'no-refunds') | null;
   /**
    * Protected content only visible to customers after purchase. Add product documentation, downloadable files, getting started guides, and bonus materials. Supports Markdown formatting
@@ -615,24 +623,28 @@ export interface Product {
    */
   tags?: (string | Tag)[] | null;
   /**
-   * Add size and color variants with inventory and price adjustments. Leave empty if product has no variants.
+   * ⚠️ Use the Vendor Dashboard (/vendor/products) to create products with variants. Variant fields are dynamically generated based on the selected category. This field is for advanced users only.
    */
   variants?:
     | {
         /**
-         * Size variant (optional if using color only)
+         * Dynamic variant data based on category variant types (e.g., { size: 'M', color: 'Red', material: 'Silk' })
          */
-        size?: ('XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL') | null;
-        /**
-         * Color variant (e.g., Red, Blue, Black) - optional if using size only
-         */
-        color?: string | null;
+        variantData:
+          | {
+              [k: string]: unknown;
+            }
+          | unknown[]
+          | string
+          | number
+          | boolean
+          | null;
         /**
          * Available inventory for this variant
          */
         stock: number;
         /**
-         * Price for this specific variant. If not set, uses the product's base price. Each size/color combination can have its own price.
+         * Price for this specific variant. If not set, uses the product's base price.
          */
         price?: number | null;
         id?: string | null;
@@ -718,9 +730,17 @@ export interface Order {
       }[]
     | null;
   /**
-   * Total order amount in USD
+   * Total order amount in USD (customer paid amount)
    */
   total: number;
+  /**
+   * Platform commission amount (calculated from vendor commissionRate)
+   */
+  commission?: number | null;
+  /**
+   * Commission rate (%) used for this order (snapshot from vendor at time of order)
+   */
+  commissionRate?: number | null;
   /**
    * Quantity of items ordered
    */
@@ -991,6 +1011,8 @@ export interface Customer {
   createdAt: string;
 }
 /**
+ * Manage variant option values (e.g., 'Small', 'Red', 'Silk'). These appear in product variant dropdowns.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "variant-options".
  */
@@ -1255,6 +1277,7 @@ export interface ProductsSelect<T extends boolean = true> {
   subcategory?: T;
   image?: T;
   cover?: T;
+  video?: T;
   refundPolicy?: T;
   content?: T;
   isPrivate?: T;
@@ -1263,8 +1286,7 @@ export interface ProductsSelect<T extends boolean = true> {
   variants?:
     | T
     | {
-        size?: T;
-        color?: T;
+        variantData?: T;
         stock?: T;
         price?: T;
         id?: T;
@@ -1316,6 +1338,8 @@ export interface OrdersSelect<T extends boolean = true> {
         id?: T;
       };
   total?: T;
+  commission?: T;
+  commissionRate?: T;
   quantity?: T;
   size?: T;
   color?: T;

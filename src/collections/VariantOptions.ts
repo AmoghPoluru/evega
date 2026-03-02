@@ -12,7 +12,7 @@ export const VariantOptions: CollectionConfig = {
   },
   admin: {
     useAsTitle: "value",
-    hidden: ({ user }) => !isSuperAdmin(user as any),
+    description: "Manage variant option values (e.g., 'Small', 'Red', 'Silk'). These appear in product variant dropdowns.",
   },
   fields: [
     {

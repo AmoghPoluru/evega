@@ -25,6 +25,11 @@ interface Product {
     id: string;
     name: string;
   } | string> | null;
+  variants?: Array<{
+    variantData?: Record<string, any>; // Dynamic variant data
+    stock: number;
+    price?: number | null;
+  }> | null;
 }
 
 interface ProductsListProps {
@@ -53,12 +58,44 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
     return Array.from(tagSet).sort();
   }, [products]);
 
+  // Extract available variant options dynamically from products
+  const availableVariants = useMemo(() => {
+    const variantMap: Record<string, Set<string>> = {};
+    
+    products.forEach((product) => {
+      if (product.variants && Array.isArray(product.variants)) {
+        product.variants.forEach((variant) => {
+          const variantData = variant.variantData || {};
+          Object.keys(variantData).forEach((variantType) => {
+            const value = variantData[variantType];
+            if (value && typeof value === 'string') {
+              if (!variantMap[variantType]) {
+                variantMap[variantType] = new Set();
+              }
+              variantMap[variantType].add(value);
+            }
+          });
+        });
+      }
+    });
+    
+    // Convert Sets to sorted arrays
+    const result: Record<string, string[]> = {};
+    Object.keys(variantMap).forEach((variantType) => {
+      result[variantType] = Array.from(variantMap[variantType]).sort();
+    });
+    
+    return result;
+  }, [products]);
+
   // Check if any filters are active
   const hasAnyFilters = useMemo(() => {
+    const hasVariantFilters = filters.variants && Object.values(filters.variants).some((values) => values.length > 0);
     return (
       (filters.minPrice && filters.minPrice !== "") ||
       (filters.maxPrice && filters.maxPrice !== "") ||
-      (filters.tags && filters.tags.length > 0)
+      (filters.tags && filters.tags.length > 0) ||
+      hasVariantFilters
     );
   }, [filters]);
 
@@ -68,6 +105,7 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
       minPrice: "",
       maxPrice: "",
       tags: [],
+      variants: {},
       sort: undefined,
     });
   };
@@ -92,7 +130,7 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
     }
 
     // Filter by tags
-    if (filters.tags.length > 0) {
+    if (filters.tags && filters.tags.length > 0) {
       filtered = filtered.filter((product) => {
         if (!product.tags || !Array.isArray(product.tags)) {
           return false;
@@ -109,7 +147,33 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
         }).filter(Boolean);
         
         // Product must have at least one of the selected tags
-        return filters.tags.some((selectedTag) => productTagNames.includes(selectedTag));
+        return filters.tags!.some((selectedTag) => productTagNames.includes(selectedTag));
+      });
+    }
+
+    // Filter by dynamic variants
+    if (filters.variants && Object.keys(filters.variants).length > 0) {
+      filtered = filtered.filter((product) => {
+        if (!product.variants || !Array.isArray(product.variants)) {
+          return false;
+        }
+        
+        // Check if product has at least one variant matching all selected variant filters
+        return product.variants.some((variant) => {
+          const variantData = variant.variantData || {};
+          
+          // Check each variant type filter
+          for (const [variantType, selectedValues] of Object.entries(filters.variants!)) {
+            if (selectedValues.length === 0) continue; // Skip empty filters
+            
+            const variantValue = variantData[variantType];
+            if (!variantValue || !selectedValues.includes(String(variantValue))) {
+              return false; // This variant doesn't match
+            }
+          }
+          
+          return true; // All variant filters match
+        });
       });
     }
 
@@ -121,7 +185,11 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
       {/* Filters Sidebar */}
       <aside className="hidden lg:block w-64 shrink-0">
         <div className="sticky top-4">
-          <ProductFilters availableTags={availableTags} products={products} />
+          <ProductFilters 
+            availableTags={availableTags} 
+            availableVariants={availableVariants}
+            products={products} 
+          />
         </div>
       </aside>
 

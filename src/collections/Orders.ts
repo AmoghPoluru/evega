@@ -138,7 +138,7 @@ export const Orders: CollectionConfig = {
                 doc.total,
                 [
                   {
-                    name: product.title || product.name || "Product",
+                    name: product.name || "Product",
                     quantity: doc.quantity || 1,
                     price: doc.total,
                   },
@@ -264,7 +264,23 @@ export const Orders: CollectionConfig = {
       type: "number",
       required: true,
       admin: {
-        description: "Total order amount in USD",
+        description: "Total order amount in USD (customer paid amount)",
+      },
+    },
+    {
+      name: "commission",
+      type: "number",
+      admin: {
+        description: "Platform commission amount (calculated from vendor commissionRate)",
+        readOnly: true,
+      },
+    },
+    {
+      name: "commissionRate",
+      type: "number",
+      admin: {
+        description: "Commission rate (%) used for this order (snapshot from vendor at time of order)",
+        readOnly: true,
       },
     },
     {

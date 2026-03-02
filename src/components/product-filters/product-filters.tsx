@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 
 import { TagsFilter } from "./tags-filter";
 import { PriceFilter } from "./price-filter";
+import { VariantFilter } from "./variant-filter";
 import { useProductFilters } from "./product-filters-provider";
 
 interface ProductFilterProps {
@@ -42,10 +43,15 @@ const ProductFilter = ({ title, className, children }: ProductFilterProps) => {
 
 interface ProductFiltersProps {
   availableTags?: string[];
+  availableVariants?: Record<string, string[]>; // Dynamic variant options: { "size": ["M", "L"], "color": ["Red", "Blue"] }
   products?: Array<{ price: number }>;
 }
 
-export const ProductFilters = ({ availableTags = [], products = [] }: ProductFiltersProps) => {
+export const ProductFilters = ({ 
+  availableTags = [], 
+  availableVariants = {},
+  products = [] 
+}: ProductFiltersProps) => {
   const [filters, setFilters] = useProductFilters();
 
   const hasAnyFilters = Object.entries(filters).some(([key, value]) => {
@@ -67,6 +73,7 @@ export const ProductFilters = ({ availableTags = [], products = [] }: ProductFil
       minPrice: "",
       maxPrice: "",
       tags: [],
+      variants: {},
     });
   };
 
@@ -99,6 +106,32 @@ export const ProductFilters = ({ availableTags = [], products = [] }: ProductFil
           products={products}
         />
       </ProductFilter>
+      {/* Dynamic Variant Filters */}
+      {Object.keys(availableVariants).map((variantType) => {
+        const options = availableVariants[variantType];
+        if (!options || options.length === 0) return null;
+        
+        // Capitalize first letter for display
+        const variantLabel = variantType.charAt(0).toUpperCase() + variantType.slice(1);
+        const variantFilters = filters.variants || {};
+        
+        return (
+          <ProductFilter key={variantType} title={variantLabel}>
+            <VariantFilter
+              variantType={variantType}
+              variantLabel={variantLabel}
+              availableOptions={options}
+              value={variantFilters[variantType] || []}
+              onChange={(value: string[]) => {
+                onChange("variants", {
+                  ...variantFilters,
+                  [variantType]: value,
+                });
+              }}
+            />
+          </ProductFilter>
+        );
+      })}
       {availableTags.length > 0 && (
         <ProductFilter title="Tags" className="border-b-0">
           <TagsFilter

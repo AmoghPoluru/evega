@@ -12,7 +12,7 @@ export const VariantTypes: CollectionConfig = {
   },
   admin: {
     useAsTitle: "name",
-    hidden: ({ user }) => !isSuperAdmin(user as any),
+    description: "Define variant types (e.g., Size, Color, Material). These are assigned to categories.",
   },
   fields: [
     {

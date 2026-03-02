@@ -41,12 +41,12 @@ const productFormSchema = z.object({
   subcategory: z.string().optional(),
   image: z.string().optional(),
   cover: z.string().optional(),
+  video: z.string().optional(),
   refundPolicy: z.enum(["30-day", "14-day", "7-day", "3-day", "1-day", "no-refunds"]).optional(),
   tags: z.array(z.string()).optional(),
   variants: z.array(
     z.object({
-      size: z.enum(["XS", "S", "M", "L", "XL", "XXL"]).optional(),
-      color: z.string().optional(),
+      variantData: z.record(z.any()), // Dynamic variant data based on category
       stock: z.number().min(0).default(0),
       price: z.number().optional(),
     })
@@ -66,12 +66,21 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   const isEditing = !!product;
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const { data: categoriesData } = trpc.categories.useQuery();
   const { data: tagsData } = trpc.tags.getMany.useQuery({ limit: 100 });
+  
+  // Fetch category variant config when category is selected
+  const selectedCategoryId = form.watch("category");
+  const { data: categoryData } = trpc.getCategory.useQuery(
+    { id: selectedCategoryId },
+    { enabled: !!selectedCategoryId }
+  );
 
   const queryClient = trpc.useUtils();
 
@@ -85,11 +94,16 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       subcategory: typeof product?.subcategory === "string" ? product.subcategory : product?.subcategory?.id || "",
       image: typeof product?.image === "string" ? product.image : product?.image?.id || "",
       cover: typeof product?.cover === "string" ? product.cover : product?.cover?.id || "",
+      video: typeof product?.video === "string" ? product.video : product?.video?.id || "",
       refundPolicy: product?.refundPolicy || "30-day",
       tags: product?.tags
         ? product.tags.map((tag) => (typeof tag === "string" ? tag : tag.id))
         : [],
-      variants: product?.variants || [],
+      variants: product?.variants?.map((v: any) => ({
+        variantData: v.variantData || (v.size || v.color ? { size: v.size, color: v.color } : {}),
+        stock: v.stock || 0,
+        price: v.price,
+      })) || [],
       isPrivate: product?.isPrivate ?? true,
     },
   });
@@ -124,14 +138,16 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
     },
   });
 
-  const handleImageUpload = async (file: File, type: "image" | "cover") => {
+  const handleImageUpload = async (file: File, type: "image" | "cover" | "video") => {
     const formData = new FormData();
     formData.append("file", file);
 
     if (type === "image") {
       setUploadingImage(true);
-    } else {
+    } else if (type === "cover") {
       setUploadingCover(true);
+    } else {
+      setUploadingVideo(true);
     }
 
     try {
@@ -154,8 +170,10 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       reader.onloadend = () => {
         if (type === "image") {
           setImagePreview(reader.result as string);
-        } else {
+        } else if (type === "cover") {
           setCoverPreview(reader.result as string);
+        } else {
+          setVideoPreview(reader.result as string);
         }
       };
       reader.readAsDataURL(file);
@@ -164,8 +182,10 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
     } finally {
       if (type === "image") {
         setUploadingImage(false);
-      } else {
+      } else if (type === "cover") {
         setUploadingCover(false);
+      } else {
+        setUploadingVideo(false);
       }
     }
   };
@@ -181,6 +201,12 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       const cover = typeof product.cover === "object" ? product.cover : null;
       if (cover?.url) {
         setCoverPreview(cover.url);
+      }
+    }
+    if (product?.video) {
+      const video = typeof product.video === "object" ? product.video : null;
+      if (video?.url) {
+        setVideoPreview(video.url);
       }
     }
   }, [product]);
@@ -554,107 +580,275 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
           </CardContent>
         </Card>
 
-        {/* Variants */}
+        {/* Video */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Product Video</CardTitle>
+            <CardDescription>Upload a product demonstration video (optional)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FormField
+              control={form.control}
+              name="video"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Product Video (Optional)</FormLabel>
+                  <FormDescription>
+                    Upload a video showcasing your product (MP4, WebM, etc.)
+                  </FormDescription>
+                  <FormControl>
+                    <div className="space-y-2">
+                      {videoPreview ? (
+                        <div className="relative w-full rounded-md overflow-hidden border">
+                          <video
+                            src={videoPreview}
+                            controls
+                            className="w-full h-auto max-h-96"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2"
+                            onClick={() => {
+                              setVideoPreview(null);
+                              field.onChange("");
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-gray-300 rounded-md p-6">
+                          <label className="cursor-pointer">
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="video/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  handleImageUpload(file, "video");
+                                }
+                              }}
+                              disabled={uploadingVideo}
+                            />
+                            <div className="flex flex-col items-center justify-center space-y-2">
+                              <Upload className="h-8 w-8 text-gray-400" />
+                              <span className="text-sm text-gray-600">
+                                {uploadingVideo ? "Uploading..." : "Click to upload video"}
+                              </span>
+                            </div>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Variants - Dynamic based on category */}
         <Card>
           <CardHeader>
             <CardTitle>Product Variants</CardTitle>
-            <CardDescription>Add size and color variants with inventory</CardDescription>
+            <CardDescription>
+              {!selectedCategoryId 
+                ? "⚠️ Please select a category first to see available variant options."
+                : categoryData?.variantConfig?.requiredVariants?.length 
+                  ? `Required variants: ${categoryData.variantConfig.requiredVariants.map((vt: any) => typeof vt === 'object' ? vt.name : vt).join(', ')}`
+                  : categoryData?.variantConfig
+                    ? "Add variants based on category requirements (optional variants available)"
+                    : "⚠️ Selected category doesn't have variant configuration. You can still add variants manually."}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {fields.map((field, index) => (
-              <div key={field.id} className="grid grid-cols-5 gap-4 items-end border p-4 rounded-md">
-                <FormField
-                  control={form.control}
-                  name={`variants.${index}.size`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Size</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Size" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="XS">XS</SelectItem>
-                          <SelectItem value="S">S</SelectItem>
-                          <SelectItem value="M">M</SelectItem>
-                          <SelectItem value="L">L</SelectItem>
-                          <SelectItem value="XL">XL</SelectItem>
-                          <SelectItem value="XXL">XXL</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`variants.${index}.color`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Color</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Color" {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`variants.${index}.stock`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Stock</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          placeholder="0"
-                          {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`variants.${index}.price`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Price (Optional)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="Base price"
-                          {...field}
-                          onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={() => remove(index)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+            {!selectedCategoryId ? (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                <p className="text-sm text-yellow-800">
+                  <strong>Step 1:</strong> Select a category above to see dynamic variant fields (Size, Color, Material, etc.)
+                </p>
               </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => append({ stock: 0 })}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Variant
-            </Button>
-          </CardContent>
-        </Card>
+            ) : !categoryData?.variantConfig ? (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-800">
+                  This category doesn't have variant configuration. You can add variants manually using the JSON format, or configure variants for this category in the Categories collection.
+                </p>
+              </div>
+            ) : null}
+            
+            {fields.map((field, index) => {
+              const variantData = form.watch(`variants.${index}.variantData`) || {};
+              const variantTypes = categoryData?.variantConfig?.variantTypes || [];
+              const requiredVariantSlugs = (categoryData?.variantConfig?.requiredVariants || [])
+                .map((vt: any) => typeof vt === 'object' ? vt.slug : vt)
+                .filter(Boolean);
+              
+              return (
+                <div key={field.id} className="border p-4 rounded-md space-y-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium text-sm">Variant {index + 1}</h4>
+                  </div>
+                  
+                  {variantTypes.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {variantTypes.map((variantType: any) => {
+                        const options = categoryData.variantConfig?.variantOptionsMap?.[variantType.slug] || [];
+                        const isRequired = requiredVariantSlugs.includes(variantType.slug);
+                        const currentValue = variantData[variantType.slug] || "";
+                        
+                        return (
+                          <FormField
+                            key={variantType.slug}
+                            control={form.control}
+                            name={`variants.${index}.variantData.${variantType.slug}`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  {variantType.name}
+                                  {isRequired && <span className="text-red-500 ml-1">*</span>}
+                                </FormLabel>
+                                {options.length > 0 ? (
+                                  <Select 
+                                    onValueChange={(value) => {
+                                      const currentData = form.getValues(`variants.${index}.variantData`) || {};
+                                      form.setValue(`variants.${index}.variantData`, {
+                                        ...currentData,
+                                        [variantType.slug]: value,
+                                      });
+                                    }} 
+                                    value={currentValue}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder={`Select ${variantType.name}`} />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {options.map((option: any) => {
+                                        const value = typeof option === 'string' ? option : option.value;
+                                        const label = typeof option === 'string' ? option : (option.label || option.value);
+                                        return (
+                                          <SelectItem key={value} value={value}>
+                                            {typeof option === 'object' && option.hexCode ? (
+                                              <div className="flex items-center gap-2">
+                                                <div 
+                                                  className="w-4 h-4 rounded border border-gray-300"
+                                                  style={{ backgroundColor: option.hexCode }}
+                                                />
+                                                <span>{label}</span>
+                                              </div>
+                                            ) : (
+                                              label
+                                            )}
+                                          </SelectItem>
+                                        );
+                                      })}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <FormControl>
+                                    <Input 
+                                      placeholder={`Enter ${variantType.name}`}
+                                      value={currentValue}
+                                      onChange={(e) => {
+                                        const currentData = form.getValues(`variants.${index}.variantData`) || {};
+                                        form.setValue(`variants.${index}.variantData`, {
+                                          ...currentData,
+                                          [variantType.slug]: e.target.value,
+                                        });
+                                      }}
+                                    />
+                                  </FormControl>
+                                )}
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md">
+                      <p className="text-xs text-gray-600 mb-2">
+                        No variant types configured for this category. Example JSON format:
+                      </p>
+                      <code className="text-xs bg-white p-2 rounded border block">
+                        {`{ "size": "Small", "color": "Red" }`}
+                      </code>
+                    </div>
+                  )}
+                        <div className="grid grid-cols-3 gap-4 pt-2 border-t">
+                          <FormField
+                            control={form.control}
+                            name={`variants.${index}.stock`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Stock *</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    placeholder="0"
+                                    {...field}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`variants.${index}.price`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Price (Optional)</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="Base price"
+                                    {...field}
+                                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <div className="flex items-end">
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              onClick={() => remove(index)}
+                              className="w-full"
+                            >
+                              <X className="h-4 w-4 mr-2" />
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => append({ variantData: {}, stock: 0 })}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Variant
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Visibility */}
         <Card>

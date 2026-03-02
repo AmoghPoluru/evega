@@ -12,7 +12,7 @@ export const Categories: CollectionConfig = {
   },
   admin: {
     useAsTitle: "name",
-    hidden: ({ user }) => !isSuperAdmin(user as any),
+    description: "Manage product categories and their variant configurations",
   },
   fields: [
     {

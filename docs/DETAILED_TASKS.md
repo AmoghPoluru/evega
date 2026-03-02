@@ -952,9 +952,82 @@
 
 ---
 
+## Payment & Commission Features
+
+171. ✅ Add video component to product pages
+    - **Tech**: Add video upload field to Products collection and display video on product detail page
+    - **Details**: 
+      - Add `video` field (upload type, relationTo: media) to Products collection
+      - Filter video field to accept only video MIME types (video/*)
+      - Add video upload functionality to vendor product form with drag-and-drop
+      - Display HTML5 video player on product detail page below product images
+      - Support common video formats (MP4, WebM, MOV, etc.)
+      - Include video preview in product form
+    - **Status**: ✅ Video component implemented
+    - **Files**: `src/collections/Products.ts`, `src/app/(app)/vendor/products/components/ProductForm.tsx`, `src/modules/products/ui/components/product-view.tsx`
+
+172. ✅ Implement configurable commission system
+    - **Tech**: Add `commissionRate` field to Vendors collection, calculate commission in Stripe webhook
+    - **Details**: 
+      - Add `commissionRate` field (number, default 10%) to Vendors collection
+      - Add `commission`, `vendorPayout`, and `commissionRate` fields to Orders collection
+      - Update Stripe webhook to fetch vendor's commission rate and calculate commission amount
+      - Calculate: `commission = (total * commissionRate) / 100`
+      - Calculate: `vendorPayout = total - commission`
+      - Store commission and vendor payout in order record
+      - Commission is configurable per vendor (default 10%, can be changed per vendor)
+    - **Status**: ✅ Commission system implemented
+    - **Files**: `src/collections/Vendors.ts`, `src/collections/Orders.ts`, `src/app/api/stripe/webhook/route.ts`
+
+## Authentication & Security Features
+
+173. ✅ Require authentication for checkout
+    - **Tech**: Add authentication check to checkout page route
+    - **Details**: 
+      - Check if user is authenticated before allowing access to `/checkout`
+      - Redirect unauthenticated users to `/sign-in?redirect=/checkout`
+      - After successful login, redirect back to checkout page
+    - **Status**: ✅ Checkout authentication implemented
+    - **Files**: `src/app/(app)/checkout/page.tsx`
+
+174. ✅ Require authentication for add to cart
+    - **Tech**: Add authentication checks to cart functionality
+    - **Details**: 
+      - Check authentication before allowing "Add to cart" action
+      - Check authentication before allowing "Buy Now" action
+      - Redirect to sign-in with redirect parameter to return to product page
+      - Show error toast if user tries to add to cart without being logged in
+    - **Status**: ✅ Add to cart authentication implemented
+    - **Files**: `src/modules/products/ui/components/cart-button.tsx`, `src/modules/products/ui/components/product-view.tsx`
+
+175. ✅ Implement redirect after authentication
+    - **Tech**: Handle redirect parameter in sign-in flow
+    - **Details**: 
+      - Read `redirect` query parameter from sign-in URL
+      - After successful login (email/password or OAuth), redirect to intended page
+      - Support redirect for checkout, product pages, and other protected routes
+      - Default to home page if no redirect specified
+    - **Status**: ✅ Redirect after authentication implemented
+    - **Files**: `src/modules/auth/ui/views/sign-in-view.tsx`, `src/app/(auth)/sign-in/page.tsx`, `src/modules/auth/ui/components/social-login-buttons.tsx`
+
+## Checkout & Cart Features
+
+176. ✅ Add remove item functionality to checkout
+    - **Tech**: Add remove button to each item in checkout order list
+    - **Details**: 
+      - Display remove (X) button on each cart item in checkout page
+      - Remove button positioned in top-right corner of each item
+      - On click, remove item from cart using `removeProduct` function
+      - Show success toast notification when item is removed
+      - Update cart totals immediately after removal
+    - **Status**: ✅ Remove item from checkout implemented
+    - **Files**: `src/modules/checkout/ui/views/checkout-view.tsx`
+
+---
+
 ## Summary
 
-**Total Tasks Documented: 170** (Updated from 138)
+**Total Tasks Documented: 176** (Updated from 172)
 
 **Completed: ~110 tasks (65%)**
 **Pending: ~60 tasks (35%)**
@@ -962,6 +1035,7 @@
 **Breakdown**:
 - **Original Tasks (1-138)**: 110 completed, 28 pending
 - **New Tasks (139-170)**: 0 completed, 32 pending
+- **Latest Tasks (171-176)**: 6 completed, 0 pending
 
 ### Key Features Implemented:
 - ✅ Multi-vendor marketplace architecture
@@ -977,6 +1051,12 @@
 - ✅ Search and filters
 - ✅ Hero banners
 - ✅ CSV product import
+- ✅ Configurable commission system (per vendor)
+- ✅ Product video upload and display
+- ✅ Checkout authentication requirement
+- ✅ Add to cart authentication requirement
+- ✅ Redirect after authentication
+- ✅ Remove items from checkout
 
 ### Pending Features:
 - ⚠️ Comprehensive testing suite

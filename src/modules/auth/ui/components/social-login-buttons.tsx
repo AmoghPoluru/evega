@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { signIn, getProviders } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export const SocialLoginButtons = () => {
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/";
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [providers, setProviders] = useState<Record<string, any> | null>(null);
@@ -27,7 +30,7 @@ export const SocialLoginButtons = () => {
       
       // Check if Google provider is configured
       const result = await signIn("google", {
-        callbackUrl: "/",
+        callbackUrl: redirectTo,
         redirect: true, // Let NextAuth handle the redirect
       });
       
@@ -55,7 +58,7 @@ export const SocialLoginButtons = () => {
       
       // Check if Facebook provider is configured
       const result = await signIn("facebook", {
-        callbackUrl: "/",
+        callbackUrl: redirectTo,
         redirect: true, // Let NextAuth handle the redirect
       });
       

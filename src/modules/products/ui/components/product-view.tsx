@@ -33,75 +33,91 @@ export const ProductView = ({ productId }: ProductViewProps) => {
   const router = useRouter();
   const { removeProduct, addProduct } = useCart();
   const { data, isLoading, error } = trpc.products.getOne.useQuery({ id: productId });
+  const { data: session } = trpc.auth.session.useQuery();
+
+  // Get category ID for fetching variant config
+  const categoryId = typeof data?.category === 'string' ? data.category : data?.category?.id;
+  const { data: categoryData } = trpc.getCategory.useQuery(
+    { id: categoryId || '' },
+    { enabled: !!categoryId }
+  );
 
   const [isCopied, setIsCopied] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  const [selectedSize, setSelectedSize] = useState<string | undefined>(undefined);
-  const [selectedColor, setSelectedColor] = useState<string | undefined>(undefined);
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [isBuyNowLoading, setIsBuyNowLoading] = useState(false);
   
   // Check if product has variants
   const hasVariants = data?.variants && Array.isArray(data.variants) && data.variants.length > 0;
   
-  // Get unique sizes - show all sizes that exist (standalone or with any color)
-  const availableSizes = hasVariants && data?.variants
-    ? Array.from(new Set(
-        data.variants
-          .filter((v: any) => v.size && v.stock > 0)
-          .map((v: any) => v.size)
-      ))
+  // Extract variant types dynamically from product variants
+  const variantTypes = hasVariants && data?.variants
+    ? (() => {
+        const types = new Set<string>();
+        data.variants.forEach((v: any) => {
+          const variantData = v.variantData || {};
+          Object.keys(variantData).forEach((key) => {
+            if (variantData[key]) types.add(key);
+          });
+        });
+        return Array.from(types);
+      })()
     : [];
+
+  // Get available options for each variant type
+  const variantOptions: Record<string, string[]> = {};
+  variantTypes.forEach((variantType) => {
+    const options = new Set<string>();
+    data?.variants?.forEach((v: any) => {
+      const variantData = v.variantData || {};
+      const value = variantData[variantType];
+      if (value && v.stock > 0) {
+        options.add(String(value));
+      }
+    });
+    variantOptions[variantType] = Array.from(options).sort();
+  });
   
-  // Get unique colors - show all colors that exist (standalone or with any size)
-  const availableColors = hasVariants && data?.variants
-    ? Array.from(new Set(
-        data.variants
-          .filter((v: any) => v.color && v.stock > 0)
-          .map((v: any) => v.color)
-      ))
-    : [];
-  
-  // Get selected variant - exact match: both size AND color must match if both are selected
-  // Priority: exact match (size+color) > size-only > color-only
+  // Get selected variant - match all selected variant values
   const selectedVariant = hasVariants && data?.variants
     ? data.variants.find((v: any) => {
-        if (selectedSize && selectedColor) {
-          // Both selected: must match exactly (size+color combination)
-          return v.size === selectedSize && v.color === selectedColor;
-        } else if (selectedSize) {
-          // Only size selected: prefer size-only variant, but also accept size+any color if no size-only exists
-          const sizeOnly = v.size === selectedSize && !v.color;
-          if (sizeOnly) return true;
-          // If no size-only variant, accept any size variant (will use first one found)
-          return v.size === selectedSize;
-        } else if (selectedColor) {
-          // Only color selected: prefer color-only variant, but also accept any size+color if no color-only exists
-          const colorOnly = v.color === selectedColor && !v.size;
-          if (colorOnly) return true;
-          // If no color-only variant, accept any color variant (will use first one found)
-          return v.color === selectedColor;
-        }
-        return false;
+        const variantData = v.variantData || {};
+        // Check if all selected variant types match
+        return variantTypes.every((variantType) => {
+          const selectedValue = selectedVariants[variantType];
+          if (!selectedValue) return true; // Not required if not selected
+          return variantData[variantType] === selectedValue;
+        });
       })
     : null;
   
   const stockForSelectedVariant = selectedVariant?.stock || 0;
   
-  // Price is determined by color selection only (sizes don't affect price)
-  // If color is selected, use color variant price, otherwise use base price
-  const variantPrice = selectedColor && selectedVariant && (selectedVariant as any).price !== undefined && (selectedVariant as any).price !== null
+  // Price: use variant price if available, otherwise base price
+  const variantPrice = selectedVariant && (selectedVariant as any).price !== undefined && (selectedVariant as any).price !== null
     ? (selectedVariant as any).price
     : (data?.price || 0);
 
+  // Check if all required variants are selected
+  const requiredVariants = categoryData?.variantConfig?.requiredVariants?.map((vt: any) => 
+    typeof vt === 'object' ? vt.slug : vt
+  ) || [];
+  const allRequiredSelected = requiredVariants.every((vt: string) => selectedVariants[vt]);
+
   // Handle Buy Now - add to cart and navigate to checkout page
   const handleBuyNow = () => {
+    // Check if user is authenticated
+    if (!session?.user) {
+      toast.error("Please sign in to purchase");
+      router.push(`/sign-in?redirect=/products/${productId}`);
+      return;
+    }
+
     if (hasVariants) {
-      if (availableSizes.length > 0 && !selectedSize) {
-        toast.error("Please select a size");
-        return;
-      }
-      if (availableColors.length > 0 && !selectedColor) {
-        toast.error("Please select a color");
+      // Check if all required variants are selected
+      const missingRequired = requiredVariants.filter((vt: string) => !selectedVariants[vt]);
+      if (missingRequired.length > 0) {
+        toast.error(`Please select ${missingRequired.join(', ')}`);
         return;
       }
       if (stockForSelectedVariant === 0) {
@@ -113,12 +129,15 @@ export const ProductView = ({ productId }: ProductViewProps) => {
     setIsBuyNowLoading(true);
     
     // Add product to cart with selected variants and quantity
-    // Add the product multiple times to match selected quantity
+    // For backward compatibility, extract size and color if they exist
+    const size = selectedVariants.size || selectedVariants.blouseSize;
+    const color = selectedVariants.color;
+    
     for (let i = 0; i < quantity; i++) {
       addProduct(
         productId,
-        selectedSize,
-        selectedColor,
+        size,
+        color,
         variantPrice
       );
     }
@@ -182,6 +201,35 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                   </div>
                 ))}
               </div>
+
+              {/* Product Video */}
+              {(() => {
+                // Handle video field - can be object (populated) or string (ID)
+                const video = data?.video;
+                const videoUrl = typeof video === "object" && video?.url 
+                  ? video.url 
+                  : typeof video === "string" 
+                    ? null // If it's just an ID, we'd need to fetch it, but depth: 2 should populate it
+                    : null;
+                
+                return videoUrl ? (
+                  <div className="border border-gray-300 rounded-lg overflow-hidden bg-white mt-4">
+                    <div className="relative w-full">
+                      <video
+                        src={videoUrl}
+                        controls
+                        className="w-full h-auto"
+                        preload="metadata"
+                      >
+                        Your browser does not support the video tag.
+                      </video>
+                    </div>
+                    <p className="text-xs text-gray-500 p-2 text-center">
+                      Product demonstration video
+                    </p>
+                  </div>
+                ) : null;
+              })()}
             </div>
           </div>
 
@@ -353,167 +401,102 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                 {/* Shipping Address */}
                 <ShippingAddressDisplay />
 
-                {/* Size Selector (if product has variants with sizes) */}
-                {hasVariants && availableSizes.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-gray-700">
-                        Size: {selectedSize || "Select a size"}
-                      </label>
-                      {selectedSize && stockForSelectedVariant > 0 && (
-                        <span className="text-xs text-gray-500">
-                          {stockForSelectedVariant} in stock
-                        </span>
+                {/* Dynamic Variant Selectors */}
+                {hasVariants && variantTypes.map((variantType) => {
+                  const options = variantOptions[variantType] || [];
+                  if (options.length === 0) return null;
+                  
+                  const isRequired = requiredVariants.includes(variantType);
+                  const selectedValue = selectedVariants[variantType];
+                  const variantLabel = variantType.charAt(0).toUpperCase() + variantType.slice(1).replace(/([A-Z])/g, ' $1');
+                  
+                  return (
+                    <div key={variantType} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-gray-700">
+                          {variantLabel}: {selectedValue || `Select ${variantLabel.toLowerCase()}`}
+                          {isRequired && <span className="text-red-500 ml-1">*</span>}
+                        </label>
+                        {selectedValue && stockForSelectedVariant > 0 && (
+                          <span className="text-xs text-gray-500">
+                            {stockForSelectedVariant} in stock
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {options.map((option: string) => {
+                          // Find variant that matches this option and all other selected variants
+                          const variant = data?.variants?.find((v: any) => {
+                            const variantData = v.variantData || {};
+                            // Must match this option
+                            if (variantData[variantType] !== option) return false;
+                            // Must match all other selected variants
+                            return variantTypes.every((vt) => {
+                              if (vt === variantType) return true; // Skip current type
+                              const otherSelected = selectedVariants[vt];
+                              if (!otherSelected) return true; // Not selected, so any value is OK
+                              return variantData[vt] === otherSelected;
+                            });
+                          });
+                          
+                          const isOutOfStock = !variant || variant.stock === 0;
+                          const isSelected = selectedValue === option;
+                          
+                          return (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => {
+                                setSelectedVariants((prev) => ({
+                                  ...prev,
+                                  [variantType]: option,
+                                }));
+                              }}
+                              disabled={!variant || isOutOfStock}
+                              className={`
+                                px-4 py-2 border-2 rounded-lg text-sm font-medium transition-all
+                                ${isSelected
+                                  ? "border-orange-500 bg-orange-50 text-orange-700"
+                                  : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+                                }
+                                ${(!variant || isOutOfStock)
+                                  ? "opacity-50 cursor-not-allowed line-through"
+                                  : "cursor-pointer"
+                                }
+                              `}
+                            >
+                              <div className="flex flex-col items-center">
+                                <span>{option}</span>
+                                {variant && !isOutOfStock && (
+                                  <span className="text-xs text-gray-600 font-medium">
+                                    {variant.stock} in stock
+                                  </span>
+                                )}
+                              </div>
+                              {(!variant || isOutOfStock) && <span className="text-xs">(Out of Stock)</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {isRequired && !selectedValue && (
+                        <p className="text-xs text-red-600">Please select {variantLabel.toLowerCase()}</p>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {availableSizes.map((size: string) => {
-                        // Find variant: if color is selected, prefer size+color combo, otherwise size-only
-                        let variant = null;
-                        if (selectedColor) {
-                          // Color selected: look for size+color combination first
-                          variant = data?.variants?.find((v: any) => v.size === size && v.color === selectedColor);
-                          // If no combination exists, check if size exists at all (standalone)
-                          if (!variant) {
-                            variant = data?.variants?.find((v: any) => v.size === size && !v.color);
-                          }
-                        } else {
-                          // No color selected: prefer size-only variant
-                          variant = data?.variants?.find((v: any) => v.size === size && !v.color);
-                          // If no size-only exists, use any size variant (first one found)
-                          if (!variant) {
-                            variant = data?.variants?.find((v: any) => v.size === size);
-                          }
-                        }
-                        
-                        const isOutOfStock = !variant || variant.stock === 0;
-                        const isSelected = selectedSize === size;
-                        const stockCount = variant?.stock || 0;
-                        
-                        return (
-                          <button
-                            key={size}
-                            type="button"
-                            onClick={() => setSelectedSize(size)}
-                            disabled={!variant || isOutOfStock}
-                            className={`
-                              px-4 py-2 border-2 rounded-lg text-sm font-medium transition-all relative
-                              ${isSelected
-                                ? "border-orange-500 bg-orange-50 text-orange-700"
-                                : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
-                              }
-                              ${(!variant || isOutOfStock)
-                                ? "opacity-50 cursor-not-allowed line-through"
-                                : "cursor-pointer"
-                              }
-                            `}
-                          >
-                            <div className="flex flex-col items-center">
-                              <span>{size}</span>
-                              {variant && !isOutOfStock && (
-                                <span className="text-xs text-gray-600 font-medium">
-                                  {stockCount} in stock
-                                </span>
-                              )}
-                            </div>
-                            {(!variant || isOutOfStock) && <span className="text-xs">(Out of Stock)</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {!selectedSize && (
-                      <p className="text-xs text-red-600">Please select a size</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Color Selector (if product has variants with colors) */}
-                {hasVariants && availableColors.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-gray-700">
-                        Color: {selectedColor || "Select a color"}
-                      </label>
-                      {selectedColor && stockForSelectedVariant > 0 && (
-                        <span className="text-xs text-gray-500">
-                          {stockForSelectedVariant} in stock
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {availableColors.map((color: string) => {
-                        // Find variant: if size is selected, prefer size+color combo, otherwise color-only
-                        let variant = null;
-                        if (selectedSize) {
-                          // Size selected: look for size+color combination first
-                          variant = data?.variants?.find((v: any) => v.color === color && v.size === selectedSize);
-                          // If no combination exists, check if color exists at all (standalone)
-                          if (!variant) {
-                            variant = data?.variants?.find((v: any) => v.color === color && !v.size);
-                          }
-                        } else {
-                          // No size selected: prefer color-only variant
-                          variant = data?.variants?.find((v: any) => v.color === color && !v.size);
-                          // If no color-only exists, use any color variant (first one found)
-                          if (!variant) {
-                            variant = data?.variants?.find((v: any) => v.color === color);
-                          }
-                        }
-                        
-                        const isOutOfStock = !variant || variant.stock === 0;
-                        const isSelected = selectedColor === color;
-                        // Colors always have their own price (or use base price if no color-specific price)
-                        const colorPrice = variant && (variant as any)?.price !== undefined && (variant as any).price !== null 
-                          ? (variant as any).price 
-                          : (data?.price || 0);
-                        
-                        return (
-                          <button
-                            key={color}
-                            type="button"
-                            onClick={() => setSelectedColor(color)}
-                            disabled={!variant || isOutOfStock}
-                            className={`
-                              px-4 py-3 border-2 rounded-lg text-sm font-medium transition-all
-                              ${isSelected
-                                ? "border-orange-500 bg-orange-50 text-orange-700"
-                                : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
-                              }
-                              ${(!variant || isOutOfStock)
-                                ? "opacity-50 cursor-not-allowed line-through"
-                                : "cursor-pointer"
-                              }
-                            `}
-                          >
-                            <div className="flex flex-col items-center gap-1">
-                              <span className="font-semibold">{color}</span>
-                              {variant && !isOutOfStock && (
-                                <span className="text-sm font-bold text-gray-900">
-                                  {formatCurrency(colorPrice)}
-                                </span>
-                              )}
-                            </div>
-                            {(!variant || isOutOfStock) && <span className="text-xs">(Out of Stock)</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {!selectedColor && (
-                      <p className="text-xs text-red-600">Please select a color</p>
-                    )}
-                  </div>
-                )}
+                  );
+                })}
 
                 {/* Stock Status */}
                 {hasVariants ? (
-                  (selectedSize || selectedColor) ? (
+                  allRequiredSelected ? (
                     stockForSelectedVariant > 0 ? (
                       <p className="text-lg text-green-700 font-medium">In Stock</p>
                     ) : (
                       <p className="text-lg text-red-700 font-medium">Out of Stock</p>
                     )
                   ) : (
-                    <p className="text-sm text-gray-500">Select {availableSizes.length > 0 && availableColors.length > 0 ? 'size and color' : availableSizes.length > 0 ? 'a size' : 'a color'} to see availability</p>
+                    <p className="text-sm text-gray-500">
+                      Select {requiredVariants.length > 0 ? requiredVariants.join(', ') : 'variants'} to see availability
+                    </p>
                   )
                 ) : (
                   <p className="text-lg text-green-700 font-medium">In Stock</p>
@@ -524,7 +507,7 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                   <select 
                     value={quantity}
                     onChange={(e) => setQuantity(Number(e.target.value))}
-                    disabled={Boolean(hasVariants && ((availableSizes.length > 0 && !selectedSize) || (availableColors.length > 0 && !selectedColor) || stockForSelectedVariant === 0))}
+                    disabled={Boolean(hasVariants && (!allRequiredSelected || stockForSelectedVariant === 0))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer appearance-none pr-8 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {Array.from({ length: Math.min(10, stockForSelectedVariant || 10) }, (_, i) => i + 1).map((num) => (
@@ -539,16 +522,16 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                 {/* Add to Cart Button */}
                 <CartButton 
                   productId={productId} 
-                  size={hasVariants && availableSizes.length > 0 ? selectedSize : undefined}
-                  color={hasVariants && availableColors.length > 0 ? selectedColor : undefined}
+                  size={selectedVariants.size || selectedVariants.blouseSize}
+                  color={selectedVariants.color}
                   variantPrice={selectedVariant ? variantPrice : undefined}
-                  disabled={Boolean(hasVariants && ((availableSizes.length > 0 && !selectedSize) || (availableColors.length > 0 && !selectedColor) || stockForSelectedVariant === 0))}
+                  disabled={Boolean(hasVariants && (!allRequiredSelected || stockForSelectedVariant === 0))}
                 />
 
                 {/* Buy Now Button */}
                 <Button 
                   onClick={handleBuyNow}
-                  disabled={Boolean(isBuyNowLoading || (hasVariants && ((availableSizes.length > 0 && !selectedSize) || (availableColors.length > 0 && !selectedColor) || stockForSelectedVariant === 0)))}
+                  disabled={Boolean(isBuyNowLoading || (hasVariants && (!allRequiredSelected || stockForSelectedVariant === 0)))}
                   className="w-full bg-orange-400 hover:bg-orange-500 text-gray-900 font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
                   size="lg"
                 >

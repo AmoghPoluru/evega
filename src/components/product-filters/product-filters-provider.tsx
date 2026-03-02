@@ -6,6 +6,7 @@ interface ProductFilters {
   minPrice: string;
   maxPrice: string;
   tags: string[];
+  variants?: Record<string, string[]>; // Dynamic variant filters: { "size": ["M", "L"], "color": ["Red"] }
   sort?: string;
 }
 
@@ -21,6 +22,7 @@ export const ProductFiltersProvider = ({ children }: { children: ReactNode }) =>
     minPrice: "",
     maxPrice: "",
     tags: [],
+    variants: {},
     sort: undefined,
   });
 

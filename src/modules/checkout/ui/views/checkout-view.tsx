@@ -3,7 +3,7 @@
 import { toast } from "sonner";
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { InboxIcon, LoaderIcon, ShoppingCart, ChevronDown } from "lucide-react";
+import { InboxIcon, LoaderIcon, ShoppingCart, ChevronDown, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 
@@ -19,7 +19,7 @@ import { OrderSummary } from "../components/order-summary";
 export const CheckoutView = () => {
   const router = useRouter();
   const [states, setStates] = useCheckoutStates();
-  const { items, removeCartItem, clearCart } = useCart();
+  const { items, removeProduct, clearCart } = useCart();
   
   const queryClient = useQueryClient();
   const productIds = Array.from(new Set(items.map(item => item.productId)));
@@ -63,7 +63,7 @@ export const CheckoutView = () => {
         try {
           const purchasedCartItems = JSON.parse(decodeURIComponent(cartItemsParam));
           purchasedCartItems.forEach((item: any) => {
-            removeCartItem(item.productId, item.size, item.color);
+            removeProduct(item.productId, item.size, item.color);
           });
           toast.success("Purchase completed! Item(s) removed from cart.");
         } catch (e) {
@@ -82,7 +82,7 @@ export const CheckoutView = () => {
   }, [
     states.success,
     clearCart,
-    removeCartItem,
+    removeProduct,
     router,
     setStates,
     queryClient,
@@ -101,7 +101,7 @@ export const CheckoutView = () => {
   const orderItems = useMemo(() => {
     if (!data?.docs) return [];
     return items.map(cartItem => {
-      const product = data.docs.find(p => p.id === cartItem.productId);
+      const product = data.docs.find((p: any) => p.id === cartItem.productId);
       if (!product) return null;
       const price = cartItem.variantPrice ?? product.price;
       return {
@@ -188,13 +188,13 @@ export const CheckoutView = () => {
               <h2 className="text-lg font-medium text-gray-900 mb-4">Order items</h2>
               <div className="space-y-4">
                 {items.map((cartItem, index) => {
-                  const product = data?.docs.find((p) => p.id === cartItem.productId);
+                  const product = data?.docs.find((p: any) => p.id === cartItem.productId);
                   if (!product) return null;
                   
                   const itemPrice = cartItem.variantPrice ?? product.price;
                   
                   return (
-                    <div key={`${cartItem.productId}:${cartItem.size || ''}:${cartItem.color || ''}`} className="flex gap-4 pb-4 border-b border-gray-200 last:border-0">
+                    <div key={`${cartItem.productId}:${cartItem.size || ''}:${cartItem.color || ''}`} className="flex gap-4 pb-4 border-b border-gray-200 last:border-0 relative group">
                       <div className="relative w-20 h-20 border border-gray-300 rounded overflow-hidden bg-white shrink-0">
                         <img
                           src={product.image?.url || "/placeholder.png"}
@@ -217,6 +217,17 @@ export const CheckoutView = () => {
                           ${(itemPrice * (cartItem.quantity || 1)).toFixed(2)}
                         </p>
                       </div>
+                      <button
+                        onClick={() => {
+                          removeProduct(cartItem.productId, cartItem.size, cartItem.color);
+                          toast.success("Item removed from cart");
+                        }}
+                        className="absolute top-0 right-0 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        aria-label="Remove item from cart"
+                        title="Remove item"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
                     </div>
                   );
                 })}

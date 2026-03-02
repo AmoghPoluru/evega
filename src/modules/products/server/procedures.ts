@@ -63,6 +63,7 @@ export const productsRouter = createTRPCRouter({
         ...product,
         isPurchased: false, // TODO: Implement when orders collection exists
         image: product.image as Media | null,
+        video: product.video as Media | null, // Ensure video is properly typed
         reviewRating: 0, // TODO: Implement when reviews collection exists
         reviewCount: 0, // TODO: Implement when reviews collection exists
         ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }, // TODO: Implement when reviews collection exists

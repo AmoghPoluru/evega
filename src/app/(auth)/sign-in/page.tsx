@@ -7,11 +7,18 @@ import { SignInView } from "@/modules/auth/ui/views/sign-in-view";
 
 export const dynamic = "force-dynamic";
 
-const Page = async () => {
+const Page = async ({
+  searchParams,
+}: {
+  searchParams: Promise<{ redirect?: string }>;
+}) => {
   const session = await caller.auth.session();
+  const params = await searchParams;
+  const redirectTo = params.redirect || "/";
 
   if (session.user) {
-    redirect("/");
+    // If already logged in, redirect to the intended page
+    redirect(redirectTo);
   }
 
   return <SignInView />

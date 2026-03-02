@@ -246,7 +246,21 @@ export async function POST(req: Request) {
             throw new Error(`Product ${product.id} has no vendor assigned`);
           }
 
-          console.log(`Creating order for product ${product.name}, vendor: ${orderVendorId}`);
+          // Fetch vendor to get commission rate
+          const vendor = await payload.findByID({
+            collection: "vendors",
+            id: orderVendorId,
+            depth: 0,
+          });
+
+          // Get commission rate (default to 10% if not set)
+          const commissionRate = vendor.commissionRate ?? 10;
+          
+          // Calculate commission and vendor payout
+          const commission = (total * commissionRate) / 100;
+          const vendorPayout = total - commission;
+
+          console.log(`Creating order for product ${product.name}, vendor: ${orderVendorId}, commission: ${commissionRate}% (${commission.toFixed(2)}), vendor payout: ${vendorPayout.toFixed(2)}`);
           // Shipping address is already fetched above and reused for all orders
 
           const orderData: any = {
@@ -257,6 +271,13 @@ export async function POST(req: Request) {
             product: cartItem.productId,
             status: "payment_done", // Payment successful, admin will move to processing then complete
             total: total,
+            commission: commission,
+            commissionRate: commissionRate,
+            vendorPayout: {
+              amount: vendorPayout,
+              commissionAmount: commission,
+              status: "pending",
+            },
             quantity: cartItem.quantity || 1,
             size: cartItem.size || undefined,
             color: cartItem.color || undefined,

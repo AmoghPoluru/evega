@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Poppins } from "next/font/google";
 import { useForm } from "react-hook-form";
 // @ts-expect-error - Next.js navigation module works at runtime with NodeNext resolution
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -36,8 +36,12 @@ const poppins = Poppins({
 
 export const SignInView = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  // Get redirect parameter from URL, default to home page
+  const redirectTo = searchParams.get("redirect") || "/";
 
   const login = trpc.auth.login.useMutation({
     onError: (error) => {
@@ -47,7 +51,8 @@ export const SignInView = () => {
     onSuccess: async () => {
       setErrorMessage(null);
       await queryClient.invalidateQueries({ queryKey: [['auth', 'session']] });
-      router.push("/");
+      // Redirect to the original page or home if no redirect specified
+      router.push(redirectTo);
     },
   });
 

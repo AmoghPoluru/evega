@@ -227,6 +227,19 @@ export const Products: CollectionConfig = {
       relationTo: "media",
     },
     {
+      name: "video",
+      type: "upload",
+      relationTo: "media",
+      admin: {
+        description: "Product video (MP4, WebM, etc.) - vendors can upload product demonstration videos",
+      },
+      filterOptions: {
+        mimeType: {
+          contains: "video",
+        },
+      },
+    },
+    {
       name: "refundPolicy",
       type: "select",
       options: ["30-day", "14-day", "7-day", "3-day", "1-day", "no-refunds"],
@@ -270,33 +283,20 @@ export const Products: CollectionConfig = {
     {
       name: "variants",
       type: "array",
-      label: "Product Variants (Sizes & Colors)",
+      label: "Product Variants",
       admin: {
-        description: "Add size and color variants with inventory and price adjustments. Leave empty if product has no variants.",
+        description: "⚠️ Use the Vendor Dashboard (/vendor/products) to create products with variants. Variant fields are dynamically generated based on the selected category. This field is for advanced users only.",
       },
       fields: [
         {
-          name: "size",
-          type: "select",
-          required: false,
-          options: [
-            { label: "XS", value: "XS" },
-            { label: "S", value: "S" },
-            { label: "M", value: "M" },
-            { label: "L", value: "L" },
-            { label: "XL", value: "XL" },
-            { label: "XXL", value: "XXL" },
-          ],
+          name: "variantData",
+          type: "json",
+          required: true,
           admin: {
-            description: "Size variant (optional if using color only)",
-          },
-        },
-        {
-          name: "color",
-          type: "text",
-          required: false,
-          admin: {
-            description: "Color variant (e.g., Red, Blue, Black) - optional if using size only",
+            description: "Dynamic variant data based on category variant types (e.g., { size: 'M', color: 'Red', material: 'Silk' })",
+            components: {
+              Field: "@/components/payload/VariantDataField",
+            },
           },
         },
         {
@@ -314,7 +314,7 @@ export const Products: CollectionConfig = {
           type: "number",
           required: false,
           admin: {
-            description: "Price for this specific variant. If not set, uses the product's base price. Each size/color combination can have its own price.",
+            description: "Price for this specific variant. If not set, uses the product's base price.",
           },
         },
       ],
