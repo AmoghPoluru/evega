@@ -1182,20 +1182,389 @@
     - **Status**: ❌ Not started
     - **Reference**: Task 6.1 in STRIPE_CONNECT_IMPLEMENTATION.md
 
+## Admin Dashboard
+
+195. ❌ Create admin authentication middleware
+    - **Tech**: Create `src/lib/middleware/admin-auth.ts` with `requireAdmin()` function
+    - **Details**: Redirects to sign-in if not authenticated, redirects to home if not admin
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 0.1
+
+196. ❌ Create admin route group layout
+    - **Tech**: Create `src/app/(app)/admin/layout.tsx` with `requireAdmin()` middleware
+    - **Details**: Include AdminSidebar and AdminHeader components, hide main navbar
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 0.2
+
+197. ❌ Create admin sidebar navigation component
+    - **Tech**: Create `AdminSidebar.tsx` with navigation links to all admin sections
+    - **Details**: Dark theme, active route highlighting, navigation items for all admin sections
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 0.3
+
+198. ❌ Create admin header component
+    - **Tech**: Create `AdminHeader.tsx` with search bar, notifications, and user menu
+    - **Details**: Logout functionality, user avatar, dropdown menu, "View Site" link
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 0.4
+
+199. ❌ Create adminProcedure in tRPC init
+    - **Tech**: Create `adminProcedure` in `src/trpc/init.ts` wrapping `protectedProcedure`
+    - **Details**: Requires authenticated user with `app-admin` role, throws FORBIDDEN if not admin
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 0.5
+
+200. ❌ Create admin router in tRPC procedures
+    - **Tech**: Create `adminRouter` in `src/modules/admin/server/procedures.ts`
+    - **Details**: Structure: `admin.dashboard.*`, `admin.products.*`, `admin.orders.*`, etc.
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 0.6
+
+201. ❌ Create admin dashboard stats component
+    - **Tech**: Create `AdminDashboardStats` component with 5 stat cards
+    - **Details**: Total Revenue, Total Orders, Total Products, Total Customers, Total Vendors with trend indicators
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 1.1
+
+202. ❌ Create admin dashboard stats tRPC procedure
+    - **Tech**: Create `admin.dashboard.stats` procedure
+    - **Details**: Calculate total revenue, revenue change, order counts, product counts, customer counts, vendor counts
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 1.2
+
+203. ❌ Create admin products list page
+    - **Tech**: Create `/admin/products` page with table layout
+    - **Details**: Display all products from all vendors, search and filter, pagination, bulk actions
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 2.1
+
+204. ❌ Create admin orders list page
+    - **Tech**: Create `/admin/orders` page with table layout
+    - **Details**: Display all orders from all vendors, search and filter, pagination, export orders (CSV)
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 3.1
+
+205. ❌ Create admin customers list page
+    - **Tech**: Create `/admin/customers` page with table layout
+    - **Details**: Display all customers, search and filter, pagination, customer analytics
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 4.1
+
+206. ❌ Create admin vendors list page
+    - **Tech**: Create `/admin/vendors` page with table layout
+    - **Details**: Display all vendors, search and filter, status filter, vendor approval actions
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 5.1
+
+207. ❌ Create admin vendor approval system
+    - **Tech**: Create `admin.vendors.approve`, `reject`, `suspend`, `activate` procedures
+    - **Details**: Approve/reject/suspend/activate vendors, send email notifications, update status
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 5.6-5.9
+
+208. ❌ Create admin categories management page
+    - **Tech**: Create `/admin/categories` page with tree view
+    - **Details**: Display category tree, expandable/collapsible nodes, category CRUD operations
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 6.1
+
+209. ❌ Create admin tags management page
+    - **Tech**: Create `/admin/tags` page with table layout
+    - **Details**: Display all tags, search, pagination, tag CRUD operations
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 7.1
+
+210. ❌ Create admin hero banners management page
+    - **Tech**: Create `/admin/hero-banners` page with table layout
+    - **Details**: Display all hero banners, filter by active status, template type, pagination
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 8.1
+
+211. ❌ Create admin analytics page
+    - **Tech**: Create `/admin/analytics` page with revenue charts
+    - **Details**: Revenue charts (line, bar), date range selector, revenue by vendor/category, sales reports
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 9.1
+
+212. ❌ Create admin settings page
+    - **Tech**: Create `/admin/settings` page with platform configuration
+    - **Details**: General settings, payment settings, shipping settings, tax settings, email templates
+    - **Status**: ❌ Not started
+    - **Reference**: ADMIN_DASHBOARD_TODO.md Task 11.1
+
+## Hero Banners Enhancements
+
+213. ❌ Add template selector field to HeroBanners collection
+    - **Tech**: Add template field (select: image-text, image-text-products, image-slider, split-layout, video)
+    - **Details**: Template selector as first field, options with descriptions
+    - **Status**: ❌ Not started
+    - **Reference**: HERO_BANNERS_TODO.md Task 0.2
+
+214. ❌ Add CTA fields to HeroBanners collection
+    - **Tech**: Add `ctaText`, `ctaLinkType`, `ctaLinkValue` fields
+    - **Details**: CTA button text, link type (product, category, collection, URL), link value
+    - **Status**: ❌ Not started
+    - **Reference**: HERO_BANNERS_TODO.md Task 0.3
+
+215. ❌ Add mobile image field to HeroBanners collection
+    - **Tech**: Add `mobileImage` upload field (optional)
+    - **Details**: Mobile-specific image for better mobile UX, falls back to desktop image if not provided
+    - **Status**: ❌ Not started
+    - **Reference**: HERO_BANNERS_TODO.md Task 0.13
+
+216. ❌ Add scheduling fields to HeroBanners collection
+    - **Tech**: Add `startDate` and `endDate` date fields
+    - **Details**: Auto-activate/deactivate banners based on dates, date-based filtering in query
+    - **Status**: ❌ Not started
+    - **Reference**: HERO_BANNERS_TODO.md Task 7.1-7.2
+
+217. ❌ Add placement control to HeroBanners collection
+    - **Tech**: Add `placement` select field (home, category, both)
+    - **Details**: Control where banners appear, placement filtering in query
+    - **Status**: ❌ Not started
+    - **Reference**: HERO_BANNERS_TODO.md Task 7.6
+
+218. ❌ Implement CTA button in hero banner component
+    - **Tech**: Add CTA button to `HeroBannersSection` component
+    - **Details**: Show button if ctaText and ctaLink provided, use Next.js Link for navigation
+    - **Status**: ❌ Not started
+    - **Reference**: HERO_BANNERS_TODO.md Task 1.9
+
+219. ❌ Implement template renderer component
+    - **Tech**: Create `HeroBannerRenderer.tsx` with template switching
+    - **Details**: Switch component that renders based on template type, template-specific components
+    - **Status**: ❌ Not started
+    - **Reference**: HERO_BANNERS_TODO.md Task 0.10
+
+220. ❌ Create image slider template component
+    - **Tech**: Create `ImageSliderTemplate.tsx` for multiple images slider
+    - **Details**: Auto-slide functionality, navigation arrows, slide indicators, touch/swipe support
+    - **Status**: ❌ Not started
+    - **Reference**: HERO_BANNERS_TODO.md Task 3.3
+
+## Order Management Enhancements
+
+221. ❌ Add cart item quantity management
+    - **Tech**: Update cart store to store quantity per product ID
+    - **Details**: Store quantity in cart state, add increment/decrement methods
+    - **Status**: ❌ Not started
+    - **Reference**: ORDER_MANAGEMENT_TASKS.md Task 1.9
+
+222. ❌ Add cart item variant storage
+    - **Tech**: Update cart store to store variant information (size, color) per product
+    - **Details**: Store variant information with each product ID in cart
+    - **Status**: ❌ Not started
+    - **Reference**: ORDER_MANAGEMENT_TASKS.md Task 1.10
+
+223. ❌ Add remove item button in checkout page
+    - **Tech**: Add remove button per cart item in checkout view
+    - **Details**: Remove button calls `removeProduct()` from cart store
+    - **Status**: ❌ Not started
+    - **Reference**: ORDER_MANAGEMENT_TASKS.md Task 2.12
+
+224. ❌ Add quantity selector in checkout page
+    - **Tech**: Add increment/decrement buttons or number input for item quantity
+    - **Details**: Update quantity in cart store, recalculate subtotal
+    - **Status**: ❌ Not started
+    - **Reference**: ORDER_MANAGEMENT_TASKS.md Task 2.13
+
+225. ❌ Add shipping cost calculation display
+    - **Tech**: Calculate and display shipping cost based on address and order total
+    - **Details**: Shipping cost calculation, display in checkout sidebar
+    - **Status**: ❌ Not started
+    - **Reference**: ORDER_MANAGEMENT_TASKS.md Task 2.15
+
+226. ❌ Add tax calculation display (US sales tax)
+    - **Tech**: Calculate and display sales tax based on shipping address state
+    - **Details**: Tax calculation, display in checkout sidebar
+    - **Status**: ❌ Not started
+    - **Reference**: ORDER_MANAGEMENT_TASKS.md Task 2.16
+
+227. ❌ Add coupon/discount code input field
+    - **Tech**: Add input field and apply button for discount code application
+    - **Details**: Discount code validation, apply discount to order total
+    - **Status**: ❌ Not started
+    - **Reference**: ORDER_MANAGEMENT_TASKS.md Task 2.17
+
+228. ❌ Create order detail page for customers
+    - **Tech**: Create `/orders/[id]` page with full order details
+    - **Details**: Order number, date, status, product info, totals, shipping address, tracking info
+    - **Status**: ❌ Not started
+    - **Reference**: ORDER_MANAGEMENT_TASKS.md Task 11.1
+
+229. ❌ Add order status change email notifications
+    - **Tech**: Send email to customer when order status changes
+    - **Details**: Email templates for status changes, trigger on status update
+    - **Status**: ❌ Not started
+    - **Reference**: ORDER_MANAGEMENT_TASKS.md Task 15.3
+
+230. ❌ Add order confirmation email on order creation
+    - **Tech**: Send email to customer when order is created
+    - **Details**: Order confirmation email with order details, product images, links
+    - **Status**: ❌ Not started
+    - **Reference**: ORDER_MANAGEMENT_TASKS.md Task 15.1
+
+231. ❌ Add tracking update email notifications
+    - **Tech**: Send email when tracking number is added or updated
+    - **Details**: Tracking email with tracking number, carrier, tracking URL
+    - **Status**: ❌ Not started
+    - **Reference**: ORDER_MANAGEMENT_TASKS.md Task 15.4
+
+## Category & Variant Setup
+
+232. ❌ Review and backup existing category data
+    - **Tech**: Query all existing categories, export to JSON/CSV for backup
+    - **Details**: Review structure, identify duplicates or inconsistencies, backup before cleanup
+    - **Status**: ❌ Not started
+    - **Reference**: CATEGORY_SETUP_TASKS.md Task 1.1-1.5
+
+233. ❌ Clean up duplicate categories and fix slug conflicts
+    - **Tech**: Remove duplicate categories, ensure unique slugs
+    - **Details**: Identify duplicates, merge if needed, update conflicting slugs
+    - **Status**: ❌ Not started
+    - **Reference**: CATEGORY_SETUP_TASKS.md Task 1.6-1.7
+
+234. ❌ Fix orphaned products (products without valid category)
+    - **Tech**: Assign orphaned products to appropriate categories
+    - **Details**: Query products without valid category, assign to appropriate category or mark for review
+    - **Status**: ❌ Not started
+    - **Reference**: CATEGORY_SETUP_TASKS.md Task 1.8
+
+235. ❌ Create variant types seed script
+    - **Tech**: Create seed script for variant types (size, color, material, etc.)
+    - **Details**: Seed all variant types with proper configuration, display order
+    - **Status**: ❌ Not started
+    - **Reference**: CATEGORY_SETUP_TASKS.md Task 2.1-2.14
+
+236. ❌ Create variant options seed script
+    - **Tech**: Create seed script for variant options (S, M, L, Red, Blue, etc.)
+    - **Details**: Seed variant options linked to variant types, category-specific or global options
+    - **Status**: ❌ Not started
+    - **Reference**: CATEGORY_SETUP_TASKS.md Task 3.1-3.x
+
+## Search Enhancements
+
+237. ❌ Implement fuzzy matching for search queries
+    - **Tech**: Add fuzzy matching algorithm (Levenshtein distance) for typo tolerance
+    - **Details**: Match search terms with typos, configurable distance threshold
+    - **Status**: ❌ Not started
+    - **Reference**: SEARCH_IMPROVEMENT_TASKS.md Task 3.1
+
+238. ❌ Implement relevance scoring for search results
+    - **Tech**: Calculate relevance score based on field matches, variant matches, keyword matches
+    - **Details**: Score products based on match quality, sort by relevance
+    - **Status**: ❌ Not started
+    - **Reference**: SEARCH_IMPROVEMENT_TASKS.md Task 4.1
+
+239. ❌ Add search result highlighting
+    - **Tech**: Highlight matched terms in search results
+    - **Details**: Highlight matched keywords in product names, descriptions, tags
+    - **Status**: ❌ Not started
+    - **Reference**: SEARCH_IMPROVEMENT_TASKS.md Task 5.1
+
+240. ❌ Add search analytics and tracking
+    - **Tech**: Track search queries, results, clicks, conversions
+    - **Details**: Log search queries, track popular searches, analyze search performance
+    - **Status**: ❌ Not started
+    - **Reference**: SEARCH_IMPROVEMENT_TASKS.md Task 5.2
+
+## CI/CD & Production Setup
+
+241. ❌ Setup GitHub Actions CI workflow
+    - **Tech**: Create `.github/workflows/ci.yml` for automated testing
+    - **Details**: Run linter, unit tests, E2E tests on push/PR, use MongoDB service container
+    - **Status**: ❌ Not started
+    - **Reference**: CI_CD_SETUP.md
+
+242. ❌ Setup GitHub Actions deploy workflow
+    - **Tech**: Create `.github/workflows/deploy.yml` for automated deployment
+    - **Details**: Deploy to staging and production, validate environment variables, deploy to Vercel
+    - **Status**: ❌ Not started
+    - **Reference**: CI_CD_SETUP.md
+
+243. ❌ Configure production environment variables
+    - **Tech**: Create `.env.production` template and validate all required variables
+    - **Details**: Database URL, Payload secret, NextAuth secret, Stripe keys, email service, Sentry DSN
+    - **Status**: ❌ Not started
+    - **Reference**: PRODUCTION_SETUP.md
+
+244. ❌ Setup production MongoDB database
+    - **Tech**: Create MongoDB Atlas cluster, configure connection string
+    - **Details**: Create database user, whitelist IPs, get connection string, run migrations
+    - **Status**: ❌ Not started
+    - **Reference**: PRODUCTION_SETUP.md Step 2
+
+245. ❌ Configure production Stripe webhook
+    - **Tech**: Add webhook endpoint in Stripe Dashboard for production
+    - **Details**: Set webhook URL, select events, copy signing secret to environment variables
+    - **Status**: ❌ Not started
+    - **Reference**: PRODUCTION_SETUP.md Step 3.2
+
+246. ❌ Setup email service (SendGrid or AWS SES)
+    - **Tech**: Configure email service for production
+    - **Details**: Create account, get API keys, configure SMTP settings, test email sending
+    - **Status**: ❌ Not started
+    - **Reference**: PRODUCTION_SETUP.md Step 4
+
+247. ❌ Setup Sentry for error tracking
+    - **Tech**: Create Sentry project, configure DSN, initialize Sentry
+    - **Details**: Client-side, server-side, and edge runtime error tracking, performance monitoring
+    - **Status**: ❌ Not started
+    - **Reference**: MONITORING_SETUP.md
+
+248. ❌ Add error boundaries to React components
+    - **Tech**: Create error boundary component and wrap critical components
+    - **Details**: Catch React errors, display error UI, send to Sentry
+    - **Status**: ❌ Not started
+    - **Reference**: MONITORING_SETUP.md Step 4
+
+## Authentication Enhancements
+
+249. ❌ Implement password reset/forgot password flow
+    - **Tech**: Create password reset page, email sending, token validation
+    - **Details**: Forgot password page, reset link email, password reset page with token validation
+    - **Status**: ❌ Not started
+    - **Reference**: AUTHENTICATION_TASKS.md Remaining Tasks
+
+250. ❌ Implement email verification
+    - **Tech**: Send verification email on signup, verify email token
+    - **Details**: Email verification link, verify token, mark email as verified
+    - **Status**: ❌ Not started
+    - **Reference**: AUTHENTICATION_TASKS.md Remaining Tasks
+
+251. ❌ Implement two-factor authentication (2FA)
+    - **Tech**: Add 2FA setup and verification
+    - **Details**: TOTP-based 2FA, QR code generation, verification code input
+    - **Status**: ❌ Not started
+    - **Reference**: AUTHENTICATION_TASKS.md Remaining Tasks
+
+252. ❌ Add social account linking in user settings
+    - **Tech**: Allow users to link/unlink OAuth accounts in settings
+    - **Details**: Link Google/Facebook accounts, unlink accounts, show linked accounts
+    - **Status**: ❌ Not started
+    - **Reference**: AUTHENTICATION_TASKS.md Remaining Tasks
+
 ---
 
 ## Summary
 
-**Total Tasks Documented: 194** (Updated from 176)
+**Total Tasks Documented: 252** (Updated from 194)
 
-**Completed: ~110 tasks (57%)**
-**Pending: ~84 tasks (43%)**
+**Completed: ~110 tasks (44%)**
+**Pending: ~142 tasks (56%)**
 
 **Breakdown**:
 - **Original Tasks (1-138)**: 110 completed, 28 pending
 - **New Tasks (139-170)**: 0 completed, 32 pending
 - **Latest Tasks (171-176)**: 6 completed, 0 pending
 - **Stripe Connect Tasks (177-194)**: 0 completed, 18 pending
+- **Admin Dashboard Tasks (195-212)**: 0 completed, 18 pending
+- **Hero Banners Tasks (213-220)**: 0 completed, 8 pending
+- **Order Management Tasks (221-231)**: 0 completed, 11 pending
+- **Category & Variant Tasks (232-236)**: 0 completed, 5 pending
+- **Search Enhancement Tasks (237-240)**: 0 completed, 4 pending
+- **CI/CD & Production Tasks (241-248)**: 0 completed, 8 pending
+- **Authentication Tasks (249-252)**: 0 completed, 4 pending
 
 ### Key Features Implemented:
 - ✅ Multi-vendor marketplace architecture

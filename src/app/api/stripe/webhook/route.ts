@@ -7,6 +7,10 @@ import config from "@payload-config";
 import { stripe } from "@/lib/stripe";
 import { generateOrderNumber } from "@/lib/order-number";
 
+// Mark this route as dynamic to prevent build-time analysis
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(req: Request) {
   const body = await req.text();
   const headersList = await headers();
