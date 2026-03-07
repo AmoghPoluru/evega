@@ -51,6 +51,9 @@ export default buildConfig({
   db: mongooseAdapter({
     url: process.env.DATABASE_URL || "",
   }),
+  // Configure server URL for media file serving in production
+  // This ensures Payload generates absolute URLs for media files
+  serverURL: process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000',
   sharp,
   plugins: [],
 });
