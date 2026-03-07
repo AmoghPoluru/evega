@@ -21,6 +21,19 @@ import { VariantOptions } from "./collections/VariantOptions";
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
+// Validate PAYLOAD_SECRET at config time (but allow build to complete)
+const payloadSecret = process.env.PAYLOAD_SECRET;
+const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
+                   process.env.NEXT_PHASE === 'phase-development-build';
+
+if (!payloadSecret && !isBuildTime) {
+  console.error(
+    "⚠️  PAYLOAD_SECRET is not set. " +
+    "Please add it to your environment variables. " +
+    "Generate one with: openssl rand -base64 32"
+  );
+}
+
 export default buildConfig({
   admin: {
     user: Users.slug,
@@ -30,7 +43,8 @@ export default buildConfig({
   },
   collections: [Users, Media, Categories, Products, Tags, HeroBanners, Orders, Vendors, Roles, Customers, VariantTypes, VariantOptions],
   editor: lexicalEditor(),
-  secret: process.env.PAYLOAD_SECRET || "",
+  // Use placeholder during build (must be at least 32 chars), actual secret at runtime
+  secret: payloadSecret || (isBuildTime ? 'build-placeholder-secret-replace-at-runtime-minimum-32-characters-long' : ''),
   typescript: {
     outputFile: path.resolve(dirname, "payload-types.ts"),
   },

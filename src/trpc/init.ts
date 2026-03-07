@@ -11,13 +11,25 @@ export const createTRPCContext = cache(async () => {
    * Creates the base context for tRPC calls
    * The procedures will extend this context with db, session, etc.
    */
-  const payload = await getPayload({ config });
-  const headers = await getHeaders();
-  
-  return {
-    db: payload,
-    headers,
-  };
+  try {
+    const payload = await getPayload({ config });
+    const headers = await getHeaders();
+    
+    return {
+      db: payload,
+      headers,
+    };
+  } catch (error: any) {
+    // Provide helpful error message if Payload initialization fails
+    if (error?.message?.includes('secret') || error?.message?.includes('PAYLOAD_SECRET')) {
+      throw new Error(
+        "PAYLOAD_SECRET is required. Please add it to your Vercel environment variables. " +
+        "Go to: Vercel Dashboard → Your Project → Settings → Environment Variables → Add " +
+        "PAYLOAD_SECRET (generate with: openssl rand -base64 32)"
+      );
+    }
+    throw error;
+  }
 });
 // Avoid exporting the entire t-object
 // since it's not very descriptive.
