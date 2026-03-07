@@ -356,6 +356,50 @@ export interface Vendor {
    */
   stripeAccountId?: string | null;
   /**
+   * Stripe Connect account status
+   */
+  stripeAccountStatus?: ('not_connected' | 'pending' | 'active' | 'restricted' | 'rejected') | null;
+  /**
+   * Link for vendor to complete Stripe onboarding
+   */
+  stripeOnboardingLink?: string | null;
+  /**
+   * Whether vendor has completed Stripe onboarding
+   */
+  stripeOnboardingCompleted?: boolean | null;
+  /**
+   * Detailed Stripe account information (business details, capabilities, requirements)
+   */
+  stripeAccountDetails?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Stripe account country
+   */
+  stripeAccountCountry?: string | null;
+  /**
+   * Stripe account email
+   */
+  stripeAccountEmail?: string | null;
+  /**
+   * Whether vendor can accept charges
+   */
+  stripeChargesEnabled?: boolean | null;
+  /**
+   * Whether vendor can receive payouts
+   */
+  stripePayoutsEnabled?: boolean | null;
+  /**
+   * Sync vendor Stripe account details from Stripe API
+   */
+  syncStripeAction?: string | null;
+  /**
    * Platform commission rate (%)
    */
   commissionRate?: number | null;
@@ -765,6 +809,14 @@ export interface Order {
    * Stripe payment intent ID
    */
   stripePaymentIntentId?: string | null;
+  /**
+   * Stripe transfer ID (for vendor payout via Stripe Connect)
+   */
+  stripeTransferId?: string | null;
+  /**
+   * Status of the transfer to vendor's Stripe account
+   */
+  transferStatus?: ('pending' | 'paid' | 'failed' | 'canceled') | null;
   /**
    * Shipping address for this order (snapshot at time of order)
    */
@@ -1346,6 +1398,8 @@ export interface OrdersSelect<T extends boolean = true> {
   stripeCheckoutSessionId?: T;
   stripeAccountId?: T;
   stripePaymentIntentId?: T;
+  stripeTransferId?: T;
+  transferStatus?: T;
   shippingAddress?:
     | T
     | {
@@ -1413,6 +1467,15 @@ export interface VendorsSelect<T extends boolean = true> {
   status?: T;
   isActive?: T;
   stripeAccountId?: T;
+  stripeAccountStatus?: T;
+  stripeOnboardingLink?: T;
+  stripeOnboardingCompleted?: T;
+  stripeAccountDetails?: T;
+  stripeAccountCountry?: T;
+  stripeAccountEmail?: T;
+  stripeChargesEnabled?: T;
+  stripePayoutsEnabled?: T;
+  syncStripeAction?: T;
   commissionRate?: T;
   verificationDocuments?:
     | T

@@ -6,6 +6,8 @@ import { headers as getHeaders } from "next/headers";
 import { DEFAULT_LIMIT } from "@/constants";
 import { Category, Media } from "@/payload-types";
 import { baseProcedure, createTRPCRouter } from "@/trpc/init";
+import { buildSearchQuery } from "@/lib/search/search-query-builder";
+import { extractVariantValues, hasMatchingVariant } from "@/lib/search/variant-utils";
 
 import { sortValues } from "../search-params";
 
@@ -174,39 +176,108 @@ export const productsRouter = createTRPCRouter({
 
       if (input.search && input.search.trim()) {
         const searchTerm = input.search.trim();
-        // Search across name, tags, and description
-        where["or"] = [
-          {
-            name: {
-              contains: searchTerm,
-            },
-          },
-          {
-            "tags.name": {
-              contains: searchTerm,
-            },
-          },
-          // Note: Description is richText (Lexical format), so we search in the text content
-          // This searches within the Lexical structure's text nodes
-          {
-            description: {
-              contains: searchTerm,
-            },
-          },
-        ];
+        
+        // Enhanced search with variant and price support
+        const { where: searchWhere } = buildSearchQuery({
+          searchTerm,
+          includeVariants: true,
+          includePrice: true,
+        });
+
+        // Merge search conditions with existing where clause
+        // We need to combine existing filters (isArchived, isPrivate, etc.) with search OR conditions
+        if (searchWhere.or && searchWhere.or.length > 0) {
+          // Extract existing non-OR conditions
+          const existingConditions: any = {};
+          Object.keys(where).forEach(key => {
+            if (key !== 'or' && key !== 'and') {
+              existingConditions[key] = where[key];
+            }
+          });
+
+          // Build combined where: existing conditions AND (search OR conditions)
+          const combinedWhere: any = {
+            ...existingConditions,
+          };
+
+          // Add search OR conditions
+          combinedWhere.or = searchWhere.or;
+
+          // Merge price filter from search query (if present)
+          // If search query has price filter, it takes precedence over input.minPrice/maxPrice
+          if (searchWhere.price) {
+            combinedWhere.price = searchWhere.price;
+          }
+
+          // Replace where with combined
+          Object.assign(where, combinedWhere);
+        } else if (searchWhere.price) {
+          // If only price filter (no OR conditions), merge it
+          where.price = searchWhere.price;
+        }
+      }
+
+      // Debug: Log the where clause for troubleshooting
+      if (input.search && process.env.NODE_ENV === "development") {
+        console.log("[SEARCH] Query:", input.search);
+        console.log("[SEARCH] Where clause:", JSON.stringify(where, null, 2));
       }
 
       const data = await ctx.db.find({
         collection: "products",
-        depth: 2, // Populate "category", "image", "vendor"
+        depth: 2, // Populate "category", "image", "vendor", "variants"
         where,
         sort,
         page: input.cursor,
-        limit: input.limit,
+        limit: input.limit * 2, // Fetch more for post-filtering if needed
         select: {
           content: false,
         },
       });
+
+      // Debug: Log results
+      if (input.search && process.env.NODE_ENV === "development") {
+        console.log("[SEARCH] Found", data.docs.length, "products");
+      }
+
+      // Post-filter by variants if search term exists - but be lenient
+      // Only filter if we have variant requirements AND no keywords (pure variant search)
+      let filteredDocs = data.docs;
+      if (input.search && input.search.trim()) {
+        const { parsedQuery } = buildSearchQuery({
+          searchTerm: input.search.trim(),
+          includeVariants: true,
+        });
+
+        // Only do strict filtering if it's a pure variant search (no keywords)
+        // If there are keywords, MongoDB OR query should handle it
+        if ((parsedQuery.size || parsedQuery.color || parsedQuery.material) && parsedQuery.keywords.length === 0) {
+          // Pure variant search - ensure at least one variant matches
+          filteredDocs = data.docs.filter((doc) => {
+            // Check if product has any matching variant
+            let hasVariantMatch = false;
+
+            if (parsedQuery.size) {
+              hasVariantMatch = hasVariantMatch || hasMatchingVariant(doc.variants, "size", parsedQuery.size);
+            }
+            if (parsedQuery.color) {
+              hasVariantMatch = hasVariantMatch || hasMatchingVariant(doc.variants, "color", parsedQuery.color);
+            }
+            if (parsedQuery.material) {
+              hasVariantMatch = hasVariantMatch || hasMatchingVariant(doc.variants, "material", parsedQuery.material);
+            }
+
+            return hasVariantMatch;
+          });
+
+          // Update totalDocs to reflect filtered count
+          data.totalDocs = filteredDocs.length;
+        }
+        // If there are keywords, trust MongoDB query results (OR logic handles it)
+      }
+
+      // Limit to requested amount
+      filteredDocs = filteredDocs.slice(0, input.limit);
 
       // TODO: Add reviews summary when reviews collection is implemented
       // const dataWithSummarizedReviews = await Promise.all(
@@ -228,7 +299,7 @@ export const productsRouter = createTRPCRouter({
 
       return {
         ...data,
-        docs: data.docs.map((doc) => ({
+        docs: filteredDocs.map((doc) => ({
           ...doc,
           image: doc.image as Media | null,
           reviewCount: 0, // TODO: Implement when reviews collection exists

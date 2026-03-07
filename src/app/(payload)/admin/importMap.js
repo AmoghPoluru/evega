@@ -23,6 +23,7 @@ import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { default as default_9f98f4d3003541a64e29a89267e98aa3 } from '@/components/payload/VariantDataField'
 import { ApproveVendorButton as ApproveVendorButton_8c042af398522488cbc9f6e6cf9059cf } from '@/collections/components/ApproveVendorButton'
+import { SyncStripeDetailsButton as SyncStripeDetailsButton_3ee58a8beb3708b3f9d4d2ef79253baa } from '@/collections/components/SyncStripeDetailsButton'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 export const importMap = {
@@ -51,5 +52,6 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@/components/payload/VariantDataField#default": default_9f98f4d3003541a64e29a89267e98aa3,
   "@/collections/components/ApproveVendorButton#ApproveVendorButton": ApproveVendorButton_8c042af398522488cbc9f6e6cf9059cf,
+  "@/collections/components/SyncStripeDetailsButton#SyncStripeDetailsButton": SyncStripeDetailsButton_3ee58a8beb3708b3f9d4d2ef79253baa,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }

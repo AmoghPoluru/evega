@@ -4,6 +4,7 @@ import type Stripe from "stripe";
 import { TRPCError } from "@trpc/server";
 
 import { stripe } from "@/lib/stripe";
+import { createCheckoutSessionWithConnect, isStripeAccountReady } from "@/lib/stripe-connect";
 import { Media } from "@/payload-types";
 import { baseProcedure, createTRPCRouter, protectedProcedure } from "@/trpc/init";
 
@@ -70,6 +71,34 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
+      // Get vendor and validate Stripe Connect account
+      const vendorId = Array.from(vendors)[0] as string;
+      const vendor = await ctx.db.findByID({
+        collection: "vendors",
+        id: vendorId,
+        depth: 0,
+      });
+
+      // Check if vendor has Stripe Connect account
+      if (!vendor.stripeAccountId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Vendor has not connected their Stripe account. Please contact the vendor or try again later.",
+        });
+      }
+
+      // Check if vendor Stripe account is ready
+      const accountReady = await isStripeAccountReady(vendor.stripeAccountId);
+      if (!accountReady) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Vendor's payment account is not ready. Please contact the vendor or try again later.",
+        });
+      }
+
+      // Calculate total and commission
+      let orderTotal = 0;
+      
       // Validate stock and build line items
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
       
@@ -115,6 +144,9 @@ export const checkoutRouter = createTRPCRouter({
         if (cartItem.size) productName += ` (${cartItem.size})`;
         if (cartItem.color) productName += ` - ${cartItem.color}`;
         
+        const itemTotal = finalPrice * cartItem.quantity;
+        orderTotal += itemTotal;
+
         lineItems.push({
           quantity: cartItem.quantity,
           price_data: {
@@ -135,37 +167,36 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
+      // Calculate commission
+      const commissionRate = vendor.commissionRate || parseFloat(process.env.PLATFORM_COMMISSION_RATE || "10");
+      const commission = (orderTotal * commissionRate) / 100;
+      const vendorPayout = orderTotal - commission;
+
       // Build success URL - include cartItems if it's a "Buy Now" purchase
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
       const successUrl = input.buyNow
         ? `${baseUrl}/checkout?success=true&buyNow=true&cartItems=${encodeURIComponent(JSON.stringify(input.cartItems))}`
         : `${baseUrl}/checkout?success=true`;
 
-      const checkout = await stripe.checkout.sessions.create({
-        customer_email: ctx.session.user.email,
-        success_url: successUrl,
-        cancel_url: `${baseUrl}/checkout?cancel=true`,
-        mode: "payment",
-        line_items: lineItems,
-        invoice_creation: {
-          enabled: true,
-        },
-        // Shipping address is collected before checkout, not in Stripe
-        metadata: {
+      // Create checkout session with Stripe Connect
+      const checkoutUrl = await createCheckoutSessionWithConnect(
+        lineItems,
+        vendor.stripeAccountId,
+        commission,
+        successUrl,
+        `${baseUrl}/checkout?cancel=true`,
+        {
           userId: ctx.session.user.id,
+          vendorId: vendorId,
           cartItems: JSON.stringify(input.cartItems),
-          buyNow: input.buyNow.toString(), // Store buyNow flag in metadata
+          buyNow: input.buyNow.toString(),
+          orderTotal: orderTotal.toString(),
+          commission: commission.toString(),
+          vendorPayout: vendorPayout.toString(),
         }
-      });
+      );
 
-      if (!checkout.url) {
-        throw new TRPCError({ 
-          code: "INTERNAL_SERVER_ERROR", 
-          message: "Failed to create checkout session" 
-        });
-      }
-
-      return { url: checkout.url };
+      return { url: checkoutUrl };
     })
   ,
   getProducts: baseProcedure

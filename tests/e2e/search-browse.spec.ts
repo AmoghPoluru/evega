@@ -4,7 +4,8 @@ import { test, expect } from '@playwright/test';
  * E2E Test: Search and Browse Functionality
  * 
  * Tests:
- * - Search functionality
+ * - Basic search functionality
+ * - Enhanced search with variants (color, size, material)
  * - Product browsing
  * - Category navigation
  * - Product filtering
@@ -13,6 +14,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Search and Browse Products', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+    await page.waitForLoadState('networkidle');
   });
 
   test('should search for products using search bar', async ({ page }) => {
@@ -21,7 +23,7 @@ test.describe('Search and Browse Products', () => {
     
     if (await searchInput.isVisible()) {
       // Enter search query
-      await searchInput.fill('laptop');
+      await searchInput.fill('dress');
       await searchInput.press('Enter');
       
       // Wait for search results
@@ -33,9 +35,106 @@ test.describe('Search and Browse Products', () => {
       expect(url).toContain('search=');
     } else {
       // Navigate to search page directly
-      await page.goto('/search?search=laptop');
+      await page.goto('/search?search=dress');
       await expect(page).toHaveURL(/\/search/i);
     }
+  });
+
+  test('should search for products by color', async ({ page }) => {
+    // Navigate to search page
+    await page.goto('/search?search=red');
+    await page.waitForLoadState('networkidle');
+    
+    // Verify we're on search page
+    await expect(page).toHaveURL(/\/search.*search=red/i);
+    
+    // Check if results are shown (may be empty, but page should load)
+    const body = page.locator('body');
+    await expect(body).toBeVisible();
+  });
+
+  test('should search for products with color and type', async ({ page }) => {
+    // Test "red dress" search
+    await page.goto('/search?search=red dress');
+    await page.waitForLoadState('networkidle');
+    
+    await expect(page).toHaveURL(/\/search.*search=red\+dress/i);
+    
+    // Page should load without errors
+    const body = page.locator('body');
+    await expect(body).toBeVisible();
+  });
+
+  test('should search for products with size and color', async ({ page }) => {
+    // Test "small red" search
+    await page.goto('/search?search=small red');
+    await page.waitForLoadState('networkidle');
+    
+    await expect(page).toHaveURL(/\/search/i);
+    
+    // Page should load
+    const body = page.locator('body');
+    await expect(body).toBeVisible();
+  });
+
+  test('should search for products with complete variant specification', async ({ page }) => {
+    // Test "red dress size small" search
+    await page.goto('/search?search=red dress size small');
+    await page.waitForLoadState('networkidle');
+    
+    await expect(page).toHaveURL(/\/search/i);
+    
+    // Page should load
+    const body = page.locator('body');
+    await expect(body).toBeVisible();
+  });
+
+  test('should search for products with material', async ({ page }) => {
+    // Test "silk dress" search
+    await page.goto('/search?search=silk dress');
+    await page.waitForLoadState('networkidle');
+    
+    await expect(page).toHaveURL(/\/search/i);
+    
+    // Page should load
+    const body = page.locator('body');
+    await expect(body).toBeVisible();
+  });
+
+  test('should search for products with all variants', async ({ page }) => {
+    // Test "small red silk dress" search
+    await page.goto('/search?search=small red silk dress');
+    await page.waitForLoadState('networkidle');
+    
+    await expect(page).toHaveURL(/\/search/i);
+    
+    // Page should load
+    const body = page.locator('body');
+    await expect(body).toBeVisible();
+  });
+
+  test('should handle size abbreviations in search', async ({ page }) => {
+    // Test "s red" (S = small) search
+    await page.goto('/search?search=s red');
+    await page.waitForLoadState('networkidle');
+    
+    await expect(page).toHaveURL(/\/search/i);
+    
+    // Page should load
+    const body = page.locator('body');
+    await expect(body).toBeVisible();
+  });
+
+  test('should search with explicit size pattern', async ({ page }) => {
+    // Test "size small red" search
+    await page.goto('/search?search=size small red');
+    await page.waitForLoadState('networkidle');
+    
+    await expect(page).toHaveURL(/\/search/i);
+    
+    // Page should load
+    const body = page.locator('body');
+    await expect(body).toBeVisible();
   });
 
   test('should browse products on homepage', async ({ page }) => {

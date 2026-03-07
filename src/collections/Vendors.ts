@@ -284,6 +284,135 @@ export const Vendors: CollectionConfig = {
       type: "text",
       admin: {
         description: "Stripe Connect account ID for payouts",
+        readOnly: true,
+        condition: (data, siblingData, { user }) => {
+          // Only show to super admins
+          return isSuperAdmin(user);
+        },
+      },
+    },
+    {
+      name: "stripeAccountStatus",
+      type: "select",
+      options: [
+        { label: "Not Connected", value: "not_connected" },
+        { label: "Pending", value: "pending" },
+        { label: "Active", value: "active" },
+        { label: "Restricted", value: "restricted" },
+        { label: "Rejected", value: "rejected" },
+      ],
+      defaultValue: "not_connected",
+      admin: {
+        description: "Stripe Connect account status",
+        readOnly: true,
+        condition: (data, siblingData, { user }) => {
+          // Only show to super admins
+          return isSuperAdmin(user);
+        },
+      },
+    },
+    {
+      name: "stripeOnboardingLink",
+      type: "text",
+      admin: {
+        description: "Link for vendor to complete Stripe onboarding",
+        readOnly: true,
+        condition: (data, siblingData, { user }) => {
+          // Only show to super admins
+          return isSuperAdmin(user);
+        },
+      },
+    },
+    {
+      name: "stripeOnboardingCompleted",
+      type: "checkbox",
+      defaultValue: false,
+      admin: {
+        description: "Whether vendor has completed Stripe onboarding",
+        readOnly: true,
+        condition: (data, siblingData, { user }) => {
+          // Only show to super admins
+          return isSuperAdmin(user);
+        },
+      },
+    },
+    {
+      name: "stripeAccountDetails",
+      type: "json",
+      admin: {
+        description: "Detailed Stripe account information (business details, capabilities, requirements)",
+        readOnly: true,
+        condition: (data, siblingData, { user }) => {
+          // Only show to super admins
+          return isSuperAdmin(user);
+        },
+      },
+    },
+    {
+      name: "stripeAccountCountry",
+      type: "text",
+      admin: {
+        description: "Stripe account country",
+        readOnly: true,
+        condition: (data, siblingData, { user }) => {
+          return isSuperAdmin(user);
+        },
+      },
+    },
+    {
+      name: "stripeAccountEmail",
+      type: "email",
+      admin: {
+        description: "Stripe account email",
+        readOnly: true,
+        condition: (data, siblingData, { user }) => {
+          return isSuperAdmin(user);
+        },
+      },
+    },
+    {
+      name: "stripeChargesEnabled",
+      type: "checkbox",
+      defaultValue: false,
+      admin: {
+        description: "Whether vendor can accept charges",
+        readOnly: true,
+        condition: (data, siblingData, { user }) => {
+          return isSuperAdmin(user);
+        },
+      },
+    },
+    {
+      name: "stripePayoutsEnabled",
+      type: "checkbox",
+      defaultValue: false,
+      admin: {
+        description: "Whether vendor can receive payouts",
+        readOnly: true,
+        condition: (data, siblingData, { user }) => {
+          return isSuperAdmin(user);
+        },
+      },
+    },
+    {
+      name: "syncStripeAction",
+      type: "text",
+      admin: {
+        components: {
+          Field: "@/collections/components/SyncStripeDetailsButton#SyncStripeDetailsButton",
+        },
+        description: "Sync vendor Stripe account details from Stripe API",
+        condition: (data, siblingData, { user }) => {
+          // Only show to super admins
+          if (!isSuperAdmin(user)) {
+            return false;
+          }
+          // Show button if vendor has a Stripe account
+          const stripeAccountId = data?.stripeAccountId ?? siblingData?.stripeAccountId;
+          return !!stripeAccountId;
+        },
+        position: "sidebar",
+        readOnly: true,
       },
     },
     {

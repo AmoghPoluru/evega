@@ -7,15 +7,15 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    include: ['**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
-    exclude: ['node_modules', '.next', 'dist'],
+    setupFiles: [path.resolve(__dirname, '../unit/setup.ts')],
+    include: ['tests/unit/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    exclude: ['node_modules', '.next', 'dist', 'tests/e2e', 'tests/scripts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       exclude: [
         'node_modules/',
-        'src/test/',
+        'tests/',
         '**/*.d.ts',
         '**/*.config.*',
         '**/payload-types.ts',
@@ -32,8 +32,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@payload-config': path.resolve(__dirname, './src/payload.config.ts'),
+      '@': path.resolve(__dirname, '../src'),
+      '@payload-config': path.resolve(__dirname, '../src/payload.config.ts'),
     },
   },
 });

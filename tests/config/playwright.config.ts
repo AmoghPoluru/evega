@@ -5,12 +5,15 @@ import { defineConfig, devices } from '@playwright/test';
  * Tests the complete user journey: browse → search → add to cart → checkout
  */
 export default defineConfig({
-  testDir: './e2e',
+  testDir: './tests/e2e',
+  outputDir: './tests/output/test-results',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  reporter: [
+    ['html', { outputFolder: './tests/output/playwright-report' }],
+  ],
   use: {
     baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',

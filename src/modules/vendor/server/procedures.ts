@@ -7,6 +7,13 @@ import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth 
 import OpenAI from "openai";
 
 import { baseProcedure, createTRPCRouter, protectedProcedure, vendorProcedure } from "@/trpc/init";
+import {
+  createStripeConnectAccount,
+  createStripeOnboardingLink,
+  getStripeAccountStatus,
+  isStripeAccountReady,
+  syncVendorStripeDetails,
+} from "@/lib/stripe-connect";
 
 const vendorRegistrationSchema = z.object({
   businessName: z.string().min(2, "Business name is required"),
@@ -1641,4 +1648,214 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
           }
         }),
   }),
+
+  // Stripe Connect Procedures
+  createStripeAccount: vendorProcedure
+    .mutation(async ({ ctx }) => {
+      const vendorId = ctx.session.vendor.id;
+      const vendor = await ctx.db.findByID({
+        collection: "vendors",
+        id: vendorId,
+        depth: 0,
+      });
+
+      // Check if vendor already has a Stripe account
+      if (vendor.stripeAccountId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Vendor already has a Stripe account connected",
+        });
+      }
+
+      // Check if vendor is approved
+      if (vendor.status !== "approved" || !vendor.isActive) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Vendor must be approved and active to connect Stripe account",
+        });
+      }
+
+      try {
+        // Create Stripe Connect account
+        const stripeAccountId = await createStripeConnectAccount(
+          vendor.email,
+          vendor.name
+        );
+
+        // Generate onboarding link
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        const onboardingLink = await createStripeOnboardingLink(
+          stripeAccountId,
+          `${baseUrl}/vendor/stripe-onboarding?success=true`,
+          `${baseUrl}/vendor/stripe-onboarding?refresh=true`
+        );
+
+        // Update vendor with Stripe account info
+        await ctx.db.update({
+          collection: "vendors",
+          id: vendorId,
+          data: {
+            stripeAccountId,
+            stripeAccountStatus: "pending",
+            stripeOnboardingLink: onboardingLink,
+            stripeOnboardingCompleted: false,
+          },
+        });
+
+        return {
+          accountId: stripeAccountId,
+          onboardingLink,
+        };
+      } catch (error: any) {
+        console.error("Error creating Stripe Connect account:", error);
+        
+        // Provide more specific error codes
+        if (error.message?.includes("Stripe Connect is not enabled")) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: error.message,
+          });
+        }
+        
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error.message || "Failed to create Stripe Connect account",
+        });
+      }
+    }),
+
+  getStripeAccountStatus: vendorProcedure
+    .query(async ({ ctx }) => {
+      const vendorId = ctx.session.vendor.id;
+      const vendor = await ctx.db.findByID({
+        collection: "vendors",
+        id: vendorId,
+        depth: 0,
+      });
+
+      if (!vendor.stripeAccountId) {
+        return {
+          connected: false,
+          status: "not_connected" as const,
+          onboardingCompleted: false,
+        };
+      }
+
+      try {
+        const accountStatus = await getStripeAccountStatus(vendor.stripeAccountId);
+        const isReady = await isStripeAccountReady(vendor.stripeAccountId);
+
+        // Sync full vendor Stripe details
+        const stripeDetails = await syncVendorStripeDetails(vendor.stripeAccountId);
+
+        // Update vendor with all Stripe details
+        await ctx.db.update({
+          collection: "vendors",
+          id: vendorId,
+          data: stripeDetails,
+        });
+
+        return {
+          connected: true,
+          status: accountStatus.status,
+          onboardingCompleted: accountStatus.detailsSubmitted,
+          chargesEnabled: accountStatus.chargesEnabled,
+          payoutsEnabled: accountStatus.payoutsEnabled,
+          isReady,
+          accountId: vendor.stripeAccountId,
+        };
+      } catch (error: any) {
+        console.error("Error getting Stripe account status:", error);
+        return {
+          connected: true,
+          status: vendor.stripeAccountStatus || "pending",
+          onboardingCompleted: vendor.stripeOnboardingCompleted || false,
+          error: error.message,
+        };
+      }
+    }),
+
+  refreshOnboardingLink: vendorProcedure
+    .mutation(async ({ ctx }) => {
+      const vendorId = ctx.session.vendor.id;
+      const vendor = await ctx.db.findByID({
+        collection: "vendors",
+        id: vendorId,
+        depth: 0,
+      });
+
+      if (!vendor.stripeAccountId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Vendor does not have a Stripe account. Please create one first.",
+        });
+      }
+
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        const onboardingLink = await createStripeOnboardingLink(
+          vendor.stripeAccountId,
+          `${baseUrl}/vendor/stripe-onboarding?success=true`,
+          `${baseUrl}/vendor/stripe-onboarding?refresh=true`
+        );
+
+        // Update vendor with new onboarding link
+        await ctx.db.update({
+          collection: "vendors",
+          id: vendorId,
+          data: {
+            stripeOnboardingLink: onboardingLink,
+          },
+        });
+
+        return { onboardingLink };
+      } catch (error: any) {
+        console.error("Error refreshing onboarding link:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error.message || "Failed to refresh onboarding link",
+        });
+      }
+    }),
+
+  syncStripeDetails: vendorProcedure
+    .mutation(async ({ ctx }) => {
+      const vendorId = ctx.session.vendor.id;
+      const vendor = await ctx.db.findByID({
+        collection: "vendors",
+        id: vendorId,
+        depth: 0,
+      });
+
+      if (!vendor.stripeAccountId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Vendor does not have a Stripe account. Please create one first.",
+        });
+      }
+
+      try {
+        // Fetch and sync full Stripe account details
+        const stripeDetails = await syncVendorStripeDetails(vendor.stripeAccountId);
+
+        // Update vendor with all Stripe details
+        await ctx.db.update({
+          collection: "vendors",
+          id: vendorId,
+          data: stripeDetails,
+        });
+
+        return {
+          success: true,
+          message: "Stripe account details synced successfully",
+          details: stripeDetails,
+        };
+      } catch (error: any) {
+        console.error("Error syncing Stripe details:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error.message || "Failed to sync Stripe account details",
+        });
+      }
+    }),
 });

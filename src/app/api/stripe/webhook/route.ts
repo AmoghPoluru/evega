@@ -246,7 +246,7 @@ export async function POST(req: Request) {
             throw new Error(`Product ${product.id} has no vendor assigned`);
           }
 
-          // Fetch vendor to get commission rate
+          // Fetch vendor to get commission rate and Stripe account
           const vendor = await payload.findByID({
             collection: "vendors",
             id: orderVendorId,
@@ -254,11 +254,33 @@ export async function POST(req: Request) {
           });
 
           // Get commission rate (default to 10% if not set)
-          const commissionRate = vendor.commissionRate ?? 10;
+          const commissionRate = vendor.commissionRate ?? parseFloat(process.env.PLATFORM_COMMISSION_RATE || "10");
           
           // Calculate commission and vendor payout
           const commission = (total * commissionRate) / 100;
           const vendorPayout = total - commission;
+
+          // Get payment intent to extract transfer information (if using Stripe Connect)
+          let transferId: string | null = null;
+          let transferStatus: "pending" | "paid" | "failed" | "canceled" = "pending";
+          
+          if (session.payment_intent) {
+            try {
+              const paymentIntent = await stripe.paymentIntents.retrieve(
+                session.payment_intent as string,
+                { expand: ["charges.data.balance_transaction"] }
+              );
+              
+              // Check if this payment has a transfer (Stripe Connect)
+              if (paymentIntent.transfer_data?.destination) {
+                // For Direct Charges, the transfer is created automatically
+                // We'll update it when we receive the transfer webhook event
+                transferStatus = "pending";
+              }
+            } catch (error) {
+              console.error("Error retrieving payment intent:", error);
+            }
+          }
 
           console.log(`Creating order for product ${product.name}, vendor: ${orderVendorId}, commission: ${commissionRate}% (${commission.toFixed(2)}), vendor payout: ${vendorPayout.toFixed(2)}`);
           // Shipping address is already fetched above and reused for all orders
@@ -282,8 +304,10 @@ export async function POST(req: Request) {
             size: cartItem.size || undefined,
             color: cartItem.color || undefined,
             stripeCheckoutSessionId: session.id,
-            stripeAccountId: (session as any).account || null,
+            stripeAccountId: vendor.stripeAccountId || (session as any).account || null,
             stripePaymentIntentId: session.payment_intent as string || null,
+            stripeTransferId: transferId || null,
+            transferStatus: transferStatus,
             shippingAddress: shippingAddress, // Required field
             // statusHistory will be automatically created by the Orders collection hook
           };
@@ -590,9 +614,111 @@ export async function POST(req: Request) {
     }
 
     case "payment_intent.succeeded": {
-      // Handle successful payment (already handled by checkout.session.completed)
+      // Handle payment intent success - extract transfer information for Stripe Connect
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      console.log("Payment succeeded:", paymentIntent.id);
+      
+      try {
+        // If this payment has a transfer (Stripe Connect), update orders
+        if (paymentIntent.transfer_data?.destination) {
+          // Find orders with this payment intent
+          const orders = await payload.find({
+            collection: "orders",
+            where: {
+              stripePaymentIntentId: { equals: paymentIntent.id },
+            },
+            limit: 100,
+          });
+
+          // Get the transfer ID from the charge
+          let transferId: string | null = null;
+          if (paymentIntent.latest_charge) {
+            const charge = await stripe.charges.retrieve(
+              typeof paymentIntent.latest_charge === "string" 
+                ? paymentIntent.latest_charge 
+                : paymentIntent.latest_charge.id,
+              { expand: ["balance_transaction"] }
+            );
+            
+            // Find the transfer associated with this charge
+            const transfers = await stripe.transfers.list({
+              limit: 10,
+            });
+            
+            const transfer = transfers.data.find(
+              (t) => t.destination === paymentIntent.transfer_data.destination
+            );
+            
+            if (transfer) {
+              transferId = transfer.id;
+            }
+          }
+
+          // Update orders with transfer information
+          for (const order of orders.docs) {
+            if (transferId && !order.stripeTransferId) {
+              await payload.update({
+                collection: "orders",
+                id: order.id,
+                data: {
+                  stripeTransferId: transferId,
+                  transferStatus: "pending", // Will be updated by transfer webhook
+                },
+              });
+            }
+          }
+
+          console.log(`Updated ${orders.docs.length} order(s) with transfer ${transferId} for payment intent ${paymentIntent.id}`);
+        }
+      } catch (error) {
+        console.error("Error handling payment_intent.succeeded webhook:", error);
+      }
+
+      return NextResponse.json({ received: true });
+    }
+
+    case "account.updated": {
+      // Stripe Connect account was updated (onboarding completed, status changed, etc.)
+      const account = event.data.object as Stripe.Account;
+      
+      console.log(`📝 Stripe account updated: ${account.id}`);
+
+      try {
+        // Find vendor by Stripe account ID
+        const vendors = await payload.find({
+          collection: "vendors",
+          where: {
+            stripeAccountId: {
+              equals: account.id,
+            },
+          },
+          limit: 1,
+        });
+
+        if (vendors.docs.length > 0) {
+          const vendor = vendors.docs[0];
+          
+          // Import sync function
+          const { syncVendorStripeDetails } = await import("@/lib/stripe-connect");
+          
+          // Sync full vendor Stripe details
+          const stripeDetails = await syncVendorStripeDetails(account.id);
+
+          // Update vendor with synced details
+          await payload.update({
+            collection: "vendors",
+            id: vendor.id,
+            data: stripeDetails,
+          });
+
+          console.log(`✅ Updated vendor ${vendor.id} with Stripe account details for account ${account.id}`);
+        } else {
+          console.warn(`⚠️ No vendor found for Stripe account ${account.id}`);
+        }
+      } catch (error) {
+        console.error(`❌ Error handling account.updated webhook:`, error);
+        // Don't fail the webhook - log and continue
+      }
+
       break;
     }
 

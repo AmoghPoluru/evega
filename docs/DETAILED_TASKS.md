@@ -685,14 +685,59 @@
 ### Search & Filters
 
 121. ✅ Create search functionality
-    - **Tech**: Create search page with filters
-    - **Details**: Search products by name, description, tags
-    - **Status**: ✅ Search implemented
+   - **Tech**: Create search page with filters
+   - **Details**: Search products by name, description, tags
+   - **Status**: ✅ Search implemented
 
 122. ✅ Create advanced filters
-    - **Tech**: Create filter components for price, category, tags, variants
-    - **Details**: Multi-select filters with URL state management
-    - **Status**: ✅ Advanced filters implemented
+   - **Tech**: Create filter components for price, category, tags, variants
+   - **Details**: Multi-select filters with URL state management
+   - **Status**: ✅ Advanced filters implemented
+
+177. ✅ Implement enhanced search with variant support
+   - **Tech**: Create `src/lib/search/` utilities for intelligent query parsing
+   - **Details**: Enhanced search that parses queries like "red dress size small" to extract variant information (color, size, material) and keywords
+   - **Files Created**:
+     - `src/lib/search/variant-utils.ts` - Variant extraction and matching utilities
+     - `src/lib/search/variant-mapper.ts` - Maps search terms to variant types
+     - `src/lib/search/query-parser.ts` - Intelligent query parser
+     - `src/lib/search/search-query-builder.ts` - MongoDB query builder with variant support
+   - **Status**: ✅ Enhanced search implemented
+
+178. ✅ Integrate variant search into products.getMany
+   - **Tech**: Update `src/modules/products/server/procedures.ts`
+   - **Details**: Integrated enhanced search query builder, supports searching by variants (size, color, material) in addition to name, tags, description
+   - **Status**: ✅ Variant search integrated
+
+179. ✅ Add search query parsing for natural language queries
+   - **Tech**: Query parser handles patterns like "red dress size small", "small red silk", "size small red dress"
+   - **Details**: Extracts variant information and keywords from natural language queries
+   - **Status**: ✅ Query parsing implemented
+
+180. ✅ Add variant type mapping (size abbreviations, color synonyms)
+   - **Tech**: Maps "S" → "small", "M" → "medium", "crimson" → "red", etc.
+   - **Details**: Handles size abbreviations and color synonyms for better search matching
+   - **Status**: ✅ Variant mapping implemented
+
+181. ✅ Create search testing scripts
+   - **Tech**: Create `scripts/test-search.ts` and `scripts/test-search-quick.ts`
+   - **Details**: Comprehensive test scripts to verify 50+ search phrases work correctly
+   - **Status**: ✅ Test scripts created
+
+182. ✅ Add unit tests for search utilities
+   - **Tech**: Create test files in `src/test/lib/search/`
+   - **Details**: Unit tests for query parser, variant mapper, variant utils, and query builder
+   - **Files Created**:
+     - `src/test/lib/search/query-parser.test.ts`
+     - `src/test/lib/search/variant-mapper.test.ts`
+     - `src/test/lib/search/variant-utils.test.ts`
+     - `src/test/lib/search/search-query-builder.test.ts`
+   - **Status**: ✅ Unit tests created
+
+183. ✅ Add E2E tests for enhanced search
+   - **Tech**: Update `e2e/search-browse.spec.ts`
+   - **Details**: E2E tests for variant-based searches (color, size, material combinations)
+   - **Status**: ✅ E2E tests added
 
 ### Vendor Registration
 
@@ -1023,19 +1068,134 @@
     - **Status**: ✅ Remove item from checkout implemented
     - **Files**: `src/modules/checkout/ui/views/checkout-view.tsx`
 
+## Stripe Connect Implementation (Vendor Payouts & Platform Commission)
+
+**See**: `docs/STRIPE_CONNECT_IMPLEMENTATION.md` for detailed implementation plan
+
+**Overview**: Implement Stripe Connect to enable vendors to have their own Stripe accounts, automatic payment splitting (vendor payout + platform commission), and direct transfers to vendor accounts.
+
+177. ❌ Setup Stripe Connect platform account
+    - **Tech**: Create Stripe Connect account, configure settings
+    - **Details**: Enable Connect platform, configure branding, terms of service, privacy policy URLs
+    - **Status**: ❌ Not started
+    - **Reference**: Task 1.1.1, 1.1.2 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+178. ❌ Add Stripe Connect environment variables
+    - **Tech**: Add `STRIPE_CONNECT_CLIENT_ID` and `STRIPE_PLATFORM_ACCOUNT_ID` to environment
+    - **Details**: Configure OAuth client ID and platform account ID for Stripe Connect
+    - **Status**: ❌ Not started
+    - **Reference**: Task 1.1.3 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+179. ❌ Add Stripe Connect fields to Vendors collection
+    - **Tech**: Update `src/collections/Vendors.ts`
+    - **Details**: Add `stripeAccountId`, `stripeAccountStatus`, `stripeOnboardingLink`, `stripeOnboardingCompleted` fields
+    - **Status**: ❌ Not started
+    - **Reference**: Task 1.2.1 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+180. ❌ Create Stripe Connect account creation API
+    - **Tech**: Create `src/app/api/stripe/connect/create-account/route.ts`
+    - **Details**: Create Stripe Connect account for vendor, store account ID, generate onboarding link
+    - **Status**: ❌ Not started
+    - **Reference**: Task 2.1.1 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+181. ❌ Create vendor Stripe onboarding page
+    - **Tech**: Create `src/app/(app)/vendor/stripe-onboarding/page.tsx`
+    - **Details**: Show "Connect Stripe Account" button, display onboarding status, redirect to Stripe onboarding
+    - **Status**: ❌ Not started
+    - **Reference**: Task 2.2.1 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+182. ❌ Implement Stripe onboarding link generation
+    - **Tech**: Use `stripe.accountLinks.create()` in vendor onboarding flow
+    - **Details**: Generate onboarding link with refresh and return URLs, handle callback
+    - **Status**: ❌ Not started
+    - **Reference**: Task 2.2.1 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+183. ❌ Add webhook handler for Stripe account updates
+    - **Tech**: Update `src/app/api/stripe/webhook/route.ts`
+    - **Details**: Handle `account.updated` event to sync vendor account status
+    - **Status**: ❌ Not started
+    - **Reference**: Task 2.2.3 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+184. ❌ Update checkout to use Stripe Connect
+    - **Tech**: Update `src/modules/checkout/server/procedures.ts`
+    - **Details**: Implement Direct Charges with transfers, group cart items by vendor, create transfers to vendor accounts
+    - **Status**: ❌ Not started
+    - **Reference**: Task 3.1.1, 3.1.2 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+185. ❌ Handle multi-vendor carts with Stripe Connect
+    - **Tech**: Split cart by vendor, create separate payment intents per vendor
+    - **Details**: Group items by vendor, calculate commission per vendor, create separate orders and transfers
+    - **Status**: ❌ Not started
+    - **Reference**: Task 3.1.3 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+186. ❌ Add Stripe transfer fields to Orders collection
+    - **Tech**: Update `src/collections/Orders.ts`
+    - **Details**: Add `stripePaymentIntentId`, `stripeTransferId`, `transferStatus` fields
+    - **Status**: ❌ Not started
+    - **Reference**: Task 3.3.1 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+187. ❌ Update webhook to handle Stripe Connect transfers
+    - **Tech**: Update `src/app/api/stripe/webhook/route.ts`
+    - **Details**: Handle `payment_intent.succeeded`, `transfer.created`, `transfer.paid`, `transfer.failed` events
+    - **Status**: ❌ Not started
+    - **Reference**: Task 3.2.1, 3.2.2 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+188. ❌ Validate vendor Stripe account before checkout
+    - **Tech**: Add validation in checkout procedure
+    - **Details**: Check if vendor has `stripeAccountId`, verify account status is "active", prevent checkout if not ready
+    - **Status**: ❌ Not started
+    - **Reference**: Task 5.1.1 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+189. ❌ Handle transfer failures and errors
+    - **Tech**: Add error handling for failed transfers
+    - **Details**: Handle `transfer.failed` events, update order status, notify vendor and platform admin
+    - **Status**: ❌ Not started
+    - **Reference**: Task 5.2.1 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+190. ❌ Implement refunds with Stripe Connect
+    - **Tech**: Implement refund logic for Connect accounts
+    - **Details**: Refund to customer, reverse transfer to vendor, deduct commission from platform
+    - **Status**: ❌ Not started
+    - **Reference**: Task 5.2.2 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+191. ❌ Add Stripe account status to vendor dashboard
+    - **Tech**: Update vendor dashboard to show Stripe connection status
+    - **Details**: Display "Connected" / "Not Connected" status, show onboarding button if pending
+    - **Status**: ❌ Not started
+    - **Reference**: Task 2.3.1 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+192. ❌ Create vendor payout history page
+    - **Tech**: Create payout tracking page for vendors
+    - **Details**: Show list of payouts, payout status, commission deducted per transaction
+    - **Status**: ❌ Not started
+    - **Reference**: Task 4.2.2 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+193. ❌ Create platform commission dashboard
+    - **Tech**: Create admin dashboard for commission tracking
+    - **Details**: Show total commission earned, commission by vendor, commission by time period
+    - **Status**: ❌ Not started
+    - **Reference**: Task 4.3.1 in STRIPE_CONNECT_IMPLEMENTATION.md
+
+194. ❌ Write tests for Stripe Connect implementation
+    - **Tech**: Create unit and integration tests
+    - **Details**: Test account creation, onboarding, payment processing, transfers, webhooks
+    - **Status**: ❌ Not started
+    - **Reference**: Task 6.1 in STRIPE_CONNECT_IMPLEMENTATION.md
+
 ---
 
 ## Summary
 
-**Total Tasks Documented: 176** (Updated from 172)
+**Total Tasks Documented: 194** (Updated from 176)
 
-**Completed: ~110 tasks (65%)**
-**Pending: ~60 tasks (35%)**
+**Completed: ~110 tasks (57%)**
+**Pending: ~84 tasks (43%)**
 
 **Breakdown**:
 - **Original Tasks (1-138)**: 110 completed, 28 pending
 - **New Tasks (139-170)**: 0 completed, 32 pending
 - **Latest Tasks (171-176)**: 6 completed, 0 pending
+- **Stripe Connect Tasks (177-194)**: 0 completed, 18 pending
 
 ### Key Features Implemented:
 - ✅ Multi-vendor marketplace architecture
@@ -1057,8 +1217,13 @@
 - ✅ Add to cart authentication requirement
 - ✅ Redirect after authentication
 - ✅ Remove items from checkout
+- ✅ Enhanced search with variant support (color, size, material)
+- ✅ Intelligent query parsing for natural language searches
+- ✅ Variant type mapping (abbreviations, synonyms)
+- ✅ Search testing scripts and unit tests
 
 ### Pending Features:
+- ⚠️ Stripe Connect implementation (vendor payouts & platform commission)
 - ⚠️ Comprehensive testing suite
 - ⚠️ Production deployment setup
 - ⚠️ Email service configuration

@@ -68,6 +68,8 @@ export const Products: CollectionConfig = {
     useAsTitle: "name",
     description: "You must verify your account before creating products"
   },
+  // Note: MongoDB indexes should be created via migration script or MongoDB directly
+  // See docs/SEARCH_INDEXES.md for index creation commands
   hooks: {
     beforeValidate: [
       async ({ data, operation, req }) => {

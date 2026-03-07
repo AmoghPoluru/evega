@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/tests/output/
 
 # next.js
 /.next/
@@ -39,6 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-test-results/
-playwright-report/
+
+# Playwright (legacy - now outputs to tests/output/)
 playwright/.cache/

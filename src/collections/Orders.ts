@@ -329,6 +329,27 @@ export const Orders: CollectionConfig = {
       },
     },
     {
+      name: "stripeTransferId",
+      type: "text",
+      admin: {
+        description: "Stripe transfer ID (for vendor payout via Stripe Connect)",
+      },
+    },
+    {
+      name: "transferStatus",
+      type: "select",
+      options: [
+        { label: "Pending", value: "pending" },
+        { label: "Paid", value: "paid" },
+        { label: "Failed", value: "failed" },
+        { label: "Canceled", value: "canceled" },
+      ],
+      defaultValue: "pending",
+      admin: {
+        description: "Status of the transfer to vendor's Stripe account",
+      },
+    },
+    {
       name: "shippingAddress",
       type: "group",
       label: "Shipping Address",

@@ -58,6 +58,9 @@ const requiredEnvVars = {
 
 const optionalEnvVars = {
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'Stripe publishable key (for client-side)',
+  STRIPE_CONNECT_CLIENT_ID: 'Stripe Connect OAuth client ID (for vendor onboarding)',
+  STRIPE_PLATFORM_ACCOUNT_ID: 'Stripe platform account ID (optional)',
+  PLATFORM_COMMISSION_RATE: 'Default platform commission rate (%) - defaults to 10',
   GOOGLE_CLIENT_ID: 'Google OAuth client ID (optional)',
   GOOGLE_CLIENT_SECRET: 'Google OAuth client secret (optional)',
   FACEBOOK_CLIENT_ID: 'Facebook OAuth app ID (optional)',
