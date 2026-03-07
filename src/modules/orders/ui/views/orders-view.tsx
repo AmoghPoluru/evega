@@ -4,6 +4,7 @@ import { trpc } from "@/trpc/client";
 import { OrderCard } from "../components/order-card";
 import { LoaderIcon, Package } from "lucide-react";
 import Link from "next/link";
+import type { Order } from "@/payload-types";
 
 interface OrdersViewProps {
   userId: string;
@@ -76,7 +77,7 @@ export function OrdersView({ userId }: OrdersViewProps) {
         </div>
 
         <div className="space-y-4">
-          {data.docs.map((order) => (
+          {data.docs.map((order: Order) => (
             <OrderCard key={order.id} order={order} />
           ))}
         </div>

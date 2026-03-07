@@ -72,8 +72,8 @@ export const tagsRouter = createTRPCRouter({
             image: tagData.image,
           };
         })
-        .filter((tag) => tag.productCount > 0) // Only tags with products
-        .sort((a, b) => b.productCount - a.productCount); // Sort by product count
+        .filter((tag: { id: string; name: string; productCount: number; image: string | null }) => tag.productCount > 0) // Only tags with products
+        .sort((a: { productCount: number }, b: { productCount: number }) => b.productCount - a.productCount); // Sort by product count
 
       // Apply pagination
       const startIndex = (page - 1) * limit;

@@ -17,7 +17,7 @@ async function assignVendorToProducts() {
       collection: "vendors",
       where: {
         or: [
-          { name: { contains: vendorName, options: "i" } },
+          { name: { contains: vendorName } },
           { slug: { equals: vendorName } },
         ],
       },

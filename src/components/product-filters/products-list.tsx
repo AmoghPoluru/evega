@@ -6,31 +6,16 @@ import { ProductFilters } from "./product-filters";
 import { ProductFiltersProvider, useProductFilters } from "./product-filters-provider";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/product-card";
-import type { Media } from "@/payload-types";
+import type { Product as PayloadProduct } from "@/payload-types";
 
-interface Product {
-  id: string;
-  name: string;
-  description?: string | any;
-  price: number;
-  image?: Media | string | null;
-  vendor?: {
-    id: string;
-    name?: string;
-    slug?: string;
-    logo?: { url?: string | null } | string | null;
-  } | string | null;
-  refundPolicy?: '30-day' | '14-day' | '7-day' | '3-day' | '1-day' | 'no-refunds' | null;
-  tags?: Array<{
-    id: string;
-    name: string;
-  } | string> | null;
+// Use payload-types Product directly, but make variantData more flexible
+type Product = Omit<PayloadProduct, 'variants'> & {
   variants?: Array<{
-    variantData?: Record<string, any>; // Dynamic variant data
+    variantData?: Record<string, any> | unknown[] | string | number | boolean | null;
     stock: number;
     price?: number | null;
   }> | null;
-}
+};
 
 interface ProductsListProps {
   products: Product[];
@@ -65,7 +50,12 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
     products.forEach((product) => {
       if (product.variants && Array.isArray(product.variants)) {
         product.variants.forEach((variant) => {
-          const variantData = variant.variantData || {};
+          // Normalize variantData to object format
+          const variantData = typeof variant.variantData === 'object' && 
+                              variant.variantData !== null && 
+                              !Array.isArray(variant.variantData)
+            ? variant.variantData as Record<string, any>
+            : {};
           Object.keys(variantData).forEach((variantType) => {
             const value = variantData[variantType];
             if (value && typeof value === 'string') {
@@ -160,7 +150,12 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
         
         // Check if product has at least one variant matching all selected variant filters
         return product.variants.some((variant) => {
-          const variantData = variant.variantData || {};
+          // Normalize variantData to object format
+          const variantData = typeof variant.variantData === 'object' && 
+                              variant.variantData !== null && 
+                              !Array.isArray(variant.variantData)
+            ? variant.variantData as Record<string, any>
+            : {};
           
           // Check each variant type filter
           for (const [variantType, selectedValues] of Object.entries(filters.variants!)) {
@@ -223,6 +218,30 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
                   ? product.image.url 
                   : null;
 
+              // Normalize vendor data to match ProductCard's expected type
+              let normalizedVendor: string | { id: string; name?: string; slug?: string; logo?: { url?: string } | string | null } | null = null;
+              if (typeof product.vendor === 'string') {
+                normalizedVendor = product.vendor;
+              } else if (product.vendor && typeof product.vendor === 'object') {
+                const vendor = product.vendor;
+                // Normalize logo: Media object with url (which can be null) -> { url?: string }
+                let logo: { url?: string } | string | null = null;
+                if (vendor.logo) {
+                  if (typeof vendor.logo === 'string') {
+                    logo = vendor.logo;
+                  } else if (typeof vendor.logo === 'object' && vendor.logo !== null && 'url' in vendor.logo) {
+                    // Media object: convert url from string | null | undefined to string | undefined
+                    logo = vendor.logo.url ? { url: vendor.logo.url } : null;
+                  }
+                }
+                normalizedVendor = {
+                  id: vendor.id,
+                  name: vendor.name,
+                  slug: vendor.slug,
+                  logo,
+                };
+              }
+
               return (
                 <ProductCard
                   key={product.id}
@@ -230,7 +249,7 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
                   name={product.name}
                   imageUrl={imageUrl}
                   price={product.price}
-                  vendor={product.vendor}
+                  vendor={normalizedVendor}
                   // Optional fields - can be added later when you have review data
                   // reviewRating={product.reviewRating}
                   // reviewCount={product.reviewCount}

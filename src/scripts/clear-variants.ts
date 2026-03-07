@@ -39,7 +39,7 @@ const clearVariants = async () => {
             process.stdout.write(`Deleted ${deletedOptionsCount}/${optionsCount} variant options...\r`);
           }
         } catch (error) {
-          logError(`Failed to delete variant option: ${option.name || option.id}`, error);
+          logError(`Failed to delete variant option: ${option.value || option.id}`, error);
         }
       }
 

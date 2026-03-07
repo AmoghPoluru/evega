@@ -3,9 +3,7 @@
 import { useState } from "react";
 import { ChevronDownIcon, ChevronRightIcon, X } from "lucide-react";
 
-// @ts-expect-error - Utils import works at runtime with NodeNext resolution
 import { cn } from "@/lib/utils";
-// @ts-expect-error - Component import works at runtime with NodeNext resolution
 import { Button } from "@/components/ui/button";
 
 import { TagsFilter } from "./tags-filter";

@@ -1,4 +1,3 @@
-// @ts-expect-error - Next.js navigation module works at runtime with NodeNext resolution
 import { redirect } from "next/navigation";
 
 import { caller } from "@/trpc/server";

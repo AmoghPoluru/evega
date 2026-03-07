@@ -103,7 +103,7 @@ export const checkoutRouter = createTRPCRouter({
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
       
       for (const cartItem of input.cartItems) {
-        const product = products.docs.find(p => p.id === cartItem.productId);
+        const product = products.docs.find((p: { id: string }) => p.id === cartItem.productId);
         if (!product) {
           throw new TRPCError({ code: "NOT_FOUND", message: `Product ${cartItem.productId} not found` });
         }
@@ -229,7 +229,7 @@ export const checkoutRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND", message: "Products not found" });
       }
 
-      const totalPrice = data.docs.reduce((acc, product) => {
+      const totalPrice = data.docs.reduce((acc: number, product: { price: number | null | undefined }) => {
         const price = Number(product.price);
         return acc + (isNaN(price) ? 0 : price);
       }, 0);
@@ -237,7 +237,7 @@ export const checkoutRouter = createTRPCRouter({
       return {
         ...data,
         totalPrice: totalPrice,
-        docs: data.docs.map((doc) => ({
+        docs: data.docs.map((doc: { image?: any; [key: string]: any }) => ({
           ...doc,
           image: doc.image as Media | null,
         }))

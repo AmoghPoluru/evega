@@ -82,7 +82,7 @@ export default function VendorProductsPage() {
         onSearchChange={setSearch}
         category={category}
         onCategoryChange={setCategory}
-        categories={categoriesData?.map((cat) => ({ id: cat.id, name: cat.name })) || []}
+        categories={categoriesData?.map((cat: { id: string; name: string }) => ({ id: cat.id, name: cat.name })) || []}
         sortBy={sortBy}
         sortOrder={sortOrder}
         onSortChange={(field, order) => {

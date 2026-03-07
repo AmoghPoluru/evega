@@ -1,7 +1,6 @@
 "use client";
 
 /// <reference types="next" />
-// @ts-expect-error - Next.js link module works at runtime with NodeNext resolution
 import Link from "next/link";
 
 import type { Category } from "@/payload-types";

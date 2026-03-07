@@ -329,12 +329,12 @@ export async function POST(req: Request) {
                 await sendOrderConfirmationEmail(
                   user.email,
                   orderNumber,
-                  lineItem.amount_total / 100, // Convert from cents
+                  total, // Order total
                   [
                     {
-                      name: product.title || product.name || "Product",
-                      quantity: lineItem.quantity || 1,
-                      price: lineItem.amount_total / 100,
+                      name: product.name || "Product",
+                      quantity: cartItem.quantity || 1,
+                      price: total,
                     },
                   ]
                 );
@@ -631,7 +631,7 @@ export async function POST(req: Request) {
 
           // Get the transfer ID from the charge
           let transferId: string | null = null;
-          if (paymentIntent.latest_charge) {
+          if (paymentIntent.latest_charge && paymentIntent.transfer_data?.destination) {
             const charge = await stripe.charges.retrieve(
               typeof paymentIntent.latest_charge === "string" 
                 ? paymentIntent.latest_charge 
@@ -645,7 +645,7 @@ export async function POST(req: Request) {
             });
             
             const transfer = transfers.data.find(
-              (t) => t.destination === paymentIntent.transfer_data.destination
+              (t) => t.destination === paymentIntent.transfer_data!.destination
             );
             
             if (transfer) {

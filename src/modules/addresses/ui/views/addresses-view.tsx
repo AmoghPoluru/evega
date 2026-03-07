@@ -61,7 +61,7 @@ export function AddressesView({ userId }: { userId: string }) {
       {(isAdding || editingAddressId) && (
         <div className="mb-6 p-4 border border-gray-300 rounded-lg bg-gray-50">
           <AddressForm
-            address={editingAddressId ? addresses.find(a => a.id === editingAddressId) : undefined}
+            address={editingAddressId ? addresses.find((a: { id: string }) => a.id === editingAddressId) : undefined}
             onSuccess={handleSuccess}
             onCancel={handleCancel}
           />

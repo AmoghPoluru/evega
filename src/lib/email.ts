@@ -22,13 +22,14 @@ function initializeEmailService() {
 
   if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
     emailService = 'ses';
+    // Use SMTP transport for AWS SES (simpler and more compatible)
     sesTransporter = nodemailer.createTransport({
-      SES: {
-        region: process.env.AWS_REGION || 'us-east-1',
-        credentials: {
-          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-        },
+      host: `email-smtp.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com`,
+      port: 587,
+      secure: false, // true for 465, false for other ports
+      auth: {
+        user: process.env.AWS_SES_SMTP_USERNAME || process.env.AWS_ACCESS_KEY_ID,
+        pass: process.env.AWS_SES_SMTP_PASSWORD || process.env.AWS_SECRET_ACCESS_KEY,
       },
     });
     return;

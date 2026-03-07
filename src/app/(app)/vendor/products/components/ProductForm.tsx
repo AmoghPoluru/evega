@@ -46,12 +46,12 @@ const productFormSchema = z.object({
   tags: z.array(z.string()).optional(),
   variants: z.array(
     z.object({
-      variantData: z.record(z.any()), // Dynamic variant data based on category
-      stock: z.number().min(0).default(0),
+      variantData: z.record(z.string(), z.any()), // Dynamic variant data based on category
+      stock: z.number().min(0),
       price: z.number().optional(),
     })
   ).optional(),
-  isPrivate: z.boolean().default(true),
+  isPrivate: z.boolean(),
 });
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -71,16 +71,6 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-
-  const { data: categoriesData } = trpc.categories.useQuery();
-  const { data: tagsData } = trpc.tags.getMany.useQuery({ limit: 100 });
-  
-  // Fetch category variant config when category is selected
-  const selectedCategoryId = form.watch("category");
-  const { data: categoryData } = trpc.getCategory.useQuery(
-    { id: selectedCategoryId },
-    { enabled: !!selectedCategoryId }
-  );
 
   const queryClient = trpc.useUtils();
 
@@ -107,6 +97,16 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       isPrivate: product?.isPrivate ?? true,
     },
   });
+
+  const { data: categoriesData } = trpc.categories.useQuery();
+  const { data: tagsData } = trpc.tags.getMany.useQuery({ limit: 100 });
+  
+  // Fetch category variant config when category is selected
+  const selectedCategoryId = form.watch("category");
+  const { data: categoryData } = trpc.getCategory.useQuery(
+    { id: selectedCategoryId },
+    { enabled: !!selectedCategoryId }
+  );
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -396,7 +396,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {categories.map((cat) => (
+                        {categories.map((cat: { id: string; name: string }) => (
                           <SelectItem key={cat.id} value={cat.id}>
                             {cat.name}
                           </SelectItem>
@@ -422,21 +422,21 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                       </FormControl>
                       <SelectContent>
                         {categories
-                          .flatMap((cat) => {
+                          .flatMap((cat: { id: string; subcategories?: any }) => {
                             const subs = Array.isArray(cat.subcategories)
                               ? cat.subcategories
                               : cat.subcategories?.docs || [];
-                            return subs.map((sub: any) => ({
+                            return subs.map((sub: { id: string; name: string }) => ({
                               id: sub.id,
                               name: sub.name,
                               parentId: cat.id,
                             }));
                           })
-                          .filter((sub) => {
+                          .filter((sub: { parentId: string }) => {
                             const selectedCategory = form.watch("category");
                             return !selectedCategory || sub.parentId === selectedCategory;
                           })
-                          .map((sub) => (
+                          .map((sub: { id: string; name: string }) => (
                             <SelectItem key={sub.id} value={sub.id}>
                               {sub.name}
                             </SelectItem>
@@ -844,11 +844,8 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                     <Plus className="mr-2 h-4 w-4" />
                     Add Variant
                   </Button>
-                </>
-              )}
             </CardContent>
           </Card>
-        )}
 
         {/* Visibility */}
         <Card>

@@ -70,7 +70,7 @@ export function ProfileDropdown() {
   const initials = user.name
     ? user.name
         .split(" ")
-        .map((n) => n[0])
+        .map((n: string) => n[0])
         .join("")
         .toUpperCase()
         .slice(0, 2)

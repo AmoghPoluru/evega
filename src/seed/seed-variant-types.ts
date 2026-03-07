@@ -64,7 +64,7 @@ const seedVariantTypes = async () => {
           data: {
             name: variantType.name,
             slug: variantType.slug,
-            type: variantType.type,
+            type: variantType.type as "select" | "number" | "text",
             unit: variantType.unit || null,
             displayOrder: variantType.displayOrder,
           },

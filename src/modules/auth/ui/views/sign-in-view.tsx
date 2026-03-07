@@ -1,12 +1,9 @@
 "use client";
 
 import z from "zod";
-// @ts-expect-error - Next.js link module works at runtime with NodeNext resolution
 import Link from "next/link";
-// @ts-expect-error - Next.js font module works at runtime with NodeNext resolution
 import { Poppins } from "next/font/google";
 import { useForm } from "react-hook-form";
-// @ts-expect-error - Next.js navigation module works at runtime with NodeNext resolution
 import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";

@@ -2,7 +2,6 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import { getPayload } from 'payload';
 import config from "@payload-config";
 import superjson from "superjson";
-// @ts-expect-error - Next.js headers module works at runtime with NodeNext resolution
 import { headers as getHeaders } from 'next/headers';
 
 import { cache } from 'react';
@@ -35,14 +34,14 @@ export const createTRPCRouter = t.router;
 export const createCallerFactory = t.createCallerFactory;
 export const baseProcedure = t.procedure.use(async ({ ctx, next }) => {
   // Use db from context if available, otherwise create new instance
-  const db = ctx.db || await getPayload({ config });
+  const db = (ctx as any).db || await getPayload({ config });
 
   return next({ ctx: { ...ctx, db } });
 });
 
 export const protectedProcedure = baseProcedure.use(async ({ ctx, next }) => {
   // Use headers from context if available, otherwise get them
-  const headers = ctx.headers || await getHeaders();
+  const headers = (ctx as any).headers || await getHeaders();
   const session = await ctx.db.auth({ headers });
 
   if (!session.user) {

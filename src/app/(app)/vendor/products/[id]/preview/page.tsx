@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { trpc } from "@/trpc/server";
+import { caller } from "@/trpc/server";
 import { ProductView } from "@/modules/products/ui/components/product-view";
 import { Suspense } from "react";
 import { ProductViewSkeleton } from "@/modules/products/ui/components/product-view";
@@ -15,7 +15,7 @@ export default async function ProductPreviewPage({ params }: Props) {
 
   try {
     // Verify the product belongs to the vendor
-    const product = await trpc.vendor.products.getOne.query({ id });
+    const product = await caller.vendor.products.getOne({ id });
 
     return (
       <div className="container mx-auto">

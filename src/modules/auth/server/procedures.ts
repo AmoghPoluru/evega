@@ -1,5 +1,4 @@
 import { TRPCError } from "@trpc/server";
-// @ts-expect-error - Next.js headers module works at runtime with NodeNext resolution
 import { headers as getHeaders } from "next/headers";
 import { baseProcedure, createTRPCRouter } from "@/trpc/init";
 

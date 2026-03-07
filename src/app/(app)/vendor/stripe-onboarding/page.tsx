@@ -74,7 +74,7 @@ export default function StripeOnboardingPage() {
     if (accountStatus?.connected && accountStatus.accountId) {
       // Refresh the onboarding link
       refreshLink.mutate(
-        {},
+        undefined,
         {
           onSuccess: (data) => {
             if (data.onboardingLink) {

@@ -41,7 +41,7 @@ export function SubcategoryProductsSection({
       {!categoriesLoading && !error && categoriesData && categoriesData.length > 0 && (() => {
         // Filter categories if categorySlug is provided
         const categories = categorySlug
-          ? categoriesData.filter((cat) => cat.slug === categorySlug)
+          ? categoriesData.filter((cat: { slug: string }) => cat.slug === categorySlug)
           : categoriesData;
         
         console.log('Categories data:', categoriesData);
@@ -49,7 +49,7 @@ export function SubcategoryProductsSection({
         
         return (
           <div className="space-y-8">
-            {categories.map((category) => {
+            {categories.map((category: { id: string; slug: string; name: string; subcategories?: any }) => {
         // Get subcategories for this category
         const subcategories = Array.isArray(category.subcategories)
           ? category.subcategories

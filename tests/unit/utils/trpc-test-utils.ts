@@ -1,4 +1,3 @@
-import type { TRPCContext } from '@/trpc/init';
 import type { Payload } from 'payload';
 import { createMockPayload } from './payload-test-utils';
 import { vi } from 'vitest';
@@ -7,6 +6,17 @@ import { vi } from 'vitest';
  * Test utilities for tRPC
  * Provides helpers for creating test contexts and calling procedures
  */
+
+type TRPCContext = {
+  db: Payload;
+  headers?: Headers;
+  session?: {
+    user?: any;
+    token?: string;
+    exp?: number;
+    vendor?: any;
+  };
+};
 
 /**
  * Create a mock tRPC context for testing

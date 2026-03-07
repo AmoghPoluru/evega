@@ -38,7 +38,7 @@ export const appRouter = createTRPCRouter({
       });
 
       // Format data to include categories and subcategories details
-      const formattedData = categories.docs.map((doc) => {
+      const formattedData = categories.docs.map((doc: Category) => {
         // Handle both array and docs format
         const subcategories = Array.isArray(doc.subcategories)
           ? doc.subcategories

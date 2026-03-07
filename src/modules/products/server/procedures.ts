@@ -4,7 +4,7 @@ import type { Sort, Where } from "payload";
 import { headers as getHeaders } from "next/headers";
 
 import { DEFAULT_LIMIT } from "@/constants";
-import { Category, Media } from "@/payload-types";
+import { Category, Media, Product } from "@/payload-types";
 import { baseProcedure, createTRPCRouter } from "@/trpc/init";
 import { buildSearchQuery } from "@/lib/search/search-query-builder";
 import { extractVariantValues, hasMatchingVariant } from "@/lib/search/variant-utils";
@@ -145,13 +145,15 @@ export const productsRouter = createTRPCRouter({
           }
         });
 
-        const formattedData = categoriesData.docs.map((doc) => ({
+        const formattedData = categoriesData.docs.map((doc: Category) => ({
           ...doc,
-          subcategories: (doc.subcategories?.docs ?? []).map((doc) => ({
-            // Because of "depth: 1" we are confident "doc" will be a type of "Category"
-            ...(doc as Category),
-            subcategories: undefined,
-          }))
+          subcategories: (doc.subcategories?.docs ?? [])
+            .filter((sub): sub is Category => typeof sub === 'object' && sub !== null && 'id' in sub)
+            .map((sub: Category) => ({
+              // Because of "depth: 1" we are confident "sub" will be a type of "Category"
+              ...(sub as Category),
+              subcategories: undefined,
+            }))
         }));
 
         const subcategoriesSlugs = [];
@@ -159,7 +161,7 @@ export const productsRouter = createTRPCRouter({
 
         if (parentCategory) {
           subcategoriesSlugs.push(
-            ...parentCategory.subcategories.map((subcategory) => subcategory.slug)
+            ...parentCategory.subcategories.map((subcategory: Category) => subcategory.slug)
           )
 
           where["category.slug"] = {
@@ -253,7 +255,7 @@ export const productsRouter = createTRPCRouter({
         // If there are keywords, MongoDB OR query should handle it
         if ((parsedQuery.size || parsedQuery.color || parsedQuery.material) && parsedQuery.keywords.length === 0) {
           // Pure variant search - ensure at least one variant matches
-          filteredDocs = data.docs.filter((doc) => {
+          filteredDocs = data.docs.filter((doc: Product) => {
             // Check if product has any matching variant
             let hasVariantMatch = false;
 
@@ -299,7 +301,7 @@ export const productsRouter = createTRPCRouter({
 
       return {
         ...data,
-        docs: filteredDocs.map((doc) => ({
+        docs: filteredDocs.map((doc: Product) => ({
           ...doc,
           image: doc.image as Media | null,
           reviewCount: 0, // TODO: Implement when reviews collection exists

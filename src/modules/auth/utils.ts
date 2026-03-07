@@ -1,4 +1,3 @@
-// @ts-expect-error - Next.js headers module works at runtime with NodeNext resolution
 import { cookies as getCookies } from "next/headers";
 
 interface Props {

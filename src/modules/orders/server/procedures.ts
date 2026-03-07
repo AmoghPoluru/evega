@@ -45,7 +45,7 @@ export const ordersRouter = createTRPCRouter({
       });
 
       return {
-        docs: data.docs.map((doc) => ({
+        docs: data.docs.map((doc: { user?: any; product?: any; [key: string]: any }) => ({
           ...doc,
           user: doc.user as User | string,
           product: doc.product as Product | string,
@@ -122,7 +122,7 @@ export const ordersRouter = createTRPCRouter({
       });
 
       return {
-        docs: data.docs.map((doc) => ({
+        docs: data.docs.map((doc: { user?: any; product?: any; [key: string]: any }) => ({
           ...doc,
           user: doc.user as User | string,
           product: doc.product as Product | string,

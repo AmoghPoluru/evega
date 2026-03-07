@@ -141,7 +141,6 @@ export async function getStripeAccountDetails(accountId: string): Promise<{
     cardPayments: "active" | "inactive" | "pending";
     transfers: "active" | "inactive" | "pending";
   };
-  payoutsEnabled: boolean;
   requirements: {
     currentlyDue: string[];
     eventuallyDue: string[];
@@ -157,7 +156,7 @@ export async function getStripeAccountDetails(accountId: string): Promise<{
     if (account.details_submitted) {
       if (account.charges_enabled && account.payouts_enabled) {
         status = "active";
-      } else if (account.requirements?.currently_due?.length > 0) {
+      } else if (account.requirements?.currently_due && account.requirements.currently_due.length > 0) {
         status = "restricted";
       } else {
         status = "restricted";
@@ -187,7 +186,6 @@ export async function getStripeAccountDetails(accountId: string): Promise<{
         transfers:
           (account.capabilities?.transfers as "active" | "inactive" | "pending") || "inactive",
       },
-      payoutsEnabled: account.payouts_enabled || false,
       requirements: account.requirements
         ? {
             currentlyDue: account.requirements.currently_due || [],
@@ -195,7 +193,7 @@ export async function getStripeAccountDetails(accountId: string): Promise<{
             pastDue: account.requirements.past_due || [],
           }
         : null,
-      createdAt: account.created,
+      createdAt: account.created || 0,
     };
   } catch (error) {
     console.error("Error retrieving Stripe account details:", error);

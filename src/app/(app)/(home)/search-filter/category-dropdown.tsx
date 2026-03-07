@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-// @ts-expect-error - Next.js link module works at runtime with NodeNext resolution
 import Link from "next/link";
 import type { Category } from "@/payload-types";
 import { Button } from "@/components/ui/button";
@@ -52,7 +51,7 @@ export const CategoryDropdown = ({
             <div className="relative">
                 <Button
                     asChild
-                    variant="elevated"
+                    variant="ghost"
                     className={cn(
                         "h-11 px-4 bg-transparent border-transparent rounded-full hover:bg-white hover:border-primary text-black",
                         isActive && !isNavigationHovered && "bg-white border-primary",

@@ -18,7 +18,7 @@ const US_STATES = [
 
 const addressFormSchema = z.object({
   label: z.string().min(1, "Label is required"),
-  isDefault: z.boolean().optional().default(false),
+  isDefault: z.boolean(),
   fullName: z.string().min(1, "Full name is required"),
   phone: z.string().min(1, "Phone number is required"),
   street: z.string().min(1, "Street address is required"),

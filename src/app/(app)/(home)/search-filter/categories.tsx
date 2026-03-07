@@ -1,7 +1,6 @@
 "use client";
 
 /// <reference types="next" />
-// @ts-expect-error - Next.js navigation module works at runtime with NodeNext resolution
 import { usePathname, useParams } from "next/navigation";
 import { useState } from "react";
 import type { Category } from "@/payload-types";

@@ -96,7 +96,7 @@ export function HeroBannersSection() {
     <div className="relative w-full overflow-hidden bg-white">
       {/* Banner Container */}
       <div className="relative">
-        {banners.map((banner, index) => (
+        {banners.map((banner: { id: string; title: string; subtitle?: string; backgroundImage?: string; products?: Array<{ id: string; name: string; image: string | null }> }, index: number) => (
           <div
             key={banner.id}
             className={cn(
@@ -222,7 +222,7 @@ export function HeroBannersSection() {
       {/* Dots Indicator */}
       {banners.length > 1 && (
         <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2">
-          {banners.map((_, index) => (
+          {banners.map((_: any, index: number) => (
             <button
               key={index}
               onClick={() => setCurrentIndex(index)}
