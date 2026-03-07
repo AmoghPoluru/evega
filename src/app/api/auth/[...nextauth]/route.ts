@@ -4,24 +4,44 @@ import { getPayload } from "payload";
 import config from "@payload-config";
 import { generateAuthCookie } from "@/modules/auth/utils";
 
-// Validate required environment variables
-if (!process.env.NEXTAUTH_SECRET) {
-  throw new Error(
-    "NEXTAUTH_SECRET is required. Add it to your .env.local file. " +
-    "You can generate one with: openssl rand -base64 32"
-  );
-}
+// Mark this route as dynamic to prevent build-time analysis
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-if (!process.env.NEXTAUTH_URL) {
-  console.warn(
-    "NEXTAUTH_URL is not set. Defaulting to http://localhost:3000. " +
-    "Set it in .env.local for production."
-  );
-}
+// Lazy initialization - only create NextAuth instance when handlers are called
+// This prevents build errors when NEXTAUTH_SECRET is not available during build
+let nextAuthHandlers: { GET: any; POST: any } | null = null;
 
-const { handlers } = NextAuth({
-  ...authConfig,
-  callbacks: {
+function getNextAuthHandlers() {
+  if (!nextAuthHandlers) {
+    // Validate at runtime, not during build
+    const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
+                       process.env.NEXT_PHASE === 'phase-development-build';
+    
+    if (!isBuildTime && !process.env.NEXTAUTH_SECRET) {
+      throw new Error(
+        "NEXTAUTH_SECRET is required. Add it to your .env.local file. " +
+        "You can generate one with: openssl rand -base64 32"
+      );
+    }
+
+    if (!process.env.NEXTAUTH_URL && !isBuildTime) {
+      console.warn(
+        "NEXTAUTH_URL is not set. Defaulting to http://localhost:3000. " +
+        "Set it in .env.local for production."
+      );
+    }
+
+    // During build, use a placeholder secret to allow build to complete
+    // This will be replaced with actual secret at runtime
+    const authConfigWithSecret = {
+      ...authConfig,
+      secret: process.env.NEXTAUTH_SECRET || (isBuildTime ? 'build-placeholder-secret-replace-at-runtime' : undefined),
+    };
+
+    const { handlers } = NextAuth({
+      ...authConfigWithSecret,
+      callbacks: {
     async signIn({ user, account, profile }) {
       if (!account || !user.email) {
         return false;
@@ -195,6 +215,21 @@ const { handlers } = NextAuth({
       return baseUrl;
     },
   },
-});
+    });
+    
+    nextAuthHandlers = handlers;
+  }
+  
+  return nextAuthHandlers;
+}
 
-export const { GET, POST } = handlers;
+// Export handlers that lazily initialize NextAuth
+export const GET = async (req: Request) => {
+  const handlers = getNextAuthHandlers();
+  return handlers.GET(req);
+};
+
+export const POST = async (req: Request) => {
+  const handlers = getNextAuthHandlers();
+  return handlers.POST(req);
+};
