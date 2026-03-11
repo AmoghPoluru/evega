@@ -35,6 +35,54 @@ export const ProductView = ({ productId }: ProductViewProps) => {
   const { data, isLoading, error } = trpc.products.getOne.useQuery({ id: productId });
   const { data: session } = trpc.auth.session.useQuery();
 
+  // Helper function to extract image URL from various formats
+  // IMPORTANT: We now rely ONLY on the `url` field (Blob or Payload URL).
+  // Older records without `url` will fall back to showing the placeholder.
+  const getImageUrl = (image: any): string | null => {
+    if (!image) return null;
+
+    // If it's a string (ID), we can't resolve it here
+    if (typeof image === "string") return null;
+
+    if (typeof image === "object" && image !== null) {
+      const url = (image as any).url as string | undefined;
+
+      if (url && typeof url === "string" && url.trim() !== "") {
+        // Absolute URL (Blob or full HTTP URL)
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+          return url;
+        }
+
+        // Relative URL starting with '/'
+        if (url.startsWith("/")) {
+          const origin = typeof window !== "undefined" ? window.location.origin : "";
+          return `${origin}${url}`;
+        }
+
+        // Relative path without leading slash
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        return `${origin}/${url}`;
+      }
+    }
+
+    // No usable URL found – let the UI show the placeholder
+    return null;
+  };
+
+  // Get the image URL
+  const imageUrl = data?.image ? getImageUrl(data.image) : null;
+  
+  // Debug: Log image data in development
+  if (process.env.NODE_ENV === 'development' && data?.image) {
+    console.log("[ProductView] Image data:", {
+      image: data.image,
+      extractedUrl: imageUrl,
+      imageType: typeof data.image,
+      hasUrl: !!(data.image as any)?.url,
+      urlValue: (data.image as any)?.url,
+    });
+  }
+
   // Get category ID for fetching variant config
   const categoryId = typeof data?.category === 'string' ? data.category : data?.category?.id;
   const { data: categoryData } = trpc.getCategory.useQuery(
@@ -174,33 +222,45 @@ export const ProductView = ({ productId }: ProductViewProps) => {
               {/* Main Image */}
               <div className="border border-gray-300 rounded-lg overflow-hidden bg-white mb-4">
                 <div className="relative aspect-square">
-                  <Image
-                    src={data.image?.url || "/placeholder.png"}
-                    alt={data.name}
-                    fill
-                    className="object-contain p-8"
-                  />
+                  {imageUrl ? (
+                    <Image
+                      src={imageUrl}
+                      alt={data.name}
+                      fill
+                      className="object-contain p-8"
+                      onError={(e) => {
+                        console.error("[ProductView] Image failed to load:", imageUrl);
+                        (e.target as HTMLImageElement).src = "/placeholder.png";
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                      <span className="text-gray-400">No Image</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Thumbnail Images (if you have multiple images) */}
-              <div className="grid grid-cols-6 gap-2">
-                {[...Array(6)].map((_, i) => (
-                  <div 
-                    key={i} 
-                    className="border border-gray-300 rounded-md overflow-hidden cursor-pointer hover:border-orange-500 transition-colors aspect-square"
-                  >
-                    <div className="relative w-full h-full">
-                      <Image
-                        src={data.image?.url || "/placeholder.png"}
-                        alt={`${data.name} thumbnail ${i + 1}`}
-                        fill
-                        className="object-contain p-2"
-                      />
+              {imageUrl && (
+                <div className="grid grid-cols-6 gap-2">
+                  {[...Array(6)].map((_, i) => (
+                    <div 
+                      key={i} 
+                      className="border border-gray-300 rounded-md overflow-hidden cursor-pointer hover:border-orange-500 transition-colors aspect-square"
+                    >
+                      <div className="relative w-full h-full">
+                        <Image
+                          src={imageUrl}
+                          alt={`${data.name} thumbnail ${i + 1}`}
+                          fill
+                          className="object-contain p-2"
+                        />
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
 
               {/* Product Video */}
               {(() => {

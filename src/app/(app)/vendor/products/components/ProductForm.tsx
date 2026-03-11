@@ -191,22 +191,65 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   };
 
   useEffect(() => {
+    // Helper function to get media URL from various formats
+    const getMediaUrl = (media: any): string | null => {
+      if (!media) return null;
+      
+      // If it's a string (ID), we can't resolve it here
+      if (typeof media === "string") return null;
+      
+      // If it's an object, try different URL fields
+      if (typeof media === "object" && media !== null) {
+        // Priority 1: Direct URL field (Blob URL or Payload-generated URL)
+        if (media.url && typeof media.url === "string") {
+          // If it's already a full URL (Blob or absolute), use it
+          if (media.url.startsWith("http://") || media.url.startsWith("https://")) {
+            return media.url;
+          }
+          // If it's a relative URL, make it absolute
+          if (media.url.startsWith("/")) {
+            return `${window.location.origin}${media.url}`;
+          }
+          return media.url;
+        }
+        
+        // Priority 2: Construct URL from filename (for local storage)
+        if (media.filename && typeof media.filename === "string") {
+          // Payload serves media at /media/file/[filename]
+          // Use window.location.origin for client-side
+          return `${window.location.origin}/media/file/${encodeURIComponent(media.filename)}`;
+        }
+      }
+      
+      return null;
+    };
+
+    // Set image preview
     if (product?.image) {
-      const image = typeof product.image === "object" ? product.image : null;
-      if (image?.url) {
-        setImagePreview(image.url);
+      const imageUrl = getMediaUrl(product.image);
+      if (imageUrl) {
+        console.log("[ProductForm] Setting image preview:", imageUrl);
+        setImagePreview(imageUrl);
+      } else {
+        console.warn("[ProductForm] Could not extract image URL from:", product.image);
       }
     }
+
+    // Set cover preview
     if (product?.cover) {
-      const cover = typeof product.cover === "object" ? product.cover : null;
-      if (cover?.url) {
-        setCoverPreview(cover.url);
+      const coverUrl = getMediaUrl(product.cover);
+      if (coverUrl) {
+        console.log("[ProductForm] Setting cover preview:", coverUrl);
+        setCoverPreview(coverUrl);
       }
     }
+
+    // Set video preview
     if (product?.video) {
-      const video = typeof product.video === "object" ? product.video : null;
-      if (video?.url) {
-        setVideoPreview(video.url);
+      const videoUrl = getMediaUrl(product.video);
+      if (videoUrl) {
+        console.log("[ProductForm] Setting video preview:", videoUrl);
+        setVideoPreview(videoUrl);
       }
     }
   }, [product]);
