@@ -40,6 +40,15 @@ export function Navbar() {
     },
   });
   const isLoggedIn = !!session?.user
+  const canSeeVendorDashboard =
+    !!session?.user &&
+    (
+      // Has vendor relationship
+      !!(session.user as any).vendor ||
+      // Or has appRole / legacy super-admin role
+      (Array.isArray((session.user as any).roles) && (session.user as any).roles.includes("super-admin")) ||
+      (session.user as any).appRole
+    )
 
   // Hide navbar on vendor pages - check after all hooks are called
   if (pathname?.startsWith("/vendor")) {
@@ -69,6 +78,19 @@ export function Navbar() {
 
       
       <div className="hidden lg:flex items-center gap-2">
+        {/* Vendor Dashboard button (only if user is a vendor / admin) */}
+        {canSeeVendorDashboard && (
+          <Button
+            asChild
+            variant="outline"
+            className="border-gray-600 text-white bg-transparent hover:bg-gray-800 hover:text-white"
+          >
+            <Link href="/vendor/dashboard">
+              Vendor Dashboard
+            </Link>
+          </Button>
+        )}
+
         <CheckoutButton hideIfEmpty={false} />
         {isLoggedIn ? (
           <ProfileDropdown />
@@ -86,6 +108,19 @@ export function Navbar() {
       </div>
 
       <div className="flex lg:hidden items-center gap-2">
+        {/* Vendor Dashboard button (mobile) */}
+        {canSeeVendorDashboard && (
+          <Button
+            asChild
+            variant="outline"
+            className="border-gray-600 text-white bg-transparent hover:bg-gray-800 hover:text-white px-3 py-2 text-xs"
+          >
+            <Link href="/vendor/dashboard">
+              Vendor
+            </Link>
+          </Button>
+        )}
+
         <CheckoutButton hideIfEmpty={false} />
         <Button
           variant="ghost"
