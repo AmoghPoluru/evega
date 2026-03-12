@@ -13,6 +13,7 @@ import {
   Users,
   CreditCard,
   Bell,
+  MessageCircle,
 } from "lucide-react";
 
 const navItems = [
@@ -21,6 +22,12 @@ const navItems = [
   { href: "/vendor/orders", label: "Orders", icon: ShoppingCart },
   { href: "/vendor/customers", label: "Customers", icon: Users },
   { href: "/vendor/analytics", label: "Analytics", icon: BarChart3 },
+  {
+    href: "/vendor/tasks",
+    label: "Contact & chat with BDO",
+    description: "Create tasks and offline messages for your Business Development Officer",
+    icon: MessageCircle,
+  },
   { href: "/vendor/payouts", label: "Payouts", icon: CreditCard },
   { href: "/vendor/notifications", label: "Notifications", icon: Bell },
   { href: "/vendor/settings", label: "Settings", icon: Settings },
@@ -57,7 +64,14 @@ export function VendorSidebar() {
                 )}
               >
                 <Icon className="h-5 w-5" />
-                <span>{item.label}</span>
+                <div className="flex flex-col">
+                  <span>{item.label}</span>
+                  {"description" in item && item.description && (
+                    <span className="text-[11px] text-gray-500">
+                      {item.description}
+                    </span>
+                  )}
+                </div>
               </Link>
             );
           })}
