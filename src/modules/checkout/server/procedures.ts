@@ -5,6 +5,7 @@ import { TRPCError } from "@trpc/server";
 
 import { stripe } from "@/lib/stripe";
 import { createCheckoutSessionWithConnect, isStripeAccountReady } from "@/lib/stripe-connect";
+import { generateOrderNumber } from "@/lib/order-number";
 import { Media } from "@/payload-types";
 import { baseProcedure, createTRPCRouter, protectedProcedure } from "@/trpc/init";
 
@@ -19,6 +20,8 @@ export const checkoutRouter = createTRPCRouter({
           quantity: z.number().min(1).default(1),
           variantPrice: z.number().optional(), // Variant price (base + adjustment)
         })).min(1),
+        paymentMethod: z.enum(["stripe", "offline"]).default("stripe"), // Payment method selection
+        customerPhone: z.string().optional(), // Customer phone number for offline payments
         buyNow: z.boolean().optional().default(false), // Flag for "Buy Now" purchases
       })
     )
@@ -71,7 +74,7 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
-      // Get vendor and validate Stripe Connect account
+      // Get vendor
       const vendorId = Array.from(vendors)[0] as string;
       const vendor = await ctx.db.findByID({
         collection: "vendors",
@@ -79,21 +82,40 @@ export const checkoutRouter = createTRPCRouter({
         depth: 0,
       });
 
-      // Check if vendor has Stripe Connect account
-      if (!vendor.stripeAccountId) {
+      // Validate payment method availability
+      const showStripe = vendor.stripeAccountId && (vendor.preferredPaymentMethod === "stripe" || vendor.preferredPaymentMethod === "both");
+      const showOffline = vendor.preferredPaymentMethod === "offline" || vendor.preferredPaymentMethod === "both";
+
+      if (input.paymentMethod === "stripe" && !showStripe) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Vendor has not connected their Stripe account. Please contact the vendor or try again later.",
+          message: "Stripe payment is not available for this vendor. Please select offline payment.",
         });
       }
 
-      // Check if vendor Stripe account is ready
-      const accountReady = await isStripeAccountReady(vendor.stripeAccountId);
-      if (!accountReady) {
+      if (input.paymentMethod === "offline" && !showOffline) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Vendor's payment account is not ready. Please contact the vendor or try again later.",
+          message: "Offline payment is not available for this vendor. Please select Stripe payment.",
         });
+      }
+
+      // For Stripe payments, validate Stripe Connect account
+      if (input.paymentMethod === "stripe") {
+        if (!vendor.stripeAccountId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Vendor has not connected their Stripe account. Please contact the vendor or try again later.",
+          });
+        }
+
+        const accountReady = await isStripeAccountReady(vendor.stripeAccountId);
+        if (!accountReady) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Vendor's payment account is not ready. Please contact the vendor or try again later.",
+          });
+        }
       }
 
       // Calculate total and commission
@@ -172,6 +194,201 @@ export const checkoutRouter = createTRPCRouter({
       const commission = (orderTotal * commissionRate) / 100;
       const vendorPayout = orderTotal - commission;
 
+      // Handle offline payment flow
+      if (input.paymentMethod === "offline") {
+        // Validate customer phone is provided for offline payments
+        if (!input.customerPhone || !input.customerPhone.trim()) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Phone number is required for offline payments. The vendor will contact you at this number.",
+          });
+        }
+
+        // Get user with shipping addresses
+        const user = await ctx.db.findByID({
+          collection: "users",
+          id: ctx.session.user.id,
+          depth: 0,
+        });
+
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User not found",
+          });
+        }
+
+        // Get default address or first address
+        const userAddresses = (user.shippingAddresses || []) as any[];
+        const defaultAddress = userAddresses.find((addr: any) => addr.isDefault) || userAddresses[0];
+
+        if (!defaultAddress) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Shipping address is required. Please add a shipping address before placing your order.",
+          });
+        }
+
+        // Map user's saved address to order format
+        const shippingAddress: any = {
+          fullName: defaultAddress.fullName,
+          phone: defaultAddress.phone || undefined,
+          street: defaultAddress.street,
+          city: defaultAddress.city,
+          state: defaultAddress.state,
+          zipcode: defaultAddress.zipcode,
+          country: "United States", // Default since addresses are US-focused
+        };
+
+        // Create one order per product (matching webhook pattern)
+        const createdOrders: string[] = [];
+        const orderItems: Array<{ name: string; quantity: number; price: number }> = [];
+
+        for (const cartItem of input.cartItems) {
+          const product = products.docs.find((p: { id: string }) => p.id === cartItem.productId);
+          if (!product) {
+            throw new TRPCError({ code: "NOT_FOUND", message: `Product ${cartItem.productId} not found` });
+          }
+
+          // Find matching variant
+          let variant = null;
+          if (cartItem.size || cartItem.color) {
+            variant = product.variants?.find((v: any) => {
+              const sizeMatch = !cartItem.size || v.size === cartItem.size;
+              const colorMatch = !cartItem.color || v.color === cartItem.color;
+              return sizeMatch && colorMatch;
+            });
+          }
+
+          // Calculate final price
+          const finalPrice = (variant && cartItem.color && (variant as any)?.price !== undefined && (variant as any).price !== null)
+            ? (variant as any).price
+            : (cartItem.variantPrice ?? product.price);
+
+          const itemTotal = finalPrice * cartItem.quantity;
+
+          // Generate order number
+          const orderNumber = await generateOrderNumber();
+
+          // Create order name
+          const orderName = cartItem.size || cartItem.color
+            ? `Order for ${product.name}${cartItem.size ? ` (${cartItem.size})` : ''}${cartItem.color ? ` - ${cartItem.color}` : ''}`
+            : `Order for ${product.name}`;
+
+          // Calculate commission for this item
+          const itemCommission = (itemTotal * commissionRate) / 100;
+          const itemVendorPayout = itemTotal - itemCommission;
+
+          // Update variant stock if variant exists
+          if (variant) {
+            const newStock = Math.max(0, variant.stock - cartItem.quantity);
+            const updatedVariants = (product.variants || []).map((v: any) => {
+              if (
+                (!cartItem.size || v.size === cartItem.size) &&
+                (!cartItem.color || v.color === cartItem.color)
+              ) {
+                return { ...v, stock: newStock };
+              }
+              return v;
+            });
+
+            await ctx.db.update({
+              collection: "products",
+              id: cartItem.productId,
+              data: { variants: updatedVariants },
+            });
+          }
+
+          // Create order for this product
+          const order = await ctx.db.create({
+            collection: "orders",
+            data: {
+              orderNumber,
+              name: orderName,
+              user: ctx.session.user.id,
+              vendor: vendorId,
+              product: cartItem.productId,
+              quantity: cartItem.quantity || 1,
+              size: cartItem.size || undefined,
+              color: cartItem.color || undefined,
+              total: itemTotal,
+              commission: itemCommission,
+              commissionRate: commissionRate,
+              vendorPayout: {
+                amount: itemVendorPayout,
+                commissionAmount: itemCommission,
+                status: "pending",
+              },
+              status: "pending",
+              paymentMethod: "offline",
+              paymentStatus: "pending",
+              offlinePaymentContact: {
+                phone: vendor.contactPhone || null,
+                email: vendor.contactEmail || null,
+                customerPhone: input.customerPhone.trim(), // Store customer phone for vendor to contact
+              },
+              offlinePaymentNotes: vendor.offlinePaymentInstructions || null,
+              shippingAddress: {
+                ...shippingAddress,
+                phone: input.customerPhone.trim(), // Also update shipping address phone with customer's contact number
+              },
+            },
+          });
+
+          createdOrders.push(order.id);
+          orderItems.push({
+            name: product.name,
+            quantity: cartItem.quantity || 1,
+            price: itemTotal,
+          });
+        }
+
+        // Send email notifications (async, don't block)
+        try {
+          const { sendOfflinePaymentOrderConfirmation, sendVendorOfflinePaymentNotification } = await import("@/lib/email");
+          
+          // Send customer confirmation with first order number
+          const firstOrder = await ctx.db.findByID({
+            collection: "orders",
+            id: createdOrders[0],
+            depth: 0,
+          });
+
+          await sendOfflinePaymentOrderConfirmation(
+            ctx.session.user.email || "",
+            firstOrder.orderNumber,
+            {
+              phone: vendor.contactPhone || undefined,
+              email: vendor.contactEmail || undefined,
+            },
+            orderTotal,
+            orderItems
+          );
+
+          // Send vendor notification
+          if (vendor.email) {
+            await sendVendorOfflinePaymentNotification(
+              vendor.email,
+              firstOrder.orderNumber,
+              ctx.session.user.name || ctx.session.user.email || "Customer",
+              input.customerPhone.trim(),
+              orderTotal,
+              orderItems.length
+            );
+          }
+        } catch (error) {
+          console.error("Failed to send offline payment emails:", error);
+          // Don't fail order creation if email fails
+        }
+
+        return { 
+          orderId: createdOrders[0], // Return first order ID for redirect
+          orderIds: createdOrders, // All order IDs
+          paymentMethod: "offline" as const,
+        };
+      }
+
+      // Stripe payment flow (existing code)
       // Build success URL - include cartItems if it's a "Buy Now" purchase
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
       const successUrl = input.buyNow
@@ -181,7 +398,7 @@ export const checkoutRouter = createTRPCRouter({
       // Create checkout session with Stripe Connect
       const checkoutUrl = await createCheckoutSessionWithConnect(
         lineItems,
-        vendor.stripeAccountId,
+        vendor.stripeAccountId!,
         commission,
         successUrl,
         `${baseUrl}/checkout?cancel=true`,
@@ -196,7 +413,10 @@ export const checkoutRouter = createTRPCRouter({
         }
       );
 
-      return { url: checkoutUrl };
+      return { 
+        url: checkoutUrl,
+        paymentMethod: "stripe" as const,
+      };
     })
   ,
   getProducts: baseProcedure

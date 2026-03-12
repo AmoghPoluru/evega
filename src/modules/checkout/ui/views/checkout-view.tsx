@@ -14,12 +14,16 @@ import { CheckoutItem } from "../components/checkout-item";
 import { useCheckoutStates } from "../../hooks/use-checkout-states";
 import { DeliverySection } from "../components/delivery-section";
 import { PaymentSection } from "../components/payment-section";
+import { PaymentMethodSelector } from "../components/payment-method-selector";
 import { OrderSummary } from "../components/order-summary";
+import { useState } from "react";
 
 export const CheckoutView = () => {
   const router = useRouter();
   const [states, setStates] = useCheckoutStates();
   const { items, removeProduct, clearCart } = useCart();
+  const [paymentMethod, setPaymentMethod] = useState<"stripe" | "offline">("stripe");
+  const [customerPhone, setCustomerPhone] = useState<string>("");
   
   const queryClient = useQueryClient();
   const productIds = Array.from(new Set(items.map(item => item.productId)));
@@ -27,6 +31,19 @@ export const CheckoutView = () => {
   const { data, error, isLoading } = trpc.checkout.getProducts.useQuery({
     ids: productIds.length > 0 ? productIds : [],
   });
+
+  // Get vendor ID from products (assuming all products are from same vendor)
+  const vendorId = useMemo(() => {
+    if (!data?.docs || data.docs.length === 0) return null;
+    const vendor = data.docs[0].vendor;
+    return typeof vendor === "string" ? vendor : vendor?.id;
+  }, [data]);
+
+  // Fetch vendor information
+  const { data: vendorData } = trpc.vendor.getOne.useQuery(
+    { id: vendorId! },
+    { enabled: !!vendorId }
+  );
 
   // Check if user has a shipping address
   const { data: userAddresses } = trpc.addresses.getUserAddresses.useQuery();
@@ -37,7 +54,11 @@ export const CheckoutView = () => {
       setStates({ success: false, cancel: false });
     },
     onSuccess: (data) => {
-      if (data.url) {
+      if (data.paymentMethod === "offline" && data.orderId) {
+        // For offline payments, redirect to order confirmation
+        toast.success("Order placed! Please contact vendor to complete payment.");
+        router.push(`/orders/${data.orderId}?payment=pending`);
+      } else if (data.url) {
         // Redirect to Stripe checkout
         window.location.href = data.url;
       } else {
@@ -180,8 +201,18 @@ export const CheckoutView = () => {
             {/* Delivery Section */}
             <DeliverySection />
 
-            {/* Payment Section */}
-            <PaymentSection />
+            {/* Payment Method Section */}
+            {vendorData ? (
+              <PaymentMethodSelector
+                vendor={vendorData}
+                selectedMethod={paymentMethod}
+                onMethodChange={setPaymentMethod}
+                customerPhone={customerPhone}
+                onPhoneChange={setCustomerPhone}
+              />
+            ) : (
+              <PaymentSection />
+            )}
 
             {/* Order Items Summary */}
             <div className="bg-white border border-gray-300 rounded-lg p-4">
@@ -250,6 +281,10 @@ export const CheckoutView = () => {
                   router.push("/account?tab=addresses");
                   return;
                 }
+                if (paymentMethod === "offline" && !customerPhone.trim()) {
+                  toast.error("Please enter your phone number for offline payment. The vendor will contact you.");
+                  return;
+                }
                 purchase.mutate({
                   cartItems: items.map(item => ({
                     productId: item.productId,
@@ -258,6 +293,8 @@ export const CheckoutView = () => {
                     quantity: item.quantity || 1,
                     variantPrice: item.variantPrice,
                   })),
+                  paymentMethod,
+                  customerPhone: paymentMethod === "offline" ? customerPhone.trim() : undefined,
                 });
               }}
               isProcessing={purchase.isPending}

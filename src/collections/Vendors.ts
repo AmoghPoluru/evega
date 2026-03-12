@@ -424,6 +424,48 @@ export const Vendors: CollectionConfig = {
       },
     },
     {
+      name: "contactPhone",
+      type: "text",
+      label: "Contact Phone for Offline Payments",
+      admin: {
+        description: "Phone number for customers to contact you for offline payments",
+        position: "sidebar",
+      },
+    },
+    {
+      name: "contactEmail",
+      type: "email",
+      label: "Contact Email for Offline Payments",
+      admin: {
+        description: "Email address for customers to contact you for offline payments",
+        position: "sidebar",
+      },
+    },
+    {
+      name: "preferredPaymentMethod",
+      type: "select",
+      label: "Preferred Payment Method",
+      options: [
+        { label: "Stripe Only", value: "stripe" },
+        { label: "Offline Only", value: "offline" },
+        { label: "Both (Stripe & Offline)", value: "both" },
+      ],
+      defaultValue: "both",
+      admin: {
+        description: "Which payment methods do you want to offer to customers?",
+        position: "sidebar",
+      },
+    },
+    {
+      name: "offlinePaymentInstructions",
+      type: "textarea",
+      label: "Offline Payment Instructions",
+      admin: {
+        description: "Custom instructions for customers who choose offline payment (e.g., 'Call me at [phone] or WhatsApp me at [number]')",
+        position: "sidebar",
+      },
+    },
+    {
       name: "verificationDocuments",
       type: "array",
       label: "Verification Documents",

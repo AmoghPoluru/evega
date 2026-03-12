@@ -49,6 +49,17 @@ export const vendorRouter = createTRPCRouter({
     };
   }),
 
+  getOne: baseProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const vendor = await ctx.db.findByID({
+        collection: "vendors",
+        id: input.id,
+        depth: 0,
+      });
+      return vendor;
+    }),
+
   register: protectedProcedure
     .input(vendorRegistrationSchema)
     .mutation(async ({ ctx, input }) => {
@@ -1857,5 +1868,88 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
           message: error.message || "Failed to sync Stripe account details",
         });
       }
+    }),
+
+  updatePaymentStatus: vendorProcedure
+    .input(
+      z.object({
+        orderId: z.string(),
+        paymentStatus: z.enum(["pending", "completed", "failed"]),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const vendorId = ctx.session.vendor.id;
+
+      // Fetch order and validate vendor ownership
+      const order = await ctx.db.findByID({
+        collection: "orders",
+        id: input.orderId,
+        depth: 1,
+      });
+
+      if (!order) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Order not found",
+        });
+      }
+
+      const orderVendorId = typeof order.vendor === "string"
+        ? order.vendor
+        : order.vendor?.id;
+
+      if (orderVendorId !== vendorId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can only update payment status for your own orders",
+        });
+      }
+
+      // Only allow updating offline payment orders
+      if (order.paymentMethod !== "offline") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Payment status can only be updated for offline payment orders",
+        });
+      }
+
+      // Update order
+      const updatedOrder = await ctx.db.update({
+        collection: "orders",
+        id: input.orderId,
+        data: {
+          paymentStatus: input.paymentStatus,
+          ...(input.paymentStatus === "completed" && {
+            status: "payment_done", // Move order to payment_done status (matching Stripe flow)
+          }),
+          ...(input.notes && {
+            offlinePaymentNotes: input.notes,
+          }),
+        },
+      });
+
+      // Send email notification to customer when payment is marked as completed
+      if (input.paymentStatus === "completed" && order.user) {
+        try {
+          const user = typeof order.user === "string"
+            ? await ctx.db.findByID({ collection: "users", id: order.user, depth: 0 })
+            : order.user;
+
+          if (user?.email) {
+            const { sendPaymentReceivedConfirmation } = await import("@/lib/email");
+            await sendPaymentReceivedConfirmation(
+              user.email,
+              order.orderNumber,
+              order.total
+            );
+          }
+        } catch (error) {
+          console.error("Failed to send payment received confirmation email:", error);
+          // Don't fail the update if email fails
+        }
+      }
+
+      return updatedOrder;
     }),
 });

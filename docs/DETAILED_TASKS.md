@@ -1709,6 +1709,1069 @@
     - **Status**: ❌ Not started
     - **Reference**: MONITORING_SETUP.md Step 4
 
+## Offline Payment & Alternative Payment Methods
+
+### Vendor Offline Payment Support (Tasks 253-270)
+
+253. ✅ Add vendor contact fields to Vendors collection
+    - **Tech**: Update `src/collections/Vendors.ts` to add fields:
+      - `contactPhone` (text, optional) - Vendor contact phone number for offline payments
+      - `contactEmail` (email, optional) - Vendor contact email for offline payments
+      - `preferredPaymentMethod` (select: stripe, offline, both) - Vendor's preferred payment method
+      - `offlinePaymentInstructions` (textarea, optional) - Custom instructions for offline payment
+    - **Implementation Details**:
+      ```typescript
+      // Add to Vendors collection fields array (after existing fields)
+      {
+        name: "contactPhone",
+        type: "text",
+        label: "Contact Phone",
+        admin: {
+          description: "Phone number for customers to contact you for offline payments",
+          position: "sidebar",
+        },
+      },
+      {
+        name: "contactEmail",
+        type: "email",
+        label: "Contact Email",
+        admin: {
+          description: "Email address for customers to contact you for offline payments",
+          position: "sidebar",
+        },
+      },
+      {
+        name: "preferredPaymentMethod",
+        type: "select",
+        label: "Preferred Payment Method",
+        options: [
+          { label: "Stripe Only", value: "stripe" },
+          { label: "Offline Only", value: "offline" },
+          { label: "Both (Stripe & Offline)", value: "both" },
+        ],
+        defaultValue: "both",
+        admin: {
+          description: "Which payment methods do you want to offer to customers?",
+          position: "sidebar",
+        },
+      },
+      {
+        name: "offlinePaymentInstructions",
+        type: "textarea",
+        label: "Offline Payment Instructions",
+        admin: {
+          description: "Custom instructions for customers who choose offline payment (e.g., 'Call me at [phone] or WhatsApp me at [number]')",
+          position: "sidebar",
+        },
+      },
+      ```
+    - **Validation**: Ensure at least one contact method (phone or email) is provided if `preferredPaymentMethod` includes "offline"
+    - **Files**: `src/collections/Vendors.ts`
+    - **Status**: ✅ Completed - All fields added to Vendors collection with proper admin UI configuration
+
+254. ✅ Add payment method field to Orders collection
+    - **Tech**: Update `src/collections/Orders.ts` to add:
+      - `paymentMethod` (select: stripe, offline, pending) - How the order was paid
+      - `paymentStatus` (select: pending, completed, failed, refunded) - Payment status
+      - `offlinePaymentContact` (object, optional) - Stores vendor contact info used for offline payment
+      - `offlinePaymentNotes` (textarea, optional) - Notes about offline payment arrangement
+    - **Implementation Details**:
+      ```typescript
+      // Add to Orders collection fields array
+      {
+        name: "paymentMethod",
+        type: "select",
+        label: "Payment Method",
+        options: [
+          { label: "Stripe", value: "stripe" },
+          { label: "Offline Payment", value: "offline" },
+        ],
+        defaultValue: "stripe",
+        required: true,
+        admin: {
+          description: "How the customer chose to pay for this order",
+        },
+      },
+      {
+        name: "paymentStatus",
+        type: "select",
+        label: "Payment Status",
+        options: [
+          { label: "Pending", value: "pending" },
+          { label: "Completed", value: "completed" },
+          { label: "Failed", value: "failed" },
+          { label: "Refunded", value: "refunded" },
+        ],
+        defaultValue: "pending",
+        required: true,
+        admin: {
+          description: "Current payment status for this order",
+        },
+      },
+      {
+        name: "offlinePaymentContact",
+        type: "group",
+        label: "Offline Payment Contact Info",
+        fields: [
+          {
+            name: "phone",
+            type: "text",
+            label: "Vendor Phone",
+          },
+          {
+            name: "email",
+            type: "email",
+            label: "Vendor Email",
+          },
+        ],
+        admin: {
+          condition: (data) => data.paymentMethod === "offline",
+          description: "Vendor contact information provided to customer for offline payment",
+        },
+      },
+      {
+        name: "offlinePaymentNotes",
+        type: "textarea",
+        label: "Offline Payment Notes",
+        admin: {
+          condition: (data) => data.paymentMethod === "offline",
+          description: "Any notes about the offline payment arrangement",
+        },
+      },
+      ```
+    - **Hook Updates**: Update `beforeChange` hook to auto-set `paymentStatus: "completed"` for Stripe orders after webhook confirmation
+    - **Additional Fields**: Added `customerPhone` field to `offlinePaymentContact` group to store customer's phone number
+    - **Files**: `src/collections/Orders.ts`
+    - **Status**: ✅ Completed - All payment fields added, `stripeCheckoutSessionId` made optional for offline payments
+
+255. ✅ Create payment method selection component
+    - **Tech**: Create `src/modules/checkout/ui/components/payment-method-selector.tsx`:
+      - Radio button group for payment method selection
+      - Show "Stripe (Credit/Debit Card)" option if vendor has Stripe
+      - Show "Contact Vendor for Offline Payment" option (always available)
+      - Display vendor contact info (phone/email) when offline option selected
+      - Show vendor's custom offline payment instructions if provided
+    - **Implementation Details**:
+      ```typescript
+      // src/modules/checkout/ui/components/payment-method-selector.tsx
+      "use client";
+      
+      import { useState } from "react";
+      import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+      import { Label } from "@/components/ui/label";
+      import { CreditCard, Phone, Mail, MessageCircle } from "lucide-react";
+      import { Button } from "@/components/ui/button";
+      
+      interface PaymentMethodSelectorProps {
+        vendor: {
+          stripeAccountId?: string | null;
+          contactPhone?: string | null;
+          contactEmail?: string | null;
+          offlinePaymentInstructions?: string | null;
+          preferredPaymentMethod?: "stripe" | "offline" | "both";
+        };
+        selectedMethod: "stripe" | "offline";
+        onMethodChange: (method: "stripe" | "offline") => void;
+      }
+      
+      export function PaymentMethodSelector({
+        vendor,
+        selectedMethod,
+        onMethodChange,
+      }: PaymentMethodSelectorProps) {
+        const hasStripe = !!vendor.stripeAccountId;
+        const showStripe = hasStripe && (vendor.preferredPaymentMethod === "stripe" || vendor.preferredPaymentMethod === "both");
+        const showOffline = vendor.preferredPaymentMethod === "offline" || vendor.preferredPaymentMethod === "both";
+        
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Payment Method</h3>
+            <RadioGroup value={selectedMethod} onValueChange={onMethodChange}>
+              {showStripe && (
+                <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                  <RadioGroupItem value="stripe" id="stripe" className="mt-1" />
+                  <Label htmlFor="stripe" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-5 w-5" />
+                      <span className="font-medium">Pay with Credit/Debit Card (Stripe)</span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Secure payment processed through Stripe
+                    </p>
+                  </Label>
+                </div>
+              )}
+              
+              {showOffline && (
+                <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                  <RadioGroupItem value="offline" id="offline" className="mt-1" />
+                  <Label htmlFor="offline" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <MessageCircle className="h-5 w-5" />
+                      <span className="font-medium">Contact Vendor for Offline Payment</span>
+                    </div>
+                    {selectedMethod === "offline" && (
+                      <div className="mt-3 space-y-2 text-sm">
+                        {vendor.contactPhone && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4" />
+                            <span>{vendor.contactPhone}</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                window.location.href = `tel:${vendor.contactPhone}`;
+                              }}
+                            >
+                              Call
+                            </Button>
+                          </div>
+                        )}
+                        {vendor.contactEmail && (
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4" />
+                            <span>{vendor.contactEmail}</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                window.location.href = `mailto:${vendor.contactEmail}`;
+                              }}
+                            >
+                              Email
+                            </Button>
+                          </div>
+                        )}
+                        {vendor.offlinePaymentInstructions && (
+                          <div className="mt-2 p-2 bg-gray-50 rounded text-gray-700">
+                            <p className="font-medium mb-1">Payment Instructions:</p>
+                            <p>{vendor.offlinePaymentInstructions}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </Label>
+                </div>
+              )}
+            </RadioGroup>
+          </div>
+        );
+      }
+      ```
+    - **Dependencies**: Install `@radix-ui/react-radio-group` if not already installed
+    - **Key Features**: 
+      - Auto-selects payment method when only one option available (using useEffect to avoid React warnings)
+      - Requires customer phone number input when offline payment selected
+      - Shows payment instructions from vendor
+      - Label changed to "Offline Payment - Vendor Will Contact You"
+    - **Files**: `src/modules/checkout/ui/components/payment-method-selector.tsx`
+    - **Status**: ✅ Completed - Component created with customer phone requirement
+
+256. ✅ Update checkout view to show payment method selector
+    - **Tech**: Update `src/modules/checkout/ui/views/checkout-view.tsx`:
+      - Fetch vendor information for products in cart
+      - Check if vendor has Stripe account setup
+      - Replace or enhance `PaymentSection` to show payment method selector
+      - Pass selected payment method to purchase mutation
+    - **Implementation Details**:
+      ```typescript
+      // In checkout-view.tsx, add state and vendor fetching:
+      const [paymentMethod, setPaymentMethod] = useState<"stripe" | "offline">("stripe");
+      
+      // Fetch vendor info (assuming all products are from same vendor)
+      const vendorId = useMemo(() => {
+        if (!data?.docs || data.docs.length === 0) return null;
+        const vendor = data.docs[0].vendor;
+        return typeof vendor === "string" ? vendor : vendor?.id;
+      }, [data]);
+      
+      const { data: vendorData } = trpc.vendor.getOne.useQuery(
+        { id: vendorId! },
+        { enabled: !!vendorId }
+      );
+      
+      // Update purchase mutation call:
+      purchase.mutate({
+        cartItems: items.map(item => ({
+          productId: item.productId,
+          size: item.size,
+          color: item.color,
+          quantity: item.quantity,
+          variantPrice: item.variantPrice,
+        })),
+        paymentMethod, // Add this
+        buyNow: false,
+      });
+      
+      // Replace PaymentSection with:
+      {vendorData && (
+        <PaymentMethodSelector
+          vendor={vendorData}
+          selectedMethod={paymentMethod}
+          onMethodChange={setPaymentMethod}
+        />
+      )}
+      ```
+    - **tRPC Procedure**: Create `vendor.getOne` procedure if it doesn't exist:
+      ```typescript
+      // In src/modules/vendor/server/procedures.ts
+      getOne: baseProcedure
+        .input(z.object({ id: z.string() }))
+        .query(async ({ ctx, input }) => {
+          const vendor = await ctx.db.findByID({
+            collection: "vendors",
+            id: input.id,
+            depth: 0,
+          });
+          return vendor;
+        }),
+      ```
+    - **Additional Features**:
+      - Added `customerPhone` state management
+      - Validates phone number before allowing checkout for offline payments
+      - Passes phone number to purchase mutation
+    - **Files**: 
+      - `src/modules/checkout/ui/views/checkout-view.tsx`
+      - `src/modules/vendor/server/procedures.ts` (getOne procedure added)
+    - **Status**: ✅ Completed - Checkout view updated with payment method selector and phone validation
+
+257. ✅ Update checkout purchase mutation to handle offline payments
+    - **Tech**: Update `src/modules/checkout/server/procedures.ts`:
+      - Add `paymentMethod` to input schema (stripe | offline)
+      - If `paymentMethod === "stripe"`: Validate Stripe account and proceed with Stripe checkout
+      - If `paymentMethod === "offline"`: Skip Stripe validation, create order with `paymentStatus: "pending"` and `paymentMethod: "offline"`
+      - Store vendor contact info in order for offline payment orders
+    - **Implementation Details**:
+      ```typescript
+      // Update input schema:
+      .input(
+        z.object({
+          cartItems: z.array(z.object({
+            productId: z.string(),
+            size: z.string().optional(),
+            color: z.string().optional(),
+            quantity: z.number().min(1).default(1),
+            variantPrice: z.number().optional(),
+          })).min(1),
+          paymentMethod: z.enum(["stripe", "offline"]).default("stripe"), // Add this
+          buyNow: z.boolean().optional().default(false),
+        })
+      )
+      
+      // In mutation, after vendor validation:
+      if (input.paymentMethod === "stripe") {
+        // Existing Stripe validation and checkout flow
+        if (!vendor.stripeAccountId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Vendor has not connected their Stripe account...",
+          });
+        }
+        const accountReady = await isStripeAccountReady(vendor.stripeAccountId);
+        if (!accountReady) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Vendor's payment account is not ready...",
+          });
+        }
+        // Continue with Stripe checkout...
+        return { url: checkoutUrl };
+      } else {
+        // Offline payment flow
+        // Create order immediately without payment
+        const order = await ctx.db.create({
+          collection: "orders",
+          data: {
+            user: ctx.session.user.id,
+            vendor: vendorId,
+            items: lineItems.map(item => ({
+              product: item.price_data.product_data.metadata.id,
+              quantity: item.quantity,
+              price: Number(item.price_data.unit_amount) / 100,
+              size: item.price_data.product_data.metadata.size || null,
+              color: item.price_data.product_data.metadata.color || null,
+            })),
+            total: orderTotal,
+            subtotal: orderTotal,
+            shipping: 0, // Calculate if needed
+            tax: 0, // Calculate if needed
+            status: "pending", // Order status
+            paymentMethod: "offline",
+            paymentStatus: "pending",
+            offlinePaymentContact: {
+              phone: vendor.contactPhone || null,
+              email: vendor.contactEmail || null,
+            },
+            offlinePaymentNotes: vendor.offlinePaymentInstructions || null,
+            shippingAddress: input.shippingAddress, // Get from input
+            commission: commission,
+            vendorPayout: vendorPayout,
+          },
+        });
+        
+        // Send emails (implement in next task)
+        // Return order ID instead of Stripe URL
+        return { orderId: order.id, paymentMethod: "offline" };
+      }
+      ```
+    - **Key Implementation Details**:
+      - Validates payment method availability based on vendor preferences
+      - Requires customer phone number for offline payments
+      - Creates one order per product (matching webhook pattern)
+      - Updates inventory immediately for offline orders
+      - Stores customer phone in `offlinePaymentContact.customerPhone`
+      - Updates shipping address phone with customer's contact number
+      - Returns `orderId` and `paymentMethod` for offline payments
+    - **Files**: `src/modules/checkout/server/procedures.ts`
+    - **Status**: ✅ Completed - Full offline payment flow implemented with phone requirement
+
+258. ✅ Create offline payment order creation logic
+    - **Tech**: In checkout mutation, when `paymentMethod === "offline"`:
+      - Create order immediately (don't wait for payment)
+      - Set `paymentStatus: "pending"`
+      - Set `paymentMethod: "offline"`
+      - Store vendor contact info in `offlinePaymentContact` field
+      - Store any custom instructions in `offlinePaymentNotes`
+      - Send confirmation email to customer with vendor contact info
+      - Send notification email to vendor about new offline payment order
+    - **Implementation Details**:
+      ```typescript
+      // Create email utility functions in src/lib/email.ts:
+      export async function sendOfflinePaymentOrderConfirmation(
+        customerEmail: string,
+        orderNumber: string,
+        vendorContact: { phone?: string; email?: string },
+        orderTotal: number
+      ) {
+        // Email template for customer
+        const emailContent = `
+          <h2>Order Confirmation - Payment Pending</h2>
+          <p>Your order #${orderNumber} has been placed successfully!</p>
+          <p><strong>Order Total: $${orderTotal.toFixed(2)}</strong></p>
+          <p>To complete your payment, please contact the vendor:</p>
+          ${vendorContact.phone ? `<p>Phone: <a href="tel:${vendorContact.phone}">${vendorContact.phone}</a></p>` : ''}
+          ${vendorContact.email ? `<p>Email: <a href="mailto:${vendorContact.email}">${vendorContact.email}</a></p>` : ''}
+          <p>Once payment is received, your order will be processed and shipped.</p>
+        `;
+        // Send email using your email service (SendGrid, AWS SES, etc.)
+      }
+      
+      export async function sendVendorOfflinePaymentNotification(
+        vendorEmail: string,
+        orderNumber: string,
+        customerName: string,
+        orderTotal: number
+      ) {
+        // Email template for vendor
+        const emailContent = `
+          <h2>New Offline Payment Order</h2>
+          <p>You have received a new order #${orderNumber} from ${customerName}.</p>
+          <p><strong>Order Total: $${orderTotal.toFixed(2)}</strong></p>
+          <p><strong>Payment Status: Pending</strong></p>
+          <p>The customer will contact you to complete payment. Once payment is received, please mark the order as paid in your dashboard.</p>
+        `;
+        // Send email
+      }
+      
+      // In checkout mutation, after creating offline order:
+      try {
+        // Send customer confirmation
+        await sendOfflinePaymentOrderConfirmation(
+          ctx.session.user.email,
+          order.orderNumber,
+          {
+            phone: vendor.contactPhone || undefined,
+            email: vendor.contactEmail || undefined,
+          },
+          orderTotal
+        );
+        
+        // Send vendor notification
+        if (vendor.email) {
+          await sendVendorOfflinePaymentNotification(
+            vendor.email,
+            order.orderNumber,
+            ctx.session.user.name || ctx.session.user.email,
+            orderTotal
+          );
+        }
+      } catch (error) {
+        console.error("Failed to send offline payment emails:", error);
+        // Don't fail order creation if email fails
+      }
+      ```
+    - **Email Service**: Ensure email service is configured (SendGrid, AWS SES, etc.)
+    - **Email Functions Created**:
+      - `sendOfflinePaymentOrderConfirmation` - Customer confirmation with vendor contact info
+      - `sendVendorOfflinePaymentNotification` - Vendor notification with customer phone number
+      - `sendPaymentReceivedConfirmation` - Customer notification when payment marked as received
+    - **Key Features**:
+      - Creates multiple orders (one per product) for cart with multiple items
+      - Updates variant stock immediately
+      - Sends emails to both customer and vendor
+      - Includes customer phone number in vendor notification
+    - **Files**: 
+      - `src/modules/checkout/server/procedures.ts`
+      - `src/lib/email.ts` (all email functions added)
+    - **Status**: ✅ Completed - Order creation logic with email notifications implemented
+
+259. ✅ Update checkout success flow for offline payments
+    - **Tech**: Update `src/modules/checkout/ui/views/checkout-view.tsx`:
+      - After offline payment order creation, redirect to order confirmation page
+      - Show vendor contact information on confirmation page
+      - Display instructions for completing offline payment
+      - Don't redirect to Stripe checkout for offline payments
+    - **Implementation Details**:
+      ```typescript
+      // Update purchase mutation onSuccess handler:
+      const purchase = trpc.checkout.purchase.useMutation({
+        onSuccess: (data) => {
+          if (data.paymentMethod === "offline") {
+            // For offline payments, redirect to order confirmation
+            router.push(`/orders/${data.orderId}?payment=pending`);
+          } else if (data.url) {
+            // For Stripe, redirect to Stripe checkout
+            window.location.href = data.url;
+          } else {
+            toast.success("Purchase completed successfully");
+            setStates({ success: true, cancel: false });
+          }
+        },
+        // ... rest of handlers
+      });
+      
+      // Update return type in procedures.ts:
+      // Change return type to:
+      return { 
+        url?: string, 
+        orderId?: string, 
+        paymentMethod: "stripe" | "offline" 
+      };
+      ```
+    - **Files**: 
+      - `src/modules/checkout/ui/views/checkout-view.tsx`
+      - `src/modules/checkout/server/procedures.ts` (return type updated)
+    - **Status**: ✅ Completed - Success flow redirects to order detail page with `?payment=pending` query param
+
+260. ✅ Create order confirmation page for offline payments
+    - **Tech**: Create or update order confirmation page:
+      - Show order details
+      - Display vendor contact information prominently
+      - Show payment instructions
+      - Include "Contact Vendor" button/link
+      - Display order status as "Payment Pending"
+    - **Implementation Details**:
+      ```typescript
+      // Update src/app/(app)/orders/[id]/page.tsx or create new confirmation page
+      // Add conditional rendering for offline payment orders:
+      
+      {order.paymentMethod === "offline" && order.paymentStatus === "pending" && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 mb-6">
+          <h3 className="text-lg font-semibold text-amber-900 mb-4">
+            Payment Pending - Contact Vendor
+          </h3>
+          <p className="text-amber-800 mb-4">
+            Your order has been placed! To complete payment, please contact the vendor:
+          </p>
+          
+          {order.offlinePaymentContact?.phone && (
+            <div className="flex items-center gap-4 mb-3">
+              <Phone className="h-5 w-5" />
+              <span className="font-medium">{order.offlinePaymentContact.phone}</span>
+              <Button
+                onClick={() => window.location.href = `tel:${order.offlinePaymentContact.phone}`}
+                variant="outline"
+              >
+                Call Now
+              </Button>
+            </div>
+          )}
+          
+          {order.offlinePaymentContact?.email && (
+            <div className="flex items-center gap-4 mb-3">
+              <Mail className="h-5 w-5" />
+              <span className="font-medium">{order.offlinePaymentContact.email}</span>
+              <Button
+                onClick={() => window.location.href = `mailto:${order.offlinePaymentContact.email}`}
+                variant="outline"
+              >
+                Email Now
+              </Button>
+            </div>
+          )}
+          
+          {order.offlinePaymentNotes && (
+            <div className="mt-4 p-3 bg-white rounded border border-amber-200">
+              <p className="font-medium mb-1">Payment Instructions:</p>
+              <p className="text-sm text-gray-700">{order.offlinePaymentNotes}</p>
+            </div>
+          )}
+          
+          <p className="text-sm text-amber-700 mt-4">
+            Once payment is received, the vendor will update your order status and begin processing.
+          </p>
+        </div>
+      )}
+      ```
+    - **Key Features**:
+      - Created complete customer order detail page at `/orders/[id]/page.tsx`
+      - Shows prominent offline payment pending banner when `?payment=pending` query param present
+      - Displays customer phone number they provided
+      - Shows vendor contact information with call/email buttons
+      - Displays payment instructions
+      - Includes order details, product info, shipping address, tracking
+      - Added `getOneForUser` protected procedure to validate order ownership
+    - **Files**: 
+      - `src/app/(app)/orders/[id]/page.tsx` (created)
+      - `src/modules/orders/server/procedures.ts` (added getOneForUser)
+    - **Status**: ✅ Completed - Full order detail page with offline payment support created
+
+261. ✅ Add customer phone number requirement for offline payments
+    - **Tech**: When offline payment is selected:
+      - Display mandatory phone number input field
+      - Validate phone number before allowing checkout
+      - Store customer phone in order for vendor to contact them
+      - Update shipping address phone with customer's contact number
+      - Changed label from "Contact Vendor" to "Vendor Will Contact You"
+    - **Implementation Details**:
+      - Phone input shown in PaymentMethodSelector when offline payment selected
+      - Validation in checkout view before purchase mutation
+      - Phone stored in `offlinePaymentContact.customerPhone` field
+      - Vendor receives customer phone in email notification
+    - **Files**: 
+      - `src/modules/checkout/ui/components/payment-method-selector.tsx`
+      - `src/modules/checkout/ui/views/checkout-view.tsx`
+      - `src/modules/checkout/server/procedures.ts`
+      - `src/collections/Orders.ts`
+    - **Status**: ✅ Completed - Customer phone requirement fully implemented
+
+262. ❌ Update vendor dashboard to show offline payment orders
+    - **Tech**: Update `src/app/(app)/vendor/orders/page.tsx`:
+      - Filter orders by payment method
+      - Show payment status badge (Pending, Completed, etc.)
+      - Highlight offline payment orders
+      - Add filter for "Offline Payment" orders
+    - **Implementation Details**:
+      ```typescript
+      // Add payment method filter state
+      const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>("all");
+      
+      // Update orders query to include payment method filter
+      const { data: ordersData } = trpc.orders.listForVendor.useQuery({
+        paymentMethod: paymentMethodFilter !== "all" ? paymentMethodFilter : undefined,
+      });
+      
+      // Add filter UI:
+      <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
+        <SelectTrigger>
+          <SelectValue placeholder="Filter by payment method" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Payment Methods</SelectItem>
+          <SelectItem value="stripe">Stripe Payments</SelectItem>
+          <SelectItem value="offline">Offline Payments</SelectItem>
+        </SelectContent>
+      </Select>
+      
+      // In order cards, add payment status badge:
+      {order.paymentMethod === "offline" && (
+        <Badge variant={order.paymentStatus === "pending" ? "warning" : "success"}>
+          {order.paymentStatus === "pending" ? "Payment Pending" : "Payment Received"}
+        </Badge>
+      )}
+      ```
+    - **tRPC Update**: Update `orders.listForVendor` to accept `paymentMethod` filter parameter
+    - **Files**: 
+      - `src/app/(app)/vendor/orders/page.tsx`
+      - `src/modules/orders/server/procedures.ts` (update listForVendor)
+    - **Status**: ❌ Not started
+
+263. ❌ Add vendor order detail view for offline payments
+    - **Tech**: Update order detail page to show:
+      - Payment method badge
+      - Payment status
+      - Customer contact information
+      - "Mark as Paid" button for vendors to update payment status
+    - **Implementation Details**:
+      ```typescript
+      // In src/app/(app)/vendor/orders/[id]/page.tsx:
+      {order.paymentMethod === "offline" && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Offline Payment Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Payment Status:</span>
+              <Badge variant={order.paymentStatus === "pending" ? "warning" : "success"}>
+                {order.paymentStatus === "pending" ? "Pending" : "Completed"}
+              </Badge>
+            </div>
+            
+            {order.paymentStatus === "pending" && (
+              <>
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Customer Contact:</p>
+                  {order.user && (
+                    <div className="space-y-1">
+                      {typeof order.user === "object" && order.user.email && (
+                        <p>Email: {order.user.email}</p>
+                      )}
+                      {typeof order.user === "object" && order.user.phone && (
+                        <p>Phone: {order.user.phone}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button>Mark Payment as Received</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Confirm Payment Received</DialogTitle>
+                      <DialogDescription>
+                        Have you received payment of ${order.total.toFixed(2)} from the customer?
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleMarkAsPaid}>
+                      <Textarea
+                        placeholder="Optional: Add notes about the payment..."
+                        name="notes"
+                      />
+                      <DialogFooter>
+                        <Button type="submit" variant="default">
+                          Confirm Payment Received
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+      
+      // Add mutation handler:
+      const updatePaymentStatus = trpc.vendor.orders.updatePaymentStatus.useMutation({
+        onSuccess: () => {
+          toast.success("Payment status updated");
+          router.refresh();
+        },
+        onError: (error) => {
+          toast.error(error.message);
+        },
+      });
+      ```
+    - **Files**: `src/app/(app)/vendor/orders/[id]/page.tsx`
+    - **Status**: ❌ Not started
+
+264. ✅ Create vendor payment status update mutation
+    - **Tech**: Create `vendor.orders.updatePaymentStatus` tRPC procedure:
+      - Allow vendors to update `paymentStatus` from "pending" to "completed"
+      - Validate vendor owns the order
+      - Send confirmation email to customer when payment marked as completed
+      - Update order status to "processing" or "confirmed" when payment completed
+    - **Implementation Details**:
+      ```typescript
+      // Add to src/modules/orders/server/procedures.ts or vendor router:
+      updatePaymentStatus: vendorProcedure
+        .input(
+          z.object({
+            orderId: z.string(),
+            paymentStatus: z.enum(["pending", "completed", "failed"]),
+            notes: z.string().optional(),
+          })
+        )
+        .mutation(async ({ ctx, input }) => {
+          const vendorId = ctx.session.vendor.id;
+          
+          // Fetch order and validate vendor ownership
+          const order = await ctx.db.findByID({
+            collection: "orders",
+            id: input.orderId,
+            depth: 1,
+          });
+          
+          const orderVendorId = typeof order.vendor === "string" 
+            ? order.vendor 
+            : order.vendor?.id;
+          
+          if (orderVendorId !== vendorId) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "You can only update payment status for your own orders",
+            });
+          }
+          
+          // Only allow updating offline payment orders
+          if (order.paymentMethod !== "offline") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Payment status can only be updated for offline payment orders",
+            });
+          }
+          
+          // Update order
+          const updatedOrder = await ctx.db.update({
+            collection: "orders",
+            id: input.orderId,
+            data: {
+              paymentStatus: input.paymentStatus,
+              ...(input.paymentStatus === "completed" && {
+                status: "confirmed", // Move order to confirmed status
+              }),
+              ...(input.notes && {
+                offlinePaymentNotes: input.notes,
+              }),
+            },
+          });
+          
+          // Send email notification to customer
+          if (input.paymentStatus === "completed" && order.user) {
+            const user = typeof order.user === "string"
+              ? await ctx.db.findByID({ collection: "users", id: order.user })
+              : order.user;
+            
+            if (user?.email) {
+              await sendPaymentReceivedConfirmation(
+                user.email,
+                order.orderNumber,
+                order.total
+              );
+            }
+          }
+          
+          return updatedOrder;
+        }),
+      ```
+    - **Key Features**:
+      - Validates vendor owns the order
+      - Only allows updating offline payment orders
+      - Updates order status to "payment_done" when payment marked as completed
+      - Sends confirmation email to customer when payment received
+      - Stores optional notes in `offlinePaymentNotes`
+    - **Files**: 
+      - `src/modules/vendor/server/procedures.ts` (updatePaymentStatus added)
+      - `src/lib/email.ts` (sendPaymentReceivedConfirmation function added)
+    - **Status**: ✅ Completed - Payment status update mutation with email notifications implemented
+
+265. ✅ Add email notifications for offline payment orders
+    - **Tech**: Create email templates:
+      - Customer confirmation email with vendor contact info and payment instructions
+      - Vendor notification email about new offline payment order (includes customer phone)
+      - Customer notification when vendor marks payment as received
+    - **Implementation Details**:
+      - `sendOfflinePaymentOrderConfirmation`: HTML email with order details, vendor contact, payment instructions
+      - `sendVendorOfflinePaymentNotification`: HTML email with customer name, phone number, order details
+      - `sendPaymentReceivedConfirmation`: HTML email confirming payment received and order processing
+      - All emails use existing email service (SendGrid/AWS SES)
+      - Email failures don't block order creation
+    - **Files**: `src/lib/email.ts`
+    - **Status**: ✅ Completed - All three email templates implemented and integrated
+
+266. ❌ Add payment method indicator to order list (customer view)
+    - **Tech**: Update customer orders page:
+      - Show payment method badge (Stripe/Offline)
+      - Show payment status
+      - For offline payments, show vendor contact info
+      - Display "Contact Vendor" button for pending offline payments
+    - **Details**: Customers can track their offline payment orders
+    - **Status**: ❌ Not started
+
+267. ❌ Add validation for vendor contact info when offline payment selected
+    - **Tech**: In checkout validation:
+      - If offline payment selected and vendor has no contact phone/email, show warning
+      - Suggest customer contact vendor through platform messaging
+      - Still allow order creation but flag it for vendor attention
+    - **Details**: Ensure customers can contact vendor for offline payments
+    - **Status**: ❌ Not started
+
+268. ❌ Add admin view for offline payment orders
+    - **Tech**: Update admin dashboard:
+      - Show all offline payment orders
+      - Filter by payment status
+      - Allow admins to view and manage offline payment orders
+      - Add reporting for offline vs Stripe payment orders
+    - **Details**: Admins can monitor and support offline payment orders
+    - **Status**: ❌ Not started
+
+269. ❌ Add analytics for payment methods
+    - **Tech**: Add analytics tracking:
+      - Count orders by payment method (Stripe vs Offline)
+      - Track conversion rates for each payment method
+      - Show payment method distribution in vendor analytics
+      - Add payment method metrics to admin dashboard
+    - **Details**: Understand payment method preferences and trends
+    - **Status**: ❌ Not started
+
+270. ❌ Write tests for offline payment flow
+    - **Tech**: Create tests:
+      - Unit tests for payment method selector component
+      - Integration tests for offline order creation
+      - E2E tests for complete offline payment checkout flow
+      - Test vendor payment status update
+    - **Details**: Ensure offline payment flow works correctly
+    - **Status**: ❌ Not started
+
+271. ✅ Fix React setState warning in PaymentMethodSelector
+    - **Tech**: Move auto-selection logic from render to useEffect hook
+    - **Issue**: "Cannot update a component while rendering a different component" error
+    - **Solution**: Use `useEffect` with proper dependencies to handle auto-selection
+    - **Files**: `src/modules/checkout/ui/components/payment-method-selector.tsx`
+    - **Status**: ✅ Completed - Fixed React warning by using useEffect for state updates
+
+272. ✅ Create customer order detail page
+    - **Tech**: Create `/orders/[id]/page.tsx` for customers to view their orders
+    - **Features**:
+      - Displays order information, product details, shipping address
+      - Shows offline payment pending banner when `?payment=pending` query param present
+      - Displays customer phone number they provided
+      - Shows vendor contact information with action buttons
+      - Includes order summary, tracking info, actions (print, buy again)
+    - **Security**: Added `getOneForUser` protected procedure to validate order ownership
+    - **Files**: 
+      - `src/app/(app)/orders/[id]/page.tsx` (created)
+      - `src/modules/orders/server/procedures.ts` (added getOneForUser)
+    - **Status**: ✅ Completed - Full customer order detail page with offline payment support
+
+273. ✅ Implement inventory update for offline payment orders
+    - **Tech**: Update product variant stock immediately when offline order is created
+    - **Details**: 
+      - Decrements variant stock when order is created (not waiting for payment)
+      - Handles multiple variants correctly
+      - Updates product variants array in database
+    - **Files**: `src/modules/checkout/server/procedures.ts`
+    - **Status**: ✅ Completed - Inventory updated immediately for offline orders
+
+274. ✅ Implement multiple order creation for cart items
+    - **Tech**: Create one order per product when cart has multiple items (matching Stripe webhook pattern)
+    - **Details**:
+      - Loops through cart items and creates separate order for each product
+      - Each order has its own order number
+      - All orders share same shipping address
+      - Commission calculated per item
+      - Returns first order ID for redirect, all order IDs in response
+    - **Files**: `src/modules/checkout/server/procedures.ts`
+    - **Status**: ✅ Completed - Multiple order creation implemented
+
+275. ✅ Store customer phone in order for vendor contact
+    - **Tech**: Store customer-provided phone number in order record
+    - **Details**:
+      - Phone stored in `offlinePaymentContact.customerPhone` field
+      - Also updates `shippingAddress.phone` with customer contact number
+      - Vendor can see customer phone in order details and email notification
+    - **Files**: 
+      - `src/modules/checkout/server/procedures.ts`
+      - `src/collections/Orders.ts` (added customerPhone field)
+    - **Status**: ✅ Completed - Customer phone stored and accessible to vendor
+
+276. ✅ Add vendor.getOne procedure for checkout
+    - **Tech**: Create tRPC procedure to fetch vendor details for payment method selection
+    - **Details**:
+      - Base procedure (public access for vendor info)
+      - Returns vendor with contact info, payment preferences, Stripe account status
+      - Used by checkout view to determine available payment methods
+    - **Files**: `src/modules/vendor/server/procedures.ts`
+    - **Status**: ✅ Completed - Vendor getOne procedure added
+
+277. ✅ Update email templates with customer phone requirement
+    - **Tech**: Update vendor notification email to include customer phone number
+    - **Details**:
+      - Vendor email shows customer phone as clickable link
+      - Changed messaging from "customer will contact you" to "please contact customer"
+      - Customer email updated to say "vendor will contact you"
+    - **Files**: `src/lib/email.ts`
+    - **Status**: ✅ Completed - Email templates updated with customer phone and new messaging
+
+278. ✅ Make stripeCheckoutSessionId optional for offline orders
+    - **Tech**: Update Orders collection to make Stripe session ID optional
+    - **Details**:
+      - Added condition to only show field when paymentMethod is "stripe"
+      - Prevents validation errors for offline payment orders
+    - **Files**: `src/collections/Orders.ts`
+    - **Status**: ✅ Completed - Stripe session ID field made conditional
+
+279. ✅ Implement order ownership validation
+    - **Tech**: Add protected procedure to ensure users can only view their own orders
+    - **Details**:
+      - Created `orders.getOneForUser` protected procedure
+      - Validates order.user matches logged-in user ID
+      - Returns 403 Forbidden if user tries to access another user's order
+    - **Files**: `src/modules/orders/server/procedures.ts`
+    - **Status**: ✅ Completed - Order ownership validation implemented
+
+280. ✅ Handle shipping address for offline payment orders
+    - **Tech**: Fetch and use user's default shipping address for offline orders
+    - **Details**:
+      - Gets user's shipping addresses from user record
+      - Uses default address or first address
+      - Validates required address fields are present
+      - Maps user address format to order shipping address format
+      - Updates shipping address phone with customer contact number
+    - **Files**: `src/modules/checkout/server/procedures.ts`
+    - **Status**: ✅ Completed - Shipping address handling for offline orders implemented
+
+### Technical Architecture Summary for Offline Payments
+
+**Data Flow:**
+1. **Checkout Initiation**: Customer selects payment method (Stripe or Offline)
+2. **Phone Number Collection**: Customer must provide phone number for offline payments
+3. **Vendor Validation**: 
+   - If Stripe: Validate `stripeAccountId` and account readiness
+   - If Offline: Validate customer phone provided, check vendor payment preferences
+4. **Order Creation**:
+   - Stripe: Create Stripe checkout session, order created via webhook
+   - Offline: Create order immediately with `paymentStatus: "pending"`, update inventory, store customer phone
+5. **Payment Completion**:
+   - Stripe: Automatic via Stripe webhook
+   - Offline: Vendor contacts customer, marks payment as received via `updatePaymentStatus` mutation
+
+**Key Components:**
+- **PaymentMethodSelector**: React component for payment method selection with phone input
+- **Checkout Mutation**: Enhanced to handle both payment methods with phone validation
+- **Order Collection**: Extended with payment fields and customer phone storage
+- **Vendor Collection**: Extended with contact fields and payment preferences
+- **Email Service**: Three email templates for offline payment notifications
+- **Order Detail Page**: Customer-facing page with offline payment banner and vendor contact info
+
+**State Management:**
+- Payment method selection stored in component state
+- Customer phone number stored in component state
+- Order payment status tracked in database
+- Vendor payment status updates trigger order status changes and email notifications
+
+**Security Considerations:**
+- Only order owner (vendor) can update payment status
+- Validate vendor ownership before allowing status updates
+- Order detail page validates user ownership via `getOneForUser` procedure
+- Email notifications sent to both parties for transparency
+
+**Key Features Implemented:**
+- ✅ Customer phone number requirement for offline payments
+- ✅ Multiple order creation (one per product) for cart items
+- ✅ Immediate inventory update for offline orders
+- ✅ Customer phone stored in order for vendor access
+- ✅ Vendor receives customer phone in email notification
+- ✅ Order detail page with offline payment support
+- ✅ Payment status update mutation with email confirmation
+- ✅ React warning fixes (useEffect for auto-selection)
+
+**Files Created/Modified:**
+- ✅ `src/modules/checkout/ui/components/payment-method-selector.tsx` (created)
+- ✅ `src/modules/checkout/ui/views/checkout-view.tsx` (modified)
+- ✅ `src/modules/checkout/server/procedures.ts` (modified)
+- ✅ `src/collections/Vendors.ts` (modified)
+- ✅ `src/collections/Orders.ts` (modified)
+- ✅ `src/modules/vendor/server/procedures.ts` (added getOne and updatePaymentStatus)
+- ✅ `src/lib/email.ts` (added 3 email functions)
+- ✅ `src/app/(app)/orders/[id]/page.tsx` (created)
+- ✅ `src/modules/orders/server/procedures.ts` (added getOneForUser)
+
 ## Authentication Enhancements
 
 249. ❌ Implement password reset/forgot password flow
@@ -1739,10 +2802,10 @@
 
 ## Summary
 
-**Total Tasks Documented: 260** (Updated from 252)
+**Total Tasks Documented: 270** (Updated from 260)
 
-**Completed: ~125 tasks (48%)**
-**Pending: ~135 tasks (52%)**
+**Completed: ~125 tasks (46%)**
+**Pending: ~145 tasks (54%)**
 
 **Breakdown**:
 - **Original Tasks (1-138)**: 110 completed, 28 pending
@@ -1756,6 +2819,7 @@
 - **Category & Variant Tasks (232-236)**: 0 completed, 5 pending
 - **Search Enhancement Tasks (237-240)**: 0 completed, 4 pending
 - **CI/CD & Production Tasks (241-248)**: 0 completed, 8 pending
+- **Offline Payment Tasks (253-270)**: 0 completed, 18 pending
 - **Authentication Tasks (249-252)**: 0 completed, 4 pending
 
 ### Key Features Implemented:

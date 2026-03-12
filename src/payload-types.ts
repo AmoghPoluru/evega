@@ -408,6 +408,22 @@ export interface Vendor {
    */
   commissionRate?: number | null;
   /**
+   * Phone number for customers to contact you for offline payments
+   */
+  contactPhone?: string | null;
+  /**
+   * Email address for customers to contact you for offline payments
+   */
+  contactEmail?: string | null;
+  /**
+   * Which payment methods do you want to offer to customers?
+   */
+  preferredPaymentMethod?: ('stripe' | 'offline' | 'both') | null;
+  /**
+   * Custom instructions for customers who choose offline payment (e.g., 'Call me at [phone] or WhatsApp me at [number]')
+   */
+  offlinePaymentInstructions?: string | null;
+  /**
    * Business verification documents (business license, tax ID, etc.)
    */
   verificationDocuments?:
@@ -802,9 +818,9 @@ export interface Order {
    */
   color?: string | null;
   /**
-   * Stripe checkout session associated with the order
+   * Stripe checkout session associated with the order (only for Stripe payments)
    */
-  stripeCheckoutSessionId: string;
+  stripeCheckoutSessionId?: string | null;
   /**
    * Stripe account associated with the order
    */
@@ -821,6 +837,29 @@ export interface Order {
    * Status of the transfer to vendor's Stripe account
    */
   transferStatus?: ('pending' | 'paid' | 'failed' | 'canceled') | null;
+  /**
+   * How the customer chose to pay for this order
+   */
+  paymentMethod: 'stripe' | 'offline';
+  /**
+   * Current payment status for this order
+   */
+  paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
+  /**
+   * Contact information for offline payment (vendor and customer)
+   */
+  offlinePaymentContact?: {
+    phone?: string | null;
+    email?: string | null;
+    /**
+     * Customer's phone number for vendor to contact them
+     */
+    customerPhone?: string | null;
+  };
+  /**
+   * Any notes about the offline payment arrangement
+   */
+  offlinePaymentNotes?: string | null;
   /**
    * Shipping address for this order (snapshot at time of order)
    */
@@ -1515,6 +1554,16 @@ export interface OrdersSelect<T extends boolean = true> {
   stripePaymentIntentId?: T;
   stripeTransferId?: T;
   transferStatus?: T;
+  paymentMethod?: T;
+  paymentStatus?: T;
+  offlinePaymentContact?:
+    | T
+    | {
+        phone?: T;
+        email?: T;
+        customerPhone?: T;
+      };
+  offlinePaymentNotes?: T;
   shippingAddress?:
     | T
     | {
@@ -1592,6 +1641,10 @@ export interface VendorsSelect<T extends boolean = true> {
   stripePayoutsEnabled?: T;
   syncStripeAction?: T;
   commissionRate?: T;
+  contactPhone?: T;
+  contactEmail?: T;
+  preferredPaymentMethod?: T;
+  offlinePaymentInstructions?: T;
   verificationDocuments?:
     | T
     | {

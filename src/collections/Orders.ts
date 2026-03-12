@@ -309,9 +309,9 @@ export const Orders: CollectionConfig = {
     {
       name: "stripeCheckoutSessionId",
       type: "text",
-      required: true,
       admin: {
-        description: "Stripe checkout session associated with the order",
+        description: "Stripe checkout session associated with the order (only for Stripe payments)",
+        condition: (data) => data?.paymentMethod === "stripe",
       },
     },
     {
@@ -347,6 +347,74 @@ export const Orders: CollectionConfig = {
       defaultValue: "pending",
       admin: {
         description: "Status of the transfer to vendor's Stripe account",
+      },
+    },
+    {
+      name: "paymentMethod",
+      type: "select",
+      label: "Payment Method",
+      options: [
+        { label: "Stripe", value: "stripe" },
+        { label: "Offline Payment", value: "offline" },
+      ],
+      defaultValue: "stripe",
+      required: true,
+      admin: {
+        description: "How the customer chose to pay for this order",
+      },
+    },
+    {
+      name: "paymentStatus",
+      type: "select",
+      label: "Payment Status",
+      options: [
+        { label: "Pending", value: "pending" },
+        { label: "Completed", value: "completed" },
+        { label: "Failed", value: "failed" },
+        { label: "Refunded", value: "refunded" },
+      ],
+      defaultValue: "pending",
+      required: true,
+      admin: {
+        description: "Current payment status for this order",
+      },
+    },
+    {
+      name: "offlinePaymentContact",
+      type: "group",
+      label: "Offline Payment Contact Info",
+      fields: [
+        {
+          name: "phone",
+          type: "text",
+          label: "Vendor Phone",
+        },
+        {
+          name: "email",
+          type: "email",
+          label: "Vendor Email",
+        },
+        {
+          name: "customerPhone",
+          type: "text",
+          label: "Customer Phone",
+          admin: {
+            description: "Customer's phone number for vendor to contact them",
+          },
+        },
+      ],
+      admin: {
+        condition: (data) => data?.paymentMethod === "offline",
+        description: "Contact information for offline payment (vendor and customer)",
+      },
+    },
+    {
+      name: "offlinePaymentNotes",
+      type: "textarea",
+      label: "Offline Payment Notes",
+      admin: {
+        condition: (data) => data?.paymentMethod === "offline",
+        description: "Any notes about the offline payment arrangement",
       },
     },
     {
