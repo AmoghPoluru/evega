@@ -1202,7 +1202,7 @@
     - **Status**: ✅ Video component implemented
     - **Files**: `src/collections/Products.ts`, `src/app/(app)/vendor/products/components/ProductForm.tsx`, `src/modules/products/ui/components/product-view.tsx`
 
-172. ✅ Implement configurable commission system
+176. ✅ Implement configurable commission system
     - **Tech**: Add `commissionRate` field to Vendors collection, calculate commission in Stripe webhook
     - **Details**: 
       - Add `commissionRate` field (number, default 10%) to Vendors collection
@@ -2771,6 +2771,86 @@
 - ✅ `src/lib/email.ts` (added 3 email functions)
 - ✅ `src/app/(app)/orders/[id]/page.tsx` (created)
 - ✅ `src/modules/orders/server/procedures.ts` (added getOneForUser)
+
+## Product Image & Gallery Features
+
+**Technical Implementation**: Create `availableImages` array by combining main `image` and `cover` fields (if both exist and are different), use `useState` to track `selectedImageIndex`, map over `availableImages.length` to render dynamic thumbnails (1 image = 1 thumbnail, 2 images = 2 thumbnails, etc.), update main displayed image via `availableImages[selectedImageIndex]` when thumbnail is clicked, and highlight selected thumbnail with `border-orange-500 border-2` styling.
+
+281. ❌ Display cover image on product detail page
+    - **Tech**: Update product view component to display cover image alongside main image
+    - **Details**: 
+      - Products collection has `cover` field (upload type, relationTo: media) but it's not displayed on product page
+      - Currently only `image` field is displayed
+      - Cover image should be shown as a thumbnail option in the image gallery
+      - Both main image and cover image should be available for viewing
+    - **Implementation Details**:
+      - Extract cover image URL using same `getImageUrl` helper function
+      - Create `availableImages` array that includes all available images:
+        - Add main `image` if it exists
+        - Add `cover` image if it exists and is different from main image
+      - Array length will be 1 if only one image exists, 2 if both exist, etc.
+      - Display all available images in thumbnail gallery
+    - **Files**: `src/modules/products/ui/components/product-view.tsx`
+    - **Status**: ❌ Not started
+
+282. ❌ Fix product thumbnail gallery to dynamically show available images
+    - **Tech**: Replace hardcoded 6 identical thumbnails with dynamic image gallery that matches available images
+    - **Details**: 
+      - Currently shows 6 hardcoded thumbnails all using same main image (placeholder implementation)
+      - Thumbnail count should match number of available images:
+        - If only 1 image exists (main or cover), show 1 thumbnail
+        - If 2 images exist (main + cover), show 2 thumbnails
+        - If 4 images exist, show 4 thumbnails
+        - Dynamic count based on `availableImages.length`
+      - Each thumbnail should show the actual corresponding image (not duplicates)
+      - Thumbnails should be clickable to switch main displayed image
+      - Selected thumbnail should be highlighted with orange border
+    - **Implementation Details**:
+      - Create `availableImages` array with all available images (main + cover if different)
+      - Use `useState` to track `selectedImageIndex` (default 0)
+      - Map over `availableImages` array instead of hardcoded `Array(6)`
+      - Number of thumbnails = `availableImages.length` (dynamic, not fixed)
+      - Add `onClick` handler to thumbnails to update `selectedImageIndex`
+      - Update main image display to use `availableImages[selectedImageIndex]`
+      - Always render thumbnail gallery if `availableImages.length > 0` (even for single image)
+      - Add visual indicator (border-2 border-orange-500) for selected thumbnail
+      - Grid layout: Dynamically adjust columns based on image count (6 columns if ≤6 images, 4 columns if more)
+    - **Files**: `src/modules/products/ui/components/product-view.tsx`
+    - **Status**: ❌ Not started
+
+283. ❌ Implement image gallery navigation for product page
+    - **Tech**: Add image switching functionality with thumbnail navigation
+    - **Details**: 
+      - Allow users to click thumbnails to view different product images
+      - Main image should update when thumbnail is clicked
+      - Selected thumbnail should have visual feedback (highlighted border)
+      - Works with any number of images (1, 2, 4, etc.) - fully dynamic
+      - Support keyboard navigation (arrow keys) for image switching (optional)
+      - Add smooth transitions when switching images (optional)
+    - **Implementation Details**:
+      - Add `selectedImageIndex` state to track current image (default 0)
+      - Add `onClick` handler to thumbnails that updates selected index
+      - Add conditional styling to highlight selected thumbnail (border-orange-500 border-2)
+      - Handle edge cases: if only 1 image, clicking thumbnail still works (no-op or visual feedback)
+      - Optional: Add keyboard event listeners for arrow key navigation (left/right arrows)
+      - Optional: Add image transition animations with CSS transitions
+      - Ensure navigation works correctly regardless of number of images
+    - **Files**: `src/modules/products/ui/components/product-view.tsx`
+    - **Status**: ❌ Not started
+
+284. ❌ Add cover image usage documentation
+    - **Tech**: Document where and how cover images are used in the application
+    - **Details**: 
+      - Document that cover image is uploaded in vendor product form (`/vendor/products/new`)
+      - Explain difference between `image` (main product image) and `cover` (banner/hero/secondary image)
+      - Document dynamic thumbnail gallery behavior:
+        - Thumbnail count matches available images (1 image = 1 thumbnail, 2 images = 2 thumbnails, 4 images = 4 thumbnails)
+        - Gallery shows all available images (main + cover if both exist)
+        - Users can click thumbnails to switch main displayed image
+      - Add admin documentation for vendors on when to use cover vs main image
+      - Explain that cover image appears as thumbnail option on product detail page
+    - **Files**: `docs/PRODUCT_IMAGES.md` (to be created)
+    - **Status**: ❌ Not started
 
 ## Authentication Enhancements
 

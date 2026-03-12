@@ -69,14 +69,27 @@ export const ProductView = ({ productId }: ProductViewProps) => {
     return null;
   };
 
-  // Get the image URL
+  // Get the image URLs (main image and cover image)
   const imageUrl = data?.image ? getImageUrl(data.image) : null;
+  const coverUrl = data?.cover ? getImageUrl(data.cover) : null;
+  
+  // Create array of available images (main image + cover if available and different)
+  const availableImages: string[] = [];
+  if (imageUrl) availableImages.push(imageUrl);
+  if (coverUrl && coverUrl !== imageUrl) availableImages.push(coverUrl);
+  
+  // State for selected image index
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const displayedImageUrl = availableImages[selectedImageIndex] || imageUrl;
   
   // Debug: Log image data in development
   if (process.env.NODE_ENV === 'development' && data?.image) {
     console.log("[ProductView] Image data:", {
       image: data.image,
       extractedUrl: imageUrl,
+      coverUrl: coverUrl,
+      availableImages: availableImages,
+      selectedImageIndex: selectedImageIndex,
       imageType: typeof data.image,
       hasUrl: !!(data.image as any)?.url,
       urlValue: (data.image as any)?.url,
@@ -222,14 +235,14 @@ export const ProductView = ({ productId }: ProductViewProps) => {
               {/* Main Image */}
               <div className="border border-gray-300 rounded-lg overflow-hidden bg-white mb-4">
                 <div className="relative aspect-square">
-                  {imageUrl ? (
+                  {displayedImageUrl ? (
                     <Image
-                      src={imageUrl}
+                      src={displayedImageUrl}
                       alt={data.name}
                       fill
                       className="object-contain p-8"
                       onError={(e) => {
-                        console.error("[ProductView] Image failed to load:", imageUrl);
+                        console.error("[ProductView] Image failed to load:", displayedImageUrl);
                         (e.target as HTMLImageElement).src = "/placeholder.png";
                       }}
                     />
@@ -241,18 +254,21 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                 </div>
               </div>
 
-              {/* Thumbnail Images (if you have multiple images) */}
-              {imageUrl && (
-                <div className="grid grid-cols-6 gap-2">
-                  {[...Array(6)].map((_, i) => (
+              {/* Thumbnail Images - Dynamic based on available images */}
+              {availableImages.length > 0 && (
+                <div className={`grid gap-2 ${availableImages.length <= 6 ? 'grid-cols-6' : 'grid-cols-4'}`}>
+                  {availableImages.map((imgUrl, i) => (
                     <div 
-                      key={i} 
-                      className="border border-gray-300 rounded-md overflow-hidden cursor-pointer hover:border-orange-500 transition-colors aspect-square"
+                      key={i}
+                      onClick={() => setSelectedImageIndex(i)}
+                      className={`border rounded-md overflow-hidden cursor-pointer hover:border-orange-500 transition-colors aspect-square ${
+                        selectedImageIndex === i ? 'border-orange-500 border-2' : 'border-gray-300'
+                      }`}
                     >
                       <div className="relative w-full h-full">
                         <Image
-                          src={imageUrl}
-                          alt={`${data.name} thumbnail ${i + 1}`}
+                          src={imgUrl}
+                          alt={`${data.name} ${i === 0 ? 'main' : 'cover'} image`}
                           fill
                           className="object-contain p-2"
                         />

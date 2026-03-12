@@ -336,12 +336,12 @@ export const vendorRouter = createTRPCRouter({
           subcategory: z.string().optional(),
           image: z.string().optional(),
           cover: z.string().optional(),
+          video: z.string().optional(),
           refundPolicy: z.enum(["30-day", "14-day", "7-day", "3-day", "1-day", "no-refunds"]).optional(),
           tags: z.array(z.string()).optional(),
           variants: z.array(
             z.object({
-              size: z.enum(["XS", "S", "M", "L", "XL", "XXL"]).optional(),
-              color: z.string().optional(),
+              variantData: z.record(z.string(), z.any()).default({}), // Dynamic variant data based on category
               stock: z.number().min(0).default(0),
               price: z.number().optional(),
             })
@@ -354,17 +354,208 @@ export const vendorRouter = createTRPCRouter({
           ? ctx.session.vendor 
           : ctx.session.vendor.id;
 
-        // Create product with vendor auto-assigned
-        const product = await ctx.db.create({
-          collection: "products",
-          data: {
-            ...input,
-            vendor: vendorId,
-            isArchived: false,
-          },
-        });
+        try {
+          // Create product with vendor auto-assigned
+          const product = await ctx.db.create({
+            collection: "products",
+            data: {
+              ...input,
+              vendor: vendorId,
+              isArchived: false,
+            },
+          });
 
-        return product;
+          return product;
+        } catch (error: any) {
+          // Log error structure for debugging (only in development)
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[Product Create Error]', {
+              error,
+              errors: error?.errors,
+              data: error?.data,
+              message: error?.message,
+              name: error?.name,
+            });
+          }
+
+          // Parse Payload CMS validation errors - check multiple possible error formats
+          let parsedErrors: string[] = [];
+
+          // Format 1: error.errors array (Payload standard format)
+          if (error?.errors && Array.isArray(error.errors)) {
+            // Fetch category variant config if we have a category ID
+            let requiredVariantFields: string[] = [];
+            if (input.category) {
+              try {
+                const category = await ctx.db.findByID({
+                  collection: "categories",
+                  id: input.category,
+                  depth: 1, // Populate relationships to get variant type names
+                });
+                if (category?.variantConfig?.requiredVariants) {
+                  // Handle both populated objects and IDs
+                  const requiredVariants = Array.isArray(category.variantConfig.requiredVariants)
+                    ? category.variantConfig.requiredVariants
+                    : [];
+                  
+                  requiredVariantFields = requiredVariants.map((vt: any) => {
+                    // If it's a populated object, use the name
+                    if (typeof vt === 'object' && vt !== null && 'name' in vt) {
+                      return vt.name;
+                    }
+                    // If it's an ID string, we can't resolve it here, so return a generic message
+                    return null;
+                  }).filter((name: string | null): name is string => name !== null);
+                  
+                  // If we couldn't get names, fetch variant types separately
+                  if (requiredVariantFields.length === 0 && requiredVariants.length > 0) {
+                    const variantTypeIds = requiredVariants
+                      .map((vt: any) => typeof vt === 'string' ? vt : vt.id)
+                      .filter(Boolean);
+                    
+                    if (variantTypeIds.length > 0) {
+                      const variantTypes = await ctx.db.find({
+                        collection: "variant-types",
+                        where: {
+                          id: {
+                            in: variantTypeIds,
+                          },
+                        },
+                        limit: 100,
+                      });
+                      requiredVariantFields = variantTypes.docs.map((vt: any) => vt.name || vt.slug);
+                    }
+                  }
+                }
+              } catch (e) {
+                // Ignore category fetch errors
+              }
+            }
+
+            parsedErrors = error.errors.map((err: any) => {
+              // Extract field name from path (e.g., "variants.0.variantData.size" -> "Size in Variant 1")
+              if (err.path) {
+                const pathParts = err.path.split('.');
+                if (pathParts[0] === 'variants' && pathParts[1]) {
+                  const variantIndex = parseInt(pathParts[1]) + 1;
+                  const fieldName = pathParts[pathParts.length - 1];
+                  
+                  // Special handling for variantData field
+                  if (fieldName.toLowerCase() === 'variantdata' || fieldName.toLowerCase() === 'variant_data') {
+                    if (requiredVariantFields.length > 0) {
+                      return `Variant ${variantIndex}: Please fill in all required variant fields: ${requiredVariantFields.join(', ')}`;
+                    } else {
+                      return `Variant ${variantIndex}: Please fill in all required variant fields (Size, Color, Material, etc.)`;
+                    }
+                  }
+                  
+                  // Try to get human-readable field name
+                  const readableField = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
+                  return `${readableField} in Variant ${variantIndex}: ${err.message || 'Invalid value'}`;
+                }
+                return err.message || `Invalid value for ${err.path}`;
+              }
+              return err.message || 'Validation error';
+            });
+          }
+          // Format 2: error.data?.errors (alternative Payload format)
+          else if (error?.data?.errors && Array.isArray(error.data.errors)) {
+            // Fetch category variant config if we have a category ID
+            let requiredVariantFields: string[] = [];
+            if (input.category) {
+              try {
+                const category = await ctx.db.findByID({
+                  collection: "categories",
+                  id: input.category,
+                  depth: 1, // Populate relationships to get variant type names
+                });
+                if (category?.variantConfig?.requiredVariants) {
+                  // Handle both populated objects and IDs
+                  const requiredVariants = Array.isArray(category.variantConfig.requiredVariants)
+                    ? category.variantConfig.requiredVariants
+                    : [];
+                  
+                  requiredVariantFields = requiredVariants.map((vt: any) => {
+                    // If it's a populated object, use the name
+                    if (typeof vt === 'object' && vt !== null && 'name' in vt) {
+                      return vt.name;
+                    }
+                    // If it's an ID string, we can't resolve it here, so return a generic message
+                    return null;
+                  }).filter((name: string | null): name is string => name !== null);
+                  
+                  // If we couldn't get names, fetch variant types separately
+                  if (requiredVariantFields.length === 0 && requiredVariants.length > 0) {
+                    const variantTypeIds = requiredVariants
+                      .map((vt: any) => typeof vt === 'string' ? vt : vt.id)
+                      .filter(Boolean);
+                    
+                    if (variantTypeIds.length > 0) {
+                      const variantTypes = await ctx.db.find({
+                        collection: "variant-types",
+                        where: {
+                          id: {
+                            in: variantTypeIds,
+                          },
+                        },
+                        limit: 100,
+                      });
+                      requiredVariantFields = variantTypes.docs.map((vt: any) => vt.name || vt.slug);
+                    }
+                  }
+                }
+              } catch (e) {
+                // Ignore category fetch errors
+              }
+            }
+
+            parsedErrors = error.data.errors.map((err: any) => {
+              if (err.path) {
+                const pathParts = err.path.split('.');
+                if (pathParts[0] === 'variants' && pathParts[1]) {
+                  const variantIndex = parseInt(pathParts[1]) + 1;
+                  const fieldName = pathParts[pathParts.length - 1];
+                  
+                  // Special handling for variantData field
+                  if (fieldName.toLowerCase() === 'variantdata' || fieldName.toLowerCase() === 'variant_data') {
+                    if (requiredVariantFields.length > 0) {
+                      return `Variant ${variantIndex}: Please fill in all required variant fields: ${requiredVariantFields.join(', ')}`;
+                    } else {
+                      return `Variant ${variantIndex}: Please fill in all required variant fields (Size, Color, Material, etc.)`;
+                    }
+                  }
+                  
+                  const readableField = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
+                  return `${readableField} in Variant ${variantIndex}: ${err.message || 'Invalid value'}`;
+                }
+                return err.message || `Invalid value for ${err.path}`;
+              }
+              return err.message || 'Validation error';
+            });
+          }
+          // Format 3: Parse error message if it contains "Product Variants X > Variant Data"
+          else if (error?.message && typeof error.message === 'string') {
+            const messageMatch = error.message.match(/Product Variants (\d+) > Variant Data/i);
+            if (messageMatch) {
+              const variantNum = messageMatch[1];
+              // Try to extract more details from the error
+              parsedErrors.push(`Variant ${variantNum} has invalid variant data. Please check all required variant fields (Size, Color, Material, etc.) are filled correctly.`);
+            } else {
+              // If it's a generic validation error, try to extract field info
+              parsedErrors.push(error.message);
+            }
+          }
+
+          if (parsedErrors.length > 0) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: parsedErrors.join('; '),
+            });
+          }
+          
+          // Re-throw other errors as-is
+          throw error;
+        }
       }),
 
     update: vendorProcedure
@@ -378,12 +569,12 @@ export const vendorRouter = createTRPCRouter({
           subcategory: z.string().optional(),
           image: z.string().optional(),
           cover: z.string().optional(),
+          video: z.string().optional(),
           refundPolicy: z.enum(["30-day", "14-day", "7-day", "3-day", "1-day", "no-refunds"]).optional(),
           tags: z.array(z.string()).optional(),
           variants: z.array(
             z.object({
-              size: z.enum(["XS", "S", "M", "L", "XL", "XXL"]).optional(),
-              color: z.string().optional(),
+              variantData: z.record(z.string(), z.any()).default({}), // Dynamic variant data based on category
               stock: z.number().min(0).default(0),
               price: z.number().optional(),
             })
@@ -419,14 +610,209 @@ export const vendorRouter = createTRPCRouter({
         // Prevent vendor field change
         const { vendor, ...safeUpdateData } = updateData as any;
 
-        // Update product
-        const product = await ctx.db.update({
-          collection: "products",
-          id,
-          data: safeUpdateData,
-        });
+        try {
+          // Update product
+          const product = await ctx.db.update({
+            collection: "products",
+            id,
+            data: safeUpdateData,
+          });
 
-        return product;
+          return product;
+        } catch (error: any) {
+          // Log error structure for debugging (only in development)
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[Product Update Error]', {
+              error,
+              errors: error?.errors,
+              data: error?.data,
+              message: error?.message,
+              name: error?.name,
+            });
+          }
+
+          // Parse Payload CMS validation errors - check multiple possible error formats
+          let parsedErrors: string[] = [];
+
+          // Format 1: error.errors array (Payload standard format)
+          if (error?.errors && Array.isArray(error.errors)) {
+            // Fetch category variant config - use existing product's category or updateData.category
+            let requiredVariantFields: string[] = [];
+            const categoryId = (updateData as any).category || existingProduct.category;
+            if (categoryId) {
+              try {
+                const categoryIdStr = typeof categoryId === 'string' ? categoryId : categoryId.id || categoryId;
+                const category = await ctx.db.findByID({
+                  collection: "categories",
+                  id: categoryIdStr,
+                  depth: 1, // Populate relationships to get variant type names
+                });
+                if (category?.variantConfig?.requiredVariants) {
+                  // Handle both populated objects and IDs
+                  const requiredVariants = Array.isArray(category.variantConfig.requiredVariants)
+                    ? category.variantConfig.requiredVariants
+                    : [];
+                  
+                  requiredVariantFields = requiredVariants.map((vt: any) => {
+                    // If it's a populated object, use the name
+                    if (typeof vt === 'object' && vt !== null && 'name' in vt) {
+                      return vt.name;
+                    }
+                    // If it's an ID string, we can't resolve it here, so return a generic message
+                    return null;
+                  }).filter((name: string | null): name is string => name !== null);
+                  
+                  // If we couldn't get names, fetch variant types separately
+                  if (requiredVariantFields.length === 0 && requiredVariants.length > 0) {
+                    const variantTypeIds = requiredVariants
+                      .map((vt: any) => typeof vt === 'string' ? vt : vt.id)
+                      .filter(Boolean);
+                    
+                    if (variantTypeIds.length > 0) {
+                      const variantTypes = await ctx.db.find({
+                        collection: "variant-types",
+                        where: {
+                          id: {
+                            in: variantTypeIds,
+                          },
+                        },
+                        limit: 100,
+                      });
+                      requiredVariantFields = variantTypes.docs.map((vt: any) => vt.name || vt.slug);
+                    }
+                  }
+                }
+              } catch (e) {
+                // Ignore category fetch errors
+              }
+            }
+
+            parsedErrors = error.errors.map((err: any) => {
+              // Extract field name from path (e.g., "variants.0.variantData.size" -> "Size in Variant 1")
+              if (err.path) {
+                const pathParts = err.path.split('.');
+                if (pathParts[0] === 'variants' && pathParts[1]) {
+                  const variantIndex = parseInt(pathParts[1]) + 1;
+                  const fieldName = pathParts[pathParts.length - 1];
+                  
+                  // Special handling for variantData field
+                  if (fieldName.toLowerCase() === 'variantdata' || fieldName.toLowerCase() === 'variant_data') {
+                    if (requiredVariantFields.length > 0) {
+                      return `Variant ${variantIndex}: Please fill in all required variant fields: ${requiredVariantFields.join(', ')}`;
+                    } else {
+                      return `Variant ${variantIndex}: Please fill in all required variant fields (Size, Color, Material, etc.)`;
+                    }
+                  }
+                  
+                  // Try to get human-readable field name
+                  const readableField = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
+                  return `${readableField} in Variant ${variantIndex}: ${err.message || 'Invalid value'}`;
+                }
+                return err.message || `Invalid value for ${err.path}`;
+              }
+              return err.message || 'Validation error';
+            });
+          }
+          // Format 2: error.data?.errors (alternative Payload format)
+          else if (error?.data?.errors && Array.isArray(error.data.errors)) {
+            // Fetch category variant config - use existing product's category or updateData.category
+            let requiredVariantFields: string[] = [];
+            const categoryId = (updateData as any).category || existingProduct.category;
+            if (categoryId) {
+              try {
+                const categoryIdStr = typeof categoryId === 'string' ? categoryId : categoryId.id || categoryId;
+                const category = await ctx.db.findByID({
+                  collection: "categories",
+                  id: categoryIdStr,
+                  depth: 1, // Populate relationships to get variant type names
+                });
+                if (category?.variantConfig?.requiredVariants) {
+                  // Handle both populated objects and IDs
+                  const requiredVariants = Array.isArray(category.variantConfig.requiredVariants)
+                    ? category.variantConfig.requiredVariants
+                    : [];
+                  
+                  requiredVariantFields = requiredVariants.map((vt: any) => {
+                    // If it's a populated object, use the name
+                    if (typeof vt === 'object' && vt !== null && 'name' in vt) {
+                      return vt.name;
+                    }
+                    // If it's an ID string, we can't resolve it here, so return a generic message
+                    return null;
+                  }).filter((name: string | null): name is string => name !== null);
+                  
+                  // If we couldn't get names, fetch variant types separately
+                  if (requiredVariantFields.length === 0 && requiredVariants.length > 0) {
+                    const variantTypeIds = requiredVariants
+                      .map((vt: any) => typeof vt === 'string' ? vt : vt.id)
+                      .filter(Boolean);
+                    
+                    if (variantTypeIds.length > 0) {
+                      const variantTypes = await ctx.db.find({
+                        collection: "variant-types",
+                        where: {
+                          id: {
+                            in: variantTypeIds,
+                          },
+                        },
+                        limit: 100,
+                      });
+                      requiredVariantFields = variantTypes.docs.map((vt: any) => vt.name || vt.slug);
+                    }
+                  }
+                }
+              } catch (e) {
+                // Ignore category fetch errors
+              }
+            }
+
+            parsedErrors = error.data.errors.map((err: any) => {
+              if (err.path) {
+                const pathParts = err.path.split('.');
+                if (pathParts[0] === 'variants' && pathParts[1]) {
+                  const variantIndex = parseInt(pathParts[1]) + 1;
+                  const fieldName = pathParts[pathParts.length - 1];
+                  
+                  // Special handling for variantData field
+                  if (fieldName.toLowerCase() === 'variantdata' || fieldName.toLowerCase() === 'variant_data') {
+                    if (requiredVariantFields.length > 0) {
+                      return `Variant ${variantIndex}: Please fill in all required variant fields: ${requiredVariantFields.join(', ')}`;
+                    } else {
+                      return `Variant ${variantIndex}: Please fill in all required variant fields (Size, Color, Material, etc.)`;
+                    }
+                  }
+                  
+                  const readableField = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
+                  return `${readableField} in Variant ${variantIndex}: ${err.message || 'Invalid value'}`;
+                }
+                return err.message || `Invalid value for ${err.path}`;
+              }
+              return err.message || 'Validation error';
+            });
+          }
+          // Format 3: Parse error message if it contains "Product Variants X > Variant Data"
+          else if (error?.message && typeof error.message === 'string') {
+            const messageMatch = error.message.match(/Product Variants (\d+) > Variant Data/i);
+            if (messageMatch) {
+              const variantNum = messageMatch[1];
+              // Try to extract more details from the error
+              parsedErrors.push(`Variant ${variantNum} has invalid variant data. Please check all required variant fields (Size, Color, Material, etc.) are filled correctly.`);
+            } else {
+              // If it's a generic validation error, try to extract field info
+              parsedErrors.push(error.message);
+            }
+          }
+
+          if (parsedErrors.length > 0) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: parsedErrors.join('; '),
+            });
+          }
+          
+          // Re-throw other errors as-is
+          throw error;
+        }
       }),
 
     delete: vendorProcedure
