@@ -22,6 +22,197 @@
 
 ---
 
+## Vendor ↔ Admin Task Inbox & Support (New)
+
+### Vendor–Admin Communication & Task Inbox (Tasks 501–520)
+
+501. ✅ Design vendor–admin task model (support tickets)
+    - **Tech**: Defined `VendorTasks` TypeScript interface and Payload schema with fields: `title` (text, required), `description` (richText, Lexical), `type` (select: question, feature-request, bug, onboarding, other), `status` (select: open, in-progress, waiting-on-vendor, waiting-on-admin, closed), `priority` (select: low, normal, high, urgent), `vendor` (relationship to Vendors), `createdBy` (relationship to Users), `assignedTo` (relationship to Users, optional), `tags` (array of text), `visibility` (select: vendor-and-admin, admin-only), `closedAt` (date, optional), `lastReadAtByVendor` (date, optional), `lastReadAtByAdmin` (json map, optional).
+    - **Status**: ✅ Complete
+    - **Files**: `src/collections/VendorTasks.ts`
+
+502. ✅ Implement `VendorTasks` collection in Payload
+    - **Tech**: Created `vendor-tasks` collection in `src/collections/VendorTasks.ts` with access control:
+      - **Read**: Super admins see all; vendors see only their own tasks
+      - **Create**: Super admins and vendors can create
+      - **Update**: Super admins can update all; vendors can update only their own tasks
+      - **Delete**: Only super admins can delete
+    - Hooks: `beforeChange` hook auto-sets `vendor` and `createdBy` from authenticated session on create
+    - **Status**: ✅ Complete
+    - **Files**: `src/collections/VendorTasks.ts`, `src/payload.config.ts`
+
+503. ✅ Implement `VendorTaskMessages` (thread/comments) collection
+    - **Tech**: Created `vendor-task-messages` collection in `src/collections/VendorTaskMessages.ts` with:
+      - `task` (relationship to VendorTasks, required)
+      - `author` (relationship to Users, required)
+      - `role` (select: vendor, admin, required)
+      - `body` (richText, Lexical editor, required)
+      - `attachments` (array of media uploads, optional)
+      - `isInternal` (checkbox, default false) - internal notes hidden from vendors via access control
+    - Access control: Vendors see only non-internal messages; admins see all messages
+    - **Status**: ✅ Complete
+    - **Files**: `src/collections/VendorTaskMessages.ts`, `src/payload.config.ts`
+
+504. ✅ Add vendor task list page in Vendor Dashboard
+    - **Tech**: Created `/vendor/tasks` page (`src/app/(app)/vendor/tasks/page.tsx`) using:
+      - Server component with `requireVendor()` middleware for authentication
+      - tRPC `caller.vendorTasks.listForVendor()` query with optional filters (status, type, priority)
+      - Card-based UI showing task title (link), type, vendor name, status badge, priority, last updated, assigned admin
+      - "New Task" button linking to `/vendor/tasks/new`
+      - Empty state when no tasks exist
+    - **Status**: ✅ Complete
+    - **Files**: `src/app/(app)/vendor/tasks/page.tsx`, `src/modules/vendor-tasks/server/procedures.ts`
+
+505. ✅ Add "Support & Tasks" entry card on `/vendor/dashboard`
+    - **Tech**: Added "Support & Tasks (Ask BDO/Admin)" link in Quick Actions card on vendor dashboard (`src/app/(app)/vendor/dashboard/page.tsx`)
+    - Link directs to `/vendor/tasks` page
+    - **Status**: ✅ Complete
+    - **Files**: `src/app/(app)/vendor/dashboard/page.tsx`
+
+506. ✅ Implement vendor "Create Task / Ask a Question" flow
+    - **Tech**: Created `/vendor/tasks/new` page with:
+      - `NewTaskForm` component (`src/app/(app)/vendor/tasks/new/task-form.tsx`) using React Hook Form + Zod validation
+      - Form fields: title (required, min 3 chars), type (select), priority (select), description (textarea)
+      - tRPC `trpc.vendorTasks.create` mutation that:
+        - Auto-assigns `vendor` from authenticated session
+        - Auto-assigns `createdBy` from authenticated user
+        - Sets `status='open'` by default
+        - Converts description text to Lexical rich text format
+      - Redirects to `/vendor/tasks/[taskId]` on success
+      - Protected by `requireVendor()` middleware
+    - **Status**: ✅ Complete
+    - **Files**: `src/app/(app)/vendor/tasks/new/page.tsx`, `src/app/(app)/vendor/tasks/new/task-form.tsx`, `src/modules/vendor-tasks/server/procedures.ts`
+
+507. ✅ Implement vendor task detail / conversation view
+    - **Tech**: Created `/vendor/tasks/[taskId]` page (`src/app/(app)/vendor/tasks/[taskId]/page.tsx`) with:
+      - Server component fetching task via `caller.vendorTasks.getOne({ id })`
+      - Server component fetching messages via `caller.vendorTasks.listMessagesForTask({ taskId })`
+      - Message timeline showing all messages with author role (Vendor/Admin), timestamp, and rich text body
+      - `TaskReplyForm` component for adding new messages (hidden when task is closed)
+      - `CloseTaskButton` component for closing tasks (shows "Task Closed" badge when closed)
+      - Warning banner when task is closed
+      - Protected by `requireVendor()` middleware
+    - **Status**: ✅ Complete
+    - **Files**: `src/app/(app)/vendor/tasks/[taskId]/page.tsx`, `src/app/(app)/vendor/tasks/[taskId]/reply-form.tsx`, `src/app/(app)/vendor/tasks/[taskId]/close-task-button.tsx`
+
+508. ✅ Add admin "Vendor Tasks" overview in admin dashboard
+    - **Tech**: Created `/admin-tasks` page (`src/app/(app)/admin-tasks/page.tsx`) with:
+      - Server component using `requireAppAdmin()` middleware (checks for `app-admin` role or `super-admin` legacy role)
+      - tRPC `caller.vendorTasks.listForVendor()` query (admins see all tasks)
+      - Card-based UI showing all vendor tasks with:
+        - Task title (link to detail page)
+        - Type, vendor name
+        - Priority
+        - "Open & Reply" button linking to detail page
+        - Last updated timestamp
+        - Assigned admin (if any)
+      - Admin status banner showing logged-in admin email
+      - Empty state when no tasks exist
+    - **Status**: ✅ Complete
+    - **Files**: `src/app/(app)/admin-tasks/page.tsx`, `src/lib/middleware/admin-auth.ts`
+
+509. ✅ Implement admin task detail view with internal notes
+    - **Tech**: Created `/admin-tasks/[taskId]` page (`src/app/(app)/admin-tasks/[taskId]/page.tsx`) with:
+      - Server component fetching task and messages via tRPC
+      - Full message thread showing:
+        - Vendor messages (role: "vendor")
+        - Admin messages (role: "admin")
+        - Internal notes (marked with "Internal" badge when `isInternal=true`)
+      - `TaskReplyForm` component for admins to reply (hidden when task is closed)
+      - `CloseTaskButton` component for closing tasks
+      - Warning banner when task is closed
+      - Admin status banner
+      - Protected by `requireAppAdmin()` middleware
+    - **Status**: ✅ Complete
+    - **Files**: `src/app/(app)/admin-tasks/[taskId]/page.tsx`, `src/lib/middleware/admin-auth.ts`
+
+510. ✅ Implement task state workflow & status transitions
+    - **Tech**: Implemented status workflow in tRPC procedures:
+      - New tasks start with `status='open'` (set in `create` mutation)
+      - `addMessage` mutation: When vendor replies and task status is `waiting-on-vendor`, auto-updates to `waiting-on-admin`
+      - `closeTask` mutation: Both vendors and admins can close tasks (sets `status='closed'` and `closedAt` timestamp)
+      - Status enum enforced via Zod schema: `open`, `in-progress`, `waiting-on-vendor`, `waiting-on-admin`, `closed`
+      - Access control: Vendors can only close their own tasks; admins can close any task
+    - **Status**: ✅ Complete
+    - **Files**: `src/modules/vendor-tasks/server/procedures.ts`, `src/collections/VendorTasks.ts`
+
+511. ⚠️ Track unread messages per side (vendor/admin)
+    - **Tech**: Fields `lastReadAtByVendor` and `lastReadAtByAdmin` exist in `VendorTasks` collection but not yet updated on view
+    - **Details**: Fields are defined but update logic not implemented; unread badge computation not implemented
+    - **Status**: ⚠️ Partially complete (fields exist, update logic pending)
+    - **Files**: `src/collections/VendorTasks.ts`
+
+512. ❌ Add notifications for new messages and status changes
+    - **Tech**: Not implemented yet
+    - **Details**: No email or in-app notifications; no cache invalidation hooks
+    - **Status**: ❌ Not started
+
+513. ❌ Add basic reporting for vendor tasks
+    - **Tech**: Not implemented yet
+    - **Details**: No metrics aggregation, no dashboard, no CSV export
+    - **Status**: ❌ Not started
+
+514. ❌ Add quick-reply templates for common vendor questions
+    - **Tech**: Not implemented yet
+    - **Details**: No template collection, no template picker in admin UI
+    - **Status**: ❌ Not started
+
+515. ❌ Link tasks to relevant admin screens
+    - **Tech**: Not implemented yet
+    - **Details**: No contextual links to vendor detail, category manager, product forms
+    - **Status**: ❌ Not started
+
+516. ✅ Add role-based permissions and audit log for tasks
+    - **Tech**: Implemented comprehensive access control:
+      - **VendorTasks collection**: Vendors can read/create/update only their own tasks; admins have full access
+      - **VendorTaskMessages collection**: Vendors see only non-internal messages; admins see all messages
+      - Access control functions: `isSuperAdmin()`, `isVendor()`, `getVendorId()` from `src/lib/access.ts`
+      - Middleware: `requireVendor()` for vendor routes, `requireAppAdmin()` for admin routes
+    - **Details**: Audit trail via `createdBy`, `updatedAt`, `closedAt` fields; no separate audit log collection
+    - **Status**: ✅ Complete (permissions implemented; separate audit log collection not created)
+    - **Files**: `src/collections/VendorTasks.ts`, `src/collections/VendorTaskMessages.ts`, `src/lib/access.ts`, `src/lib/middleware/vendor-auth.ts`, `src/lib/middleware/admin-auth.ts`
+
+### Task Closing & Readonly Mode (Additional Feature)
+
+517. ✅ Implement task closing functionality
+    - **Tech**: Created `closeTask` tRPC mutation in `src/modules/vendor-tasks/server/procedures.ts`:
+      - Sets `status='closed'` and `closedAt` timestamp
+      - Access control: Vendors can only close their own tasks; admins can close any task
+      - Returns updated task document
+    - **Status**: ✅ Complete
+    - **Files**: `src/modules/vendor-tasks/server/procedures.ts`
+
+518. ✅ Implement readonly mode for closed tasks
+    - **Tech**: Updated `TaskReplyForm` component to:
+      - Accept `taskStatus` prop
+      - Hide reply form when `taskStatus === "closed"`
+      - Show readonly message: "This task is closed. No new messages can be sent."
+    - Updated `addMessage` mutation to prevent messages on closed tasks (throws error: "Cannot send messages to a closed task")
+    - Added warning banners on both vendor and admin detail pages when task is closed
+    - **Status**: ✅ Complete
+    - **Files**: `src/app/(app)/vendor/tasks/[taskId]/reply-form.tsx`, `src/modules/vendor-tasks/server/procedures.ts`, `src/app/(app)/vendor/tasks/[taskId]/page.tsx`, `src/app/(app)/admin-tasks/[taskId]/page.tsx`
+
+519. ✅ Create CloseTaskButton component
+    - **Tech**: Created `CloseTaskButton` component (`src/app/(app)/vendor/tasks/[taskId]/close-task-button.tsx`):
+      - Shows "Close Task" button when task is open
+      - Shows "Task Closed" badge when task is closed
+      - Includes confirmation dialog before closing
+      - Uses tRPC `trpc.vendorTasks.closeTask` mutation
+      - Refreshes page after successful close
+    - Added to both vendor and admin task detail pages
+    - **Status**: ✅ Complete
+    - **Files**: `src/app/(app)/vendor/tasks/[taskId]/close-task-button.tsx`
+
+520. ✅ Add admin dashboard link to navbar
+    - **Tech**: Added "Admin Dashboard" button to main navbar (`src/app/(app)/(home)/navbar/Navbar.tsx`):
+      - Visible only to users with `app-admin` role or `super-admin` legacy role
+      - Links to `/admin-tasks`
+      - Shown in both desktop and mobile views
+    - **Status**: ✅ Complete
+    - **Files**: `src/app/(app)/(home)/navbar/Navbar.tsx`
+
+---
+
 ## Project Setup & Initialization
 
 1. ✅ Create new Next.js project with TypeScript
@@ -1548,15 +1739,16 @@
 
 ## Summary
 
-**Total Tasks Documented: 252** (Updated from 194)
+**Total Tasks Documented: 260** (Updated from 252)
 
-**Completed: ~110 tasks (44%)**
-**Pending: ~142 tasks (56%)**
+**Completed: ~125 tasks (48%)**
+**Pending: ~135 tasks (52%)**
 
 **Breakdown**:
 - **Original Tasks (1-138)**: 110 completed, 28 pending
 - **New Tasks (139-170)**: 0 completed, 32 pending
 - **Latest Tasks (171-176)**: 6 completed, 0 pending
+- **Vendor-Admin Communication Tasks (501-520)**: 15 completed, 3 pending, 2 not started
 - **Stripe Connect Tasks (177-194)**: 0 completed, 18 pending
 - **Admin Dashboard Tasks (195-212)**: 0 completed, 18 pending
 - **Hero Banners Tasks (213-220)**: 0 completed, 8 pending
@@ -1568,7 +1760,7 @@
 
 ### Key Features Implemented:
 - ✅ Multi-vendor marketplace architecture
-- ✅ Payload CMS with 12 collections
+- ✅ Payload CMS with 14 collections (Users, Media, Categories, Products, Tags, HeroBanners, Orders, Vendors, Roles, Customers, VariantTypes, VariantOptions, VendorTasks, VendorTaskMessages)
 - ✅ tRPC for type-safe APIs
 - ✅ Vendor dashboard with products, orders, analytics
 - ✅ Product management with variants
@@ -1590,6 +1782,16 @@
 - ✅ Intelligent query parsing for natural language searches
 - ✅ Variant type mapping (abbreviations, synonyms)
 - ✅ Search testing scripts and unit tests
+- ✅ **Vendor-Admin Communication System**:
+  - ✅ Vendor task creation and management
+  - ✅ Offline messaging between vendors and admins
+  - ✅ Task status workflow (open, in-progress, waiting-on-vendor, waiting-on-admin, closed)
+  - ✅ Task closing functionality (both vendor and admin can close)
+  - ✅ Readonly mode for closed tasks (no new messages)
+  - ✅ Admin dashboard for managing vendor tasks
+  - ✅ Internal notes (admin-only messages)
+  - ✅ Rich text messaging with Lexical editor
+  - ✅ Task priority and type classification
 
 ### Pending Features:
 - ⚠️ Stripe Connect implementation (vendor payouts & platform commission)

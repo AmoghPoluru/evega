@@ -79,6 +79,8 @@ export interface Config {
     customers: Customer;
     'variant-types': VariantType;
     'variant-options': VariantOption;
+    'vendor-tasks': VendorTask;
+    'vendor-task-messages': VendorTaskMessage;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -102,6 +104,8 @@ export interface Config {
     customers: CustomersSelect<false> | CustomersSelect<true>;
     'variant-types': VariantTypesSelect<false> | VariantTypesSelect<true>;
     'variant-options': VariantOptionsSelect<false> | VariantOptionsSelect<true>;
+    'vendor-tasks': VendorTasksSelect<false> | VendorTasksSelect<true>;
+    'vendor-task-messages': VendorTaskMessagesSelect<false> | VendorTaskMessagesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -1099,6 +1103,109 @@ export interface VariantOption {
   createdAt: string;
 }
 /**
+ * Support tasks and communication between vendors and BDO/admin.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendor-tasks".
+ */
+export interface VendorTask {
+  id: string;
+  title: string;
+  /**
+   * Describe your question, issue, or request in detail.
+   */
+  description: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  type: 'question' | 'feature-request' | 'bug' | 'onboarding' | 'other';
+  status: 'open' | 'in-progress' | 'waiting-on-vendor' | 'waiting-on-admin' | 'closed';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  /**
+   * Vendor associated with this task.
+   */
+  vendor: string | Vendor;
+  createdBy: string | User;
+  /**
+   * Admin/BDO responsible for this task.
+   */
+  assignedTo?: (string | null) | User;
+  /**
+   * Optional tags, e.g. 'category', 'upload-help', 'payments'.
+   */
+  tags?:
+    | {
+        value?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  visibility: 'vendor-and-admin' | 'admin-only';
+  closedAt?: string | null;
+  lastReadAtByVendor?: string | null;
+  /**
+   * Map of admin user IDs to last read timestamps.
+   */
+  lastReadAtByAdmin?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Messages and notes attached to vendor tasks.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendor-task-messages".
+ */
+export interface VendorTaskMessage {
+  id: string;
+  task: string | VendorTask;
+  author: string | User;
+  role: 'vendor' | 'admin';
+  /**
+   * Message content.
+   */
+  body: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  attachments?: (string | Media)[] | null;
+  /**
+   * When checked, this note is visible only to admins/BDOs.
+   */
+  isInternal?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -1169,6 +1276,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'variant-options';
         value: string | VariantOption;
+      } | null)
+    | ({
+        relationTo: 'vendor-tasks';
+        value: string | VendorTask;
+      } | null)
+    | ({
+        relationTo: 'vendor-task-messages';
+        value: string | VendorTaskMessage;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1566,6 +1681,46 @@ export interface VariantOptionsSelect<T extends boolean = true> {
   hexCode?: T;
   image?: T;
   displayOrder?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendor-tasks_select".
+ */
+export interface VendorTasksSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  type?: T;
+  status?: T;
+  priority?: T;
+  vendor?: T;
+  createdBy?: T;
+  assignedTo?: T;
+  tags?:
+    | T
+    | {
+        value?: T;
+        id?: T;
+      };
+  visibility?: T;
+  closedAt?: T;
+  lastReadAtByVendor?: T;
+  lastReadAtByAdmin?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendor-task-messages_select".
+ */
+export interface VendorTaskMessagesSelect<T extends boolean = true> {
+  task?: T;
+  author?: T;
+  role?: T;
+  body?: T;
+  attachments?: T;
+  isInternal?: T;
   updatedAt?: T;
   createdAt?: T;
 }

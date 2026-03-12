@@ -47,8 +47,10 @@ export const createCallerFactory = t.createCallerFactory;
 export const baseProcedure = t.procedure.use(async ({ ctx, next }) => {
   // Use db from context if available, otherwise create new instance
   const db = (ctx as any).db || await getPayload({ config });
+  // Use headers from context if available, otherwise get them
+  const headers = (ctx as any).headers || await getHeaders();
 
-  return next({ ctx: { ...ctx, db } });
+  return next({ ctx: { ...ctx, db, headers } });
 });
 
 export const protectedProcedure = baseProcedure.use(async ({ ctx, next }) => {

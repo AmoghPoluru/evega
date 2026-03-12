@@ -40,6 +40,12 @@ export function Navbar() {
     },
   });
   const isLoggedIn = !!session?.user
+  const isAdmin =
+    !!session?.user &&
+    (
+      (Array.isArray((session.user as any).roles) && (session.user as any).roles.includes("super-admin")) ||
+      (session.user as any).appRole
+    )
   const canSeeVendorDashboard =
     !!session?.user &&
     (
@@ -90,6 +96,18 @@ export function Navbar() {
             </Link>
           </Button>
         )}
+        {/* Admin Tasks / Dashboard button (only for admins) */}
+        {isAdmin && (
+          <Button
+            asChild
+            variant="outline"
+            className="border-gray-600 text-white bg-transparent hover:bg-gray-800 hover:text-white"
+          >
+            <Link href="/admin-tasks">
+              Admin Dashboard
+            </Link>
+          </Button>
+        )}
 
         <CheckoutButton hideIfEmpty={false} />
         {isLoggedIn ? (
@@ -117,6 +135,18 @@ export function Navbar() {
           >
             <Link href="/vendor/dashboard">
               Vendor
+            </Link>
+          </Button>
+        )}
+        {/* Admin Dashboard button (mobile) */}
+        {isAdmin && (
+          <Button
+            asChild
+            variant="outline"
+            className="border-gray-600 text-white bg-transparent hover:bg-gray-800 hover:text-white px-3 py-2 text-xs"
+          >
+            <Link href="/admin-tasks">
+              Admin
             </Link>
           </Button>
         )}

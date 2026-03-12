@@ -93,6 +93,12 @@ export default async function VendorDashboardPage() {
               >
                 • Connect Stripe Account
               </a>
+              <a
+                href="/vendor/tasks"
+                className="block text-sm text-blue-600 hover:underline"
+              >
+                • Support & Tasks (Ask BDO/Admin)
+              </a>
             </div>
           </CardContent>
         </Card>
