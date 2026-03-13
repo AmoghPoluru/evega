@@ -652,9 +652,29 @@ export interface Product {
   image?: (string | null) | Media;
   cover?: (string | null) | Media;
   /**
+   * Choose how to add product video: upload a file or use a YouTube link
+   */
+  videoSource?: ('upload' | 'youtube') | null;
+  /**
    * Product video (MP4, WebM, etc.) - vendors can upload product demonstration videos
    */
   video?: (string | null) | Media;
+  /**
+   * Paste the full YouTube URL (e.g., https://www.youtube.com/watch?v=VIDEO_ID or https://youtu.be/VIDEO_ID)
+   */
+  youtubeUrl?: string | null;
+  /**
+   * Automatically extracted from YouTube URL
+   */
+  youtubeVideoId?: string | null;
+  /**
+   * Enter the time where product details are discussed in MM:SS format (e.g., 2:05 for 2 minutes 5 seconds, or 0:30 for 30 seconds)
+   */
+  youtubeStartTime?: string | null;
+  /**
+   * Automatically calculated from MM:SS format
+   */
+  youtubeStartTimeSeconds?: number | null;
   refundPolicy?: ('30-day' | '14-day' | '7-day' | '3-day' | '1-day' | 'no-refunds') | null;
   /**
    * Protected content only visible to customers after purchase. Add product documentation, downloadable files, getting started guides, and bonus materials. Supports Markdown formatting
@@ -1483,7 +1503,12 @@ export interface ProductsSelect<T extends boolean = true> {
   subcategory?: T;
   image?: T;
   cover?: T;
+  videoSource?: T;
   video?: T;
+  youtubeUrl?: T;
+  youtubeVideoId?: T;
+  youtubeStartTime?: T;
+  youtubeStartTimeSeconds?: T;
   refundPolicy?: T;
   content?: T;
   isPrivate?: T;

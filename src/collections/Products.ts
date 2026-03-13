@@ -2,6 +2,7 @@ import type { CollectionConfig } from "payload";
 import type { Where } from "payload";
 
 import { isSuperAdmin, isVendor, getVendorId } from "@/lib/access";
+import { extractYouTubeVideoId, timeToSeconds } from "@/lib/youtube-utils";
 
 export const Products: CollectionConfig = {
   slug: "products",
@@ -229,16 +230,69 @@ export const Products: CollectionConfig = {
       relationTo: "media",
     },
     {
+      name: "videoSource",
+      type: "select",
+      label: "Video Source",
+      options: [
+        { label: "Upload Video File", value: "upload" },
+        { label: "YouTube Link", value: "youtube" },
+      ],
+      defaultValue: "upload",
+      admin: {
+        description: "Choose how to add product video: upload a file or use a YouTube link",
+      },
+    },
+    {
       name: "video",
       type: "upload",
       relationTo: "media",
       admin: {
+        condition: (data) => data.videoSource !== "youtube",
         description: "Product video (MP4, WebM, etc.) - vendors can upload product demonstration videos",
       },
       filterOptions: {
         mimeType: {
           contains: "video",
         },
+      },
+    },
+    {
+      name: "youtubeUrl",
+      type: "text",
+      label: "YouTube URL",
+      admin: {
+        condition: (data) => data.videoSource === "youtube",
+        description: "Paste the full YouTube URL (e.g., https://www.youtube.com/watch?v=VIDEO_ID or https://youtu.be/VIDEO_ID)",
+      },
+    },
+    {
+      name: "youtubeVideoId",
+      type: "text",
+      label: "YouTube Video ID",
+      admin: {
+        condition: (data) => data.videoSource === "youtube",
+        description: "Automatically extracted from YouTube URL",
+        readOnly: true,
+      },
+    },
+    {
+      name: "youtubeStartTime",
+      type: "text",
+      label: "Start Time (MM:SS)",
+      admin: {
+        condition: (data) => data.videoSource === "youtube",
+        description: "Enter the time where product details are discussed in MM:SS format (e.g., 2:05 for 2 minutes 5 seconds, or 0:30 for 30 seconds)",
+        placeholder: "2:05",
+      },
+    },
+    {
+      name: "youtubeStartTimeSeconds",
+      type: "number",
+      label: "Start Time (seconds) - Auto-calculated",
+      admin: {
+        condition: (data) => data.videoSource === "youtube",
+        description: "Automatically calculated from MM:SS format",
+        readOnly: true,
       },
     },
     {

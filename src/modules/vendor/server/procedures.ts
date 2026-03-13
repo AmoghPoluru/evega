@@ -14,6 +14,7 @@ import {
   isStripeAccountReady,
   syncVendorStripeDetails,
 } from "@/lib/stripe-connect";
+import { extractYouTubeVideoId, timeToSeconds } from "@/lib/youtube-utils";
 
 const vendorRegistrationSchema = z.object({
   businessName: z.string().min(2, "Business name is required"),
@@ -336,7 +337,10 @@ export const vendorRouter = createTRPCRouter({
           subcategory: z.string().optional(),
           image: z.string().optional(),
           cover: z.string().optional(),
+          videoSource: z.enum(["upload", "youtube"]).optional(),
           video: z.string().optional(),
+          youtubeUrl: z.string().url().optional(),
+          youtubeStartTime: z.string().optional(), // MM:SS format
           refundPolicy: z.enum(["30-day", "14-day", "7-day", "3-day", "1-day", "no-refunds"]).optional(),
           tags: z.array(z.string()).optional(),
           variants: z.array(
@@ -354,15 +358,56 @@ export const vendorRouter = createTRPCRouter({
           ? ctx.session.vendor 
           : ctx.session.vendor.id;
 
+        // Process YouTube fields if videoSource is YouTube
+        let processedInput = { ...input };
+        if (input.videoSource === "youtube" && input.youtubeUrl) {
+          // Extract video ID
+          const videoId = extractYouTubeVideoId(input.youtubeUrl);
+          if (!videoId) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Invalid YouTube URL. Please provide a valid YouTube video URL.",
+            });
+          }
+          
+          // Convert MM:SS to seconds
+          let startTimeSeconds: number | undefined = undefined;
+          if (input.youtubeStartTime) {
+            const seconds = timeToSeconds(input.youtubeStartTime);
+            if (seconds === null) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "Invalid time format. Please use MM:SS format (e.g., 2:05 for 2 minutes 5 seconds).",
+              });
+            }
+            startTimeSeconds = seconds;
+          }
+          
+          processedInput = {
+            ...input,
+            youtubeVideoId: videoId,
+            youtubeStartTimeSeconds: startTimeSeconds,
+          } as any;
+        } else if (input.videoSource === "upload" || !input.videoSource) {
+          // Clear YouTube fields when using upload
+          processedInput = {
+            ...input,
+            youtubeUrl: undefined,
+            youtubeVideoId: undefined,
+            youtubeStartTime: undefined,
+            youtubeStartTimeSeconds: undefined,
+          } as any;
+        }
+
         try {
           // Create product with vendor auto-assigned
           const product = await ctx.db.create({
             collection: "products",
             data: {
-              ...input,
+              ...processedInput,
               vendor: vendorId,
               isArchived: false,
-            },
+            } as any, // Type assertion needed because Payload types don't include YouTube fields yet
           });
 
           return product;
@@ -569,7 +614,10 @@ export const vendorRouter = createTRPCRouter({
           subcategory: z.string().optional(),
           image: z.string().optional(),
           cover: z.string().optional(),
+          videoSource: z.enum(["upload", "youtube"]).optional(),
           video: z.string().optional(),
+          youtubeUrl: z.string().url().optional(),
+          youtubeStartTime: z.string().optional(), // MM:SS format
           refundPolicy: z.enum(["30-day", "14-day", "7-day", "3-day", "1-day", "no-refunds"]).optional(),
           tags: z.array(z.string()).optional(),
           variants: z.array(
@@ -587,12 +635,55 @@ export const vendorRouter = createTRPCRouter({
           ? ctx.session.vendor 
           : ctx.session.vendor.id;
 
-        const { id, ...updateData } = input;
+        const { id: productId, ...updateInput } = input;
+
+        // Process YouTube fields if videoSource is YouTube
+        let processedInput = { ...updateInput };
+        if (updateInput.videoSource === "youtube" && updateInput.youtubeUrl) {
+          // Extract video ID
+          const videoId = extractYouTubeVideoId(updateInput.youtubeUrl);
+          if (!videoId) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Invalid YouTube URL. Please provide a valid YouTube video URL.",
+            });
+          }
+          
+          // Convert MM:SS to seconds
+          let startTimeSeconds: number | undefined = undefined;
+          if (updateInput.youtubeStartTime) {
+            const seconds = timeToSeconds(updateInput.youtubeStartTime);
+            if (seconds === null) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "Invalid time format. Please use MM:SS format (e.g., 2:05 for 2 minutes 5 seconds).",
+              });
+            }
+            startTimeSeconds = seconds;
+          }
+          
+          processedInput = {
+            ...updateInput,
+            youtubeVideoId: videoId,
+            youtubeStartTimeSeconds: startTimeSeconds,
+          } as any;
+        } else if (updateInput.videoSource === "upload" || (!updateInput.videoSource && updateInput.video)) {
+          // Clear YouTube fields when using upload
+          processedInput = {
+            ...updateInput,
+            youtubeUrl: undefined,
+            youtubeVideoId: undefined,
+            youtubeStartTime: undefined,
+            youtubeStartTimeSeconds: undefined,
+          } as any;
+        }
+
+        const { ...updateData } = processedInput;
 
         // Verify ownership
         const existingProduct = await ctx.db.findByID({
           collection: "products",
-          id,
+          id: productId,
           depth: 0,
         });
 
@@ -614,7 +705,7 @@ export const vendorRouter = createTRPCRouter({
           // Update product
           const product = await ctx.db.update({
             collection: "products",
-            id,
+            id: productId,
             data: safeUpdateData,
           });
 

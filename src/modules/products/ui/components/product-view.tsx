@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { useCart } from "@/modules/checkout/hooks/use-cart";
 import { ShippingAddressDisplay } from "./shipping-address-display";
+import { YouTubeEmbed } from "./youtube-embed";
 
 const CartButton = dynamic(
   () => import("./cart-button").then(
@@ -280,7 +281,27 @@ export const ProductView = ({ productId }: ProductViewProps) => {
 
               {/* Product Video */}
               {(() => {
-                // Handle video field - can be object (populated) or string (ID)
+                const videoSource = (data as any)?.videoSource;
+                const youtubeVideoId = (data as any)?.youtubeVideoId;
+                const youtubeStartTimeSeconds = (data as any)?.youtubeStartTimeSeconds;
+                
+                // Handle YouTube video
+                if (videoSource === "youtube" && youtubeVideoId) {
+                  return (
+                    <div className="border border-gray-300 rounded-lg overflow-hidden bg-white mt-4 p-4">
+                      <YouTubeEmbed
+                        videoId={youtubeVideoId}
+                        startTimeSeconds={youtubeStartTimeSeconds}
+                        title={data?.name || "Product Video"}
+                      />
+                      <p className="text-xs text-gray-500 mt-2 text-center">
+                        Product demonstration video
+                      </p>
+                    </div>
+                  );
+                }
+                
+                // Handle uploaded video
                 const video = data?.video;
                 const videoUrl = typeof video === "object" && video?.url 
                   ? video.url 

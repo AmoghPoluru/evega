@@ -29,12 +29,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { X, Plus, Upload, Eye } from "lucide-react";
 import Image from "next/image";
 import type { Product } from "@/payload-types";
 import { ProductPreviewModal } from "./ProductPreviewModal";
+import { isValidYouTubeUrl, isValidTimeFormat, timeToSeconds, secondsToTime, extractYouTubeVideoId } from "@/lib/youtube-utils";
 
 const productFormSchema = z.object({
   name: z.string().min(1, "Product name is required"),
@@ -44,7 +46,10 @@ const productFormSchema = z.object({
   subcategory: z.string().optional(),
   image: z.string().optional(),
   cover: z.string().optional(),
-  video: z.string().optional(),
+  videoSource: z.enum(["upload", "youtube"]).optional().default("upload"),
+  video: z.string().optional(), // Video is completely optional - vendors can skip it
+  youtubeUrl: z.string().url().optional(),
+  youtubeStartTime: z.string().optional(),
   refundPolicy: z.enum(["30-day", "14-day", "7-day", "3-day", "1-day", "no-refunds"]).optional(),
   tags: z.array(z.string()).optional(),
   variants: z.array(
@@ -55,7 +60,31 @@ const productFormSchema = z.object({
     })
   ).default([]).optional(),
   isPrivate: z.boolean(),
-});
+}).refine(
+  (data) => {
+    // Validate YouTube URL format if videoSource is "youtube" and URL is provided
+    if (data.videoSource === "youtube" && data.youtubeUrl) {
+      return isValidYouTubeUrl(data.youtubeUrl);
+    }
+    return true;
+  },
+  {
+    message: "Please provide a valid YouTube URL (e.g., https://www.youtube.com/watch?v=VIDEO_ID)",
+    path: ["youtubeUrl"], // This will show the error on the youtubeUrl field
+  }
+).refine(
+  (data) => {
+    // Validate time format if videoSource is "youtube" and time is provided
+    if (data.videoSource === "youtube" && data.youtubeStartTime) {
+      return isValidTimeFormat(data.youtubeStartTime);
+    }
+    return true;
+  },
+  {
+    message: "Please use MM:SS format (e.g., 2:05 for 2 minutes 5 seconds)",
+    path: ["youtubeStartTime"], // This will show the error on the youtubeStartTime field
+  }
+);
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
 
@@ -88,7 +117,10 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       subcategory: typeof product?.subcategory === "string" ? product.subcategory : product?.subcategory?.id || "",
       image: typeof product?.image === "string" ? product.image : product?.image?.id || "",
       cover: typeof product?.cover === "string" ? product.cover : product?.cover?.id || "",
+      videoSource: (product as any)?.videoSource || "upload",
       video: typeof product?.video === "string" ? product.video : product?.video?.id || "",
+      youtubeUrl: (product as any)?.youtubeUrl || "",
+      youtubeStartTime: (product as any)?.youtubeStartTime || "",
       refundPolicy: product?.refundPolicy || "30-day",
       tags: product?.tags
         ? product.tags.map((tag) => (typeof tag === "string" ? tag : tag.id))
@@ -191,6 +223,15 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       }
     },
   });
+
+  // Watch videoSource to show/hide fields (after form is initialized)
+  const videoSource = form.watch("videoSource") || "upload";
+  const youtubeUrl = form.watch("youtubeUrl") || "";
+  const youtubeStartTime = form.watch("youtubeStartTime") || "";
+  
+  // Extract video ID and calculate seconds for preview
+  const youtubeVideoId = youtubeUrl ? extractYouTubeVideoId(youtubeUrl) : null;
+  const youtubeStartTimeSeconds = youtubeStartTime ? timeToSeconds(youtubeStartTime) : null;
 
   const handleImageUpload = async (file: File, type: "image" | "cover" | "video") => {
     const formData = new FormData();
@@ -351,10 +392,27 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
 
     // Ensure variantData is always an object and includes all required fields
     const normalizedVariants = values.variants?.map((variant, index) => {
-      // Ensure variantData is always an object (never undefined)
-      const variantData: Record<string, any> = variant.variantData && typeof variant.variantData === 'object' 
-        ? variant.variantData 
-        : {};
+      // Get the current variantData from form state to ensure we have the latest values
+      // This is important because React Hook Form might have nested field values that aren't in variant.variantData
+      const formVariantData = form.getValues(`variants.${index}.variantData`) || {};
+      
+      // Merge form values with variant data to capture all nested fields
+      // This ensures that fields like variants.0.variantData.size and variants.0.variantData.color are captured
+      const variantData: Record<string, any> = {
+        ...(variant.variantData && typeof variant.variantData === 'object' ? variant.variantData : {}),
+        ...(formVariantData && typeof formVariantData === 'object' ? formVariantData : {}),
+      };
+      
+      // Also check for nested field values directly from form state
+      // React Hook Form might store them as separate fields
+      if (categoryData?.variantConfig?.variantTypes) {
+        categoryData.variantConfig.variantTypes.forEach((vt: any) => {
+          const nestedFieldValue = form.getValues(`variants.${index}.variantData.${vt.slug}`);
+          if (nestedFieldValue !== undefined && nestedFieldValue !== null && nestedFieldValue !== '') {
+            variantData[vt.slug] = nestedFieldValue;
+          }
+        });
+      }
       
       // Check if all required variant fields are present
       const missingRequired = requiredVariantSlugs.filter(
@@ -364,11 +422,13 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       if (missingRequired.length > 0 && process.env.NODE_ENV === 'development') {
         console.warn(`[ProductForm] Variant ${index + 1} missing required fields:`, missingRequired);
         console.warn(`[ProductForm] Current variantData:`, variantData);
+        console.warn(`[ProductForm] Form variantData:`, formVariantData);
+        console.warn(`[ProductForm] Variant from values:`, variant.variantData);
       }
 
       return {
         ...variant,
-        variantData: variantData, // Always an object, never undefined
+        variantData: variantData, // Always an object, never undefined, with all nested fields
       };
     });
 
@@ -721,70 +781,209 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         <Card>
           <CardHeader>
             <CardTitle>Product Video</CardTitle>
-            <CardDescription>Upload a product demonstration video (optional)</CardDescription>
+            <CardDescription>Add a product demonstration video via upload or YouTube link (optional)</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Video Source Selection */}
             <FormField
               control={form.control}
-              name="video"
+              name="videoSource"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Product Video (Optional)</FormLabel>
-                  <FormDescription>
-                    Upload a video showcasing your product (MP4, WebM, etc.)
-                  </FormDescription>
+                  <FormLabel>Video Source</FormLabel>
                   <FormControl>
-                    <div className="space-y-2">
-                      {videoPreview ? (
-                        <div className="relative w-full rounded-md overflow-hidden border">
-                          <video
-                            src={videoPreview}
-                            controls
-                            className="w-full h-auto max-h-96"
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-2 right-2"
-                            onClick={() => {
-                              setVideoPreview(null);
-                              field.onChange("");
-                            }}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="border-2 border-dashed border-gray-300 rounded-md p-6">
-                          <label className="cursor-pointer">
-                            <input
-                              type="file"
-                              className="hidden"
-                              accept="video/*"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  handleImageUpload(file, "video");
-                                }
-                              }}
-                              disabled={uploadingVideo}
-                            />
-                            <div className="flex flex-col items-center justify-center space-y-2">
-                              <Upload className="h-8 w-8 text-gray-400" />
-                              <span className="text-sm text-gray-600">
-                                {uploadingVideo ? "Uploading..." : "Click to upload video"}
-                              </span>
-                            </div>
-                          </label>
-                        </div>
-                      )}
-                    </div>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      value={field.value || "upload"}
+                      className="flex gap-6"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="upload" id="upload" />
+                        <label htmlFor="upload" className="cursor-pointer">
+                          Upload Video File
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="youtube" id="youtube" />
+                        <label htmlFor="youtube" className="cursor-pointer">
+                          YouTube Link
+                        </label>
+                      </div>
+                    </RadioGroup>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            {/* Upload Video Field - Only show when videoSource === "upload" */}
+            {videoSource === "upload" && (
+              <FormField
+                control={form.control}
+                name="video"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Product Video (Optional)</FormLabel>
+                    <FormDescription>
+                      Upload a video showcasing your product (MP4, WebM, etc.)
+                    </FormDescription>
+                    <FormControl>
+                      <div className="space-y-2">
+                        {videoPreview ? (
+                          <div className="relative w-full rounded-md overflow-hidden border">
+                            <video
+                              src={videoPreview}
+                              controls
+                              className="w-full h-auto max-h-96"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-2 right-2"
+                              onClick={() => {
+                                setVideoPreview(null);
+                                field.onChange("");
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="border-2 border-dashed border-gray-300 rounded-md p-6">
+                            <label className="cursor-pointer">
+                              <input
+                                type="file"
+                                className="hidden"
+                                accept="video/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    handleImageUpload(file, "video");
+                                  }
+                                }}
+                                disabled={uploadingVideo}
+                              />
+                              <div className="flex flex-col items-center justify-center space-y-2">
+                                <Upload className="h-8 w-8 text-gray-400" />
+                                <span className="text-sm text-gray-600">
+                                  {uploadingVideo ? "Uploading..." : "Click to upload video"}
+                                </span>
+                              </div>
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {/* YouTube Fields - Only show when videoSource === "youtube" */}
+            {videoSource === "youtube" && (
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="youtubeUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>YouTube URL *</FormLabel>
+                      <FormDescription>
+                        Paste the full YouTube URL. Supported formats:
+                        <br />
+                        • https://www.youtube.com/watch?v=VIDEO_ID
+                        <br />
+                        • https://youtu.be/VIDEO_ID
+                      </FormDescription>
+                      <FormControl>
+                        <Input
+                          placeholder="https://www.youtube.com/watch?v=VIDEO_ID"
+                          {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            // Clear video field when switching to YouTube
+                            form.setValue("video", "");
+                          }}
+                        />
+                      </FormControl>
+                      {youtubeVideoId && (
+                        <p className="text-sm text-green-600">
+                          ✓ Video ID extracted: {youtubeVideoId}
+                        </p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="youtubeStartTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Start Time (MM:SS)</FormLabel>
+                      <FormDescription>
+                        Enter the time where product details are discussed in MM:SS format.
+                        <br />
+                        Examples: 2:05 (2 minutes 5 seconds), 0:30 (30 seconds), 10:45 (10 minutes 45 seconds)
+                      </FormDescription>
+                      <FormControl>
+                        <Input
+                          placeholder="2:05"
+                          {...field}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value);
+                            
+                            // Show conversion helper
+                            if (value) {
+                              const seconds = timeToSeconds(value);
+                              if (seconds !== null) {
+                                // This will be shown via helper text
+                              }
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      {youtubeStartTime && youtubeStartTimeSeconds !== null && (
+                        <p className="text-sm text-blue-600">
+                          Video will start at {youtubeStartTime} ({youtubeStartTimeSeconds} seconds)
+                        </p>
+                      )}
+                      {youtubeStartTime && youtubeStartTimeSeconds === null && (
+                        <p className="text-sm text-red-600">
+                          Invalid format. Please use MM:SS (e.g., 2:05)
+                        </p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* YouTube Preview */}
+                {youtubeVideoId && (
+                  <div className="space-y-2">
+                    <FormLabel>Preview</FormLabel>
+                    <div className="relative w-full aspect-video border rounded-lg overflow-hidden">
+                      <iframe
+                        src={`https://www.youtube-nocookie.com/embed/${youtubeVideoId}${youtubeStartTimeSeconds ? `?start=${youtubeStartTimeSeconds}` : ''}`}
+                        title="YouTube Video Preview"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="absolute inset-0 w-full h-full"
+                      />
+                    </div>
+                    {youtubeStartTimeSeconds && (
+                      <p className="text-xs text-gray-500">
+                        Video will start playing at {youtubeStartTime} when customers view it
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -921,7 +1120,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                                   {options.length > 0 ? (
                                     <Select 
                                       onValueChange={(value) => {
-                                        // Get the current variantData from form state to ensure we have the latest
+                                        // Get the current variantData from form state
                                         const latestVariantData = form.getValues(`variants.${index}.variantData`) || {};
                                         
                                         // Update the entire variantData object
@@ -930,13 +1129,15 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                                           [variantType.slug]: value,
                                         };
                                         
-                                        // Update the parent variantData object first
+                                        // Update the parent variantData object first to ensure consistency
                                         form.setValue(`variants.${index}.variantData`, updatedVariantData, { 
                                           shouldValidate: true,
                                           shouldDirty: true,
+                                          shouldTouch: true,
                                         });
                                         
-                                        // Also update the individual field for React Hook Form tracking
+                                        // Also update the individual nested field for React Hook Form tracking
+                                        // This ensures the field is properly registered and tracked
                                         field.onChange(value);
                                         
                                         // Debug log in development
@@ -981,29 +1182,31 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                                         placeholder={`Enter ${variantType.name}`}
                                         value={displayValue}
                                         onChange={(e) => {
-                                          // Get the current variantData from form state to ensure we have the latest
+                                          const newValue = e.target.value;
+                                          
+                                          // Get the current variantData from form state
                                           const latestVariantData = form.getValues(`variants.${index}.variantData`) || {};
                                           
                                           // Update the entire variantData object
                                           const updatedVariantData = {
                                             ...latestVariantData,
-                                            [variantType.slug]: e.target.value,
+                                            [variantType.slug]: newValue,
                                           };
                                           
-                                          // Update the parent variantData object first
+                                          // Update the parent variantData object first to ensure consistency
                                           form.setValue(`variants.${index}.variantData`, updatedVariantData, { 
                                             shouldValidate: true,
                                             shouldDirty: true,
+                                            shouldTouch: true,
                                           });
                                           
-                                          // Also update the individual field for React Hook Form tracking
-                                          field.onChange(e.target.value);
+                                          // Also update the individual nested field for React Hook Form tracking
+                                          field.onChange(newValue);
                                           
                                           // Debug log in development
                                           if (process.env.NODE_ENV === 'development') {
-                                            console.log(`[ProductForm] Updated variant ${index + 1} ${variantType.slug}:`, e.target.value);
+                                            console.log(`[ProductForm] Updated variant ${index + 1} ${variantType.slug}:`, newValue);
                                             console.log(`[ProductForm] Full variantData after update:`, updatedVariantData);
-                                            console.log(`[ProductForm] Form values after update:`, form.getValues(`variants.${index}`));
                                           }
                                         }}
                                         onBlur={field.onBlur}
