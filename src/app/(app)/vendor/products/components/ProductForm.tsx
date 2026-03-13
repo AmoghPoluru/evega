@@ -124,7 +124,28 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
     resolver: zodResolver(productFormSchema),
     defaultValues: {
       name: product?.name || "",
-      description: "", // Rich text will be handled separately if needed
+      description: (() => {
+        // Extract text from Lexical format if description exists
+        if (product?.description) {
+          if (typeof product.description === "string") {
+            return product.description;
+          }
+          // If it's a Lexical object, extract text from it
+          if (typeof product.description === "object" && product.description.root) {
+            const extractText = (node: any): string => {
+              if (node.text) {
+                return node.text;
+              }
+              if (node.children && Array.isArray(node.children)) {
+                return node.children.map(extractText).join("");
+              }
+              return "";
+            };
+            return extractText(product.description.root) || "";
+          }
+        }
+        return "";
+      })(),
       price: product?.price || 0,
       category: typeof product?.category === "string" ? product.category : product?.category?.id || "",
       subcategory: typeof product?.subcategory === "string" ? product.subcategory : product?.subcategory?.id || "",
@@ -364,8 +385,9 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
 
   const onSubmit = (values: ProductFormValues) => {
     // Convert description string to Lexical format if provided
+    // If description is empty or just whitespace, set to undefined to allow clearing
     let description: any = undefined;
-    if (values.description) {
+    if (values.description && values.description.trim() !== "") {
       // Simple conversion to Lexical format
       description = {
         root: {
@@ -377,7 +399,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                   format: 0,
                   mode: "normal",
                   style: "",
-                  text: values.description,
+                  text: values.description.trim(),
                   type: "text",
                   version: 1,
                 },
@@ -396,6 +418,9 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
           version: 1,
         },
       };
+    } else if (isEditing) {
+      // If editing and description is empty, explicitly set to undefined to clear it
+      description = undefined;
     }
 
     // Get required variant slugs for validation
