@@ -48,7 +48,20 @@ const productFormSchema = z.object({
   cover: z.string().optional(),
   videoSource: z.enum(["upload", "youtube"]).optional().default("upload"),
   video: z.string().optional(), // Video is completely optional - vendors can skip it
-  youtubeUrl: z.string().url().optional(),
+  youtubeUrl: z.string().optional().refine(
+    (url) => {
+      // Allow empty string or undefined
+      if (!url || url.trim() === "") return true;
+      // If URL is provided, validate it's a valid URL format
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    { message: "Please provide a valid URL" }
+  ),
   youtubeStartTime: z.string().optional(),
   refundPolicy: z.enum(["30-day", "14-day", "7-day", "3-day", "1-day", "no-refunds"]).optional(),
   tags: z.array(z.string()).optional(),
@@ -432,8 +445,16 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       };
     });
 
-    const submitData = {
+    // Clean up video fields - remove empty strings and set to undefined
+    const cleanedValues = {
       ...values,
+      video: values.video && values.video.trim() !== "" ? values.video : undefined,
+      youtubeUrl: values.youtubeUrl && values.youtubeUrl.trim() !== "" ? values.youtubeUrl : undefined,
+      youtubeStartTime: values.youtubeStartTime && values.youtubeStartTime.trim() !== "" ? values.youtubeStartTime : undefined,
+    };
+
+    const submitData = {
+      ...cleanedValues,
       description,
       variants: normalizedVariants,
     };
@@ -443,6 +464,12 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       console.log('[ProductForm] Submitting data:', {
         variants: submitData.variants,
         requiredVariantSlugs,
+        videoFields: {
+          videoSource: submitData.videoSource,
+          video: submitData.video,
+          youtubeUrl: submitData.youtubeUrl,
+          youtubeStartTime: submitData.youtubeStartTime,
+        },
       });
     }
 
