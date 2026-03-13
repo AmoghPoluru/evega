@@ -174,37 +174,38 @@ export async function POST(req: NextRequest) {
     let media;
     if (blobUrl) {
       // Since Media collection has upload: true, Payload expects a file parameter
-      // But on Vercel we can't write files locally. So we'll use the database directly
-      const db = (payload as any).db;
+      // But on Vercel we can't write files locally. So we'll use the database adapter directly
+      const db = payload.db;
       
       // Extract filename from Blob URL
       const blobPathname = blobUrl.split('/').pop() || file.name;
-      const filenameWithoutSuffix = file.name.split('.')[0];
-      const extension = file.name.split('.').pop() || '';
       
-      // Create media document directly in database
+      // Create media document using Payload's database adapter
+      // This ensures proper field handling and validation
       const mediaDoc = {
         alt: file.name,
         filename: blobPathname,
         mimeType: file.type,
         filesize: file.size,
         url: blobUrl,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       };
       
-      // Insert directly into MongoDB
-      const result = await db.collections.media.insertOne(mediaDoc);
+      // Use Payload's database adapter to create the document
+      // This properly handles ObjectId conversion and field validation
+      const result = await db.create({
+        collection: 'media',
+        data: mediaDoc,
+      });
+      
+      // The result should have an id field (string)
+      if (!result || !result.id) {
+        throw new Error("Failed to create media document: No ID returned from database");
+      }
       
       // Fetch the created document using Payload (to get proper typing and hooks)
-      // Convert ObjectId to string for Payload
-      const mediaId = typeof result.insertedId === 'string' 
-        ? result.insertedId 
-        : result.insertedId.toString();
-      
       media = await payload.findByID({
         collection: "media",
-        id: mediaId,
+        id: result.id,
       });
       
       console.log(`✅ Created media record with Blob URL: ${blobUrl}`);
