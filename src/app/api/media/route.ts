@@ -162,10 +162,10 @@ export async function POST(req: NextRequest) {
         console.log(`✅ Uploaded to Vercel Blob: ${blobUrl}`);
       } catch (error: any) {
         console.error("Vercel Blob upload error:", error);
-        // Continue with local storage if Blob upload fails (for local dev)
-        if (process.env.NODE_ENV === 'production') {
-          throw error;
-        }
+        // In production, if Blob upload fails, we should still try to save locally
+        // Don't throw - allow fallback to local storage
+        console.warn("⚠️  Blob upload failed, falling back to local storage:", error.message);
+        // Continue with local storage as fallback
       }
     }
 

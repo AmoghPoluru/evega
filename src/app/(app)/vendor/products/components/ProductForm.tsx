@@ -268,6 +268,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
   const youtubeStartTimeSeconds = youtubeStartTime ? timeToSeconds(youtubeStartTime) : null;
 
   const handleImageUpload = async (file: File, type: "image" | "cover" | "video") => {
+    console.log(`[ProductForm] Starting upload for ${type}:`, file.name, file.size, file.type);
     const formData = new FormData();
     formData.append("file", file);
 
@@ -280,19 +281,53 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
     }
 
     try {
+      console.log(`[ProductForm] Sending upload request to /api/media`);
       const response = await fetch("/api/media", {
         method: "POST",
         body: formData,
+        credentials: "include", // Ensure cookies are sent for authentication
       });
+      
+      console.log(`[ProductForm] Upload response status:`, response.status, response.statusText);
 
       if (!response.ok) {
-        throw new Error("Failed to upload image");
+        // Try to get error message from response
+        let errorMessage = `Failed to upload ${type}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        
+        // Provide more specific error messages
+        if (response.status === 401) {
+          errorMessage = "Please log in to upload files";
+        } else if (response.status === 413) {
+          errorMessage = "File is too large. Please choose a smaller file.";
+        } else if (response.status === 400) {
+          errorMessage = "Invalid file. Please check the file format.";
+        }
+        
+        console.error(`[ProductForm] Upload failed (${response.status}):`, errorMessage);
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
+      console.log(`[ProductForm] Upload response data:`, data);
+      
+      if (!data.doc || !data.doc.id) {
+        console.error("[ProductForm] Upload response missing doc.id:", data);
+        throw new Error("Upload succeeded but no file ID was returned");
+      }
+      
       const mediaId = data.doc.id;
+      console.log(`[ProductForm] Upload successful! Media ID:`, mediaId);
 
       form.setValue(type, mediaId);
+      console.log(`[ProductForm] Form field ${type} set to:`, mediaId);
+      toast.success(`${type === "image" ? "Image" : type === "cover" ? "Cover image" : "Video"} uploaded successfully`);
 
       // Set preview
       const reader = new FileReader();
@@ -306,8 +341,9 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         }
       };
       reader.readAsDataURL(file);
-    } catch (error) {
-      toast.error("Failed to upload image");
+    } catch (error: any) {
+      console.error(`[ProductForm] Upload error for ${type}:`, error);
+      toast.error(error?.message || `Failed to upload ${type}. Please try again.`);
     } finally {
       if (type === "image") {
         setUploadingImage(false);

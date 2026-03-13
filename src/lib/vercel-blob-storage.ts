@@ -42,6 +42,7 @@ export async function uploadToBlob(
       access: 'public',
       contentType: contentType || 'application/octet-stream',
       token: process.env.BLOB_READ_WRITE_TOKEN,
+      addRandomSuffix: true, // Generate unique filename to avoid conflicts
     });
 
     return {
