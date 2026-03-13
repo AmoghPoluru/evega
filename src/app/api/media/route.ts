@@ -169,56 +169,58 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Create media document with BOTH Blob URL and local file storage
-    // This ensures we have a backup in local storage while using Blob for serving
+    // Create media document with Blob URL only (no local file storage)
+    // On Vercel, we can't write to local disk in serverless functions
     let media;
     if (blobUrl) {
-      // Upload to both: Blob (for serving) and local (for backup)
-      // First create with local file (Payload will save it locally)
-      media = await payload.create({
+      // Since Media collection has upload: true, Payload expects a file parameter
+      // But on Vercel we can't write files locally. So we'll use the database directly
+      const db = (payload as any).db;
+      
+      // Extract filename from Blob URL
+      const blobPathname = blobUrl.split('/').pop() || file.name;
+      const filenameWithoutSuffix = file.name.split('.')[0];
+      const extension = file.name.split('.').pop() || '';
+      
+      // Create media document directly in database
+      const mediaDoc = {
+        alt: file.name,
+        filename: blobPathname,
+        mimeType: file.type,
+        filesize: file.size,
+        url: blobUrl,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      // Insert directly into MongoDB
+      const result = await db.collections.media.insertOne(mediaDoc);
+      
+      // Fetch the created document using Payload (to get proper typing and hooks)
+      // Convert ObjectId to string for Payload
+      const mediaId = typeof result.insertedId === 'string' 
+        ? result.insertedId 
+        : result.insertedId.toString();
+      
+      media = await payload.findByID({
         collection: "media",
-        data: {
-          alt: file.name,
-        },
-        file: {
-          data: buffer,
-          mimetype: file.type,
-          name: file.name,
-          size: file.size,
-        },
+        id: mediaId,
       });
       
-      // Then update with the Blob URL (this becomes the primary URL for serving)
-      // The local file is still stored as backup
-      // IMPORTANT: We need to use the raw update to ensure URL is set correctly
-      const updatedMedia = await payload.update({
-        collection: "media",
-        id: media.id,
-        data: {
-          url: blobUrl, // Blob URL takes precedence for serving
-          // Local file path is automatically stored by Payload
-        },
-      });
-      
-      // Verify the URL was set correctly
-      if (updatedMedia.url !== blobUrl) {
-        console.warn(`⚠️  URL mismatch! Expected: ${blobUrl}, Got: ${updatedMedia.url}`);
-        // Try direct database update as fallback
-        const db = (payload as any).db;
-        if (db) {
-          await db.collections.media.updateOne(
-            { _id: media.id },
-            { $set: { url: blobUrl } }
-          );
-          console.log(`✅ Force-updated URL in database`);
-        }
+      console.log(`✅ Created media record with Blob URL: ${blobUrl}`);
+    } else {
+      // If Blob token is not set, we can't upload on Vercel (no local disk access)
+      // On localhost, fallback to Payload's default file upload
+      if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json(
+          { 
+            error: "BLOB_READ_WRITE_TOKEN is required for file uploads in production. Please configure it in Vercel environment variables." 
+          },
+          { status: 500 }
+        );
       }
       
-      media = updatedMedia;
-      console.log(`✅ Saved locally as backup: ${media.filename || file.name}`);
-      console.log(`✅ Media URL set to: ${media.url}`);
-    } else {
-      // Fallback: Use Payload's default file upload (local storage only)
+      // Local development fallback
       media = await payload.create({
         collection: "media",
         data: {
@@ -231,7 +233,7 @@ export async function POST(req: NextRequest) {
           size: file.size,
         },
       });
-      console.log(`✅ Saved locally only (no Blob token): ${media.filename || file.name}`);
+      console.log(`✅ Saved locally (development only): ${media.filename || file.name}`);
     }
 
     return NextResponse.json({ doc: media });
