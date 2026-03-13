@@ -343,7 +343,16 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       reader.readAsDataURL(file);
     } catch (error: any) {
       console.error(`[ProductForm] Upload error for ${type}:`, error);
-      toast.error(error?.message || `Failed to upload ${type}. Please try again.`);
+
+      let message = error?.message || `Failed to upload ${type}. Please try again.`;
+
+      // Browser's generic message – replace with something clearer
+      if (message === "There was a problem while uploading the file.") {
+        message =
+          "There was a problem while uploading the file. Please check your internet connection, refresh the page, and try again. If it keeps happening, check the /api/media response in the Network tab or contact support.";
+      }
+
+      toast.error(message);
     } finally {
       if (type === "image") {
         setUploadingImage(false);
