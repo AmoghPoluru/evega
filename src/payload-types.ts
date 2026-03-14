@@ -81,6 +81,7 @@ export interface Config {
     'variant-options': VariantOption;
     'vendor-tasks': VendorTask;
     'vendor-task-messages': VendorTaskMessage;
+    'vendor-hero-banners': VendorHeroBanner;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -106,6 +107,7 @@ export interface Config {
     'variant-options': VariantOptionsSelect<false> | VariantOptionsSelect<true>;
     'vendor-tasks': VendorTasksSelect<false> | VendorTasksSelect<true>;
     'vendor-task-messages': VendorTaskMessagesSelect<false> | VendorTaskMessagesSelect<true>;
+    'vendor-hero-banners': VendorHeroBannersSelect<false> | VendorHeroBannersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -321,9 +323,38 @@ export interface Vendor {
    */
   logo?: (string | null) | Media;
   /**
-   * Vendor cover/banner image
+   * Vendor cover/banner image (fallback if hero banner not configured)
    */
   coverImage?: (string | null) | Media;
+  /**
+   * Configure a custom hero banner for your vendor page. If not configured, the cover image will be used.
+   */
+  heroBanner?: {
+    /**
+     * Main title displayed on the hero banner (e.g., 'Welcome to [Vendor Name]')
+     */
+    title?: string | null;
+    /**
+     * Optional subtitle text displayed below the title
+     */
+    subtitle?: string | null;
+    /**
+     * Background image for the hero banner (recommended: 1920x500px). If not set, a gradient will be used.
+     */
+    backgroundImage?: (string | null) | Media;
+    /**
+     * Select products to display in the hero banner (4-6 products recommended). Only your own products can be selected.
+     */
+    products?: (string | Product)[] | null;
+    /**
+     * Only active hero banners will be displayed on your vendor page
+     */
+    isActive?: boolean | null;
+    /**
+     * Display order (lower numbers appear first, if multiple banners exist)
+     */
+    order?: number | null;
+  };
   /**
    * Business email address
    */
@@ -460,156 +491,6 @@ export interface Media {
   focalY?: number | null;
 }
 /**
- * Application and vendor-level roles for user permissions
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "roles".
- */
-export interface Role {
-  id: string;
-  /**
-   * Role name (e.g., 'Vendor Owner', 'App Admin')
-   */
-  name: string;
-  /**
-   * URL-friendly identifier (auto-generated from name)
-   */
-  slug: string;
-  /**
-   * Role type: Application roles are for app-level access, Vendor roles are for vendor organization access
-   */
-  type: 'app' | 'vendor';
-  /**
-   * Description of what this role allows
-   */
-  description?: string | null;
-  /**
-   * List of permissions granted by this role
-   */
-  permissions?:
-    | {
-        /**
-         * Permission name (e.g., 'manage-products', 'view-orders')
-         */
-        permission: string;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Active roles can be assigned to users
-   */
-  isActive?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Manage product categories and their variant configurations
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories".
- */
-export interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  color?: string | null;
-  parent?: (string | null) | Category;
-  subcategories?: {
-    docs?: (string | Category)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  variantConfig?: {
-    /**
-     * Variant types that are required for products in this category
-     */
-    requiredVariants?: (string | VariantType)[] | null;
-    /**
-     * Variant types that are optional for products in this category
-     */
-    optionalVariants?: (string | VariantType)[] | null;
-    /**
-     * Mapping of variant types to their allowed options (JSON format)
-     */
-    variantOptions?:
-      | {
-          [k: string]: unknown;
-        }
-      | unknown[]
-      | string
-      | number
-      | boolean
-      | null;
-    pricingRules?: {
-      /**
-       * Use base price from product
-       */
-      basePrice?: boolean | null;
-      /**
-       * Price overrides by size (e.g., { 'XL': 5, '2XL': 10 })
-       */
-      sizeOverrides?:
-        | {
-            [k: string]: unknown;
-          }
-        | unknown[]
-        | string
-        | number
-        | boolean
-        | null;
-      /**
-       * Price overrides by color (e.g., { 'Rose Gold': 20, 'Gold': 10 })
-       */
-      colorOverrides?:
-        | {
-            [k: string]: unknown;
-          }
-        | unknown[]
-        | string
-        | number
-        | boolean
-        | null;
-      /**
-       * Price overrides by material (e.g., { 'Silk': 20, 'Silver': 50 })
-       */
-      materialOverrides?:
-        | {
-            [k: string]: unknown;
-          }
-        | unknown[]
-        | string
-        | number
-        | boolean
-        | null;
-    };
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Define variant types (e.g., Size, Color, Material). These are assigned to categories.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "variant-types".
- */
-export interface VariantType {
-  id: string;
-  name: string;
-  slug: string;
-  type: 'select' | 'number' | 'text';
-  /**
-   * Unit for number type (e.g., 'inches', 'meters')
-   */
-  unit?: string | null;
-  /**
-   * Order in which this variant type should be displayed
-   */
-  displayOrder: number;
-  description?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
  * You must verify your account before creating products
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -738,6 +619,113 @@ export interface Product {
   createdAt: string;
 }
 /**
+ * Manage product categories and their variant configurations
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  color?: string | null;
+  parent?: (string | null) | Category;
+  subcategories?: {
+    docs?: (string | Category)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  variantConfig?: {
+    /**
+     * Variant types that are required for products in this category
+     */
+    requiredVariants?: (string | VariantType)[] | null;
+    /**
+     * Variant types that are optional for products in this category
+     */
+    optionalVariants?: (string | VariantType)[] | null;
+    /**
+     * Mapping of variant types to their allowed options (JSON format)
+     */
+    variantOptions?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    pricingRules?: {
+      /**
+       * Use base price from product
+       */
+      basePrice?: boolean | null;
+      /**
+       * Price overrides by size (e.g., { 'XL': 5, '2XL': 10 })
+       */
+      sizeOverrides?:
+        | {
+            [k: string]: unknown;
+          }
+        | unknown[]
+        | string
+        | number
+        | boolean
+        | null;
+      /**
+       * Price overrides by color (e.g., { 'Rose Gold': 20, 'Gold': 10 })
+       */
+      colorOverrides?:
+        | {
+            [k: string]: unknown;
+          }
+        | unknown[]
+        | string
+        | number
+        | boolean
+        | null;
+      /**
+       * Price overrides by material (e.g., { 'Silk': 20, 'Silver': 50 })
+       */
+      materialOverrides?:
+        | {
+            [k: string]: unknown;
+          }
+        | unknown[]
+        | string
+        | number
+        | boolean
+        | null;
+    };
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Define variant types (e.g., Size, Color, Material). These are assigned to categories.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "variant-types".
+ */
+export interface VariantType {
+  id: string;
+  name: string;
+  slug: string;
+  type: 'select' | 'number' | 'text';
+  /**
+   * Unit for number type (e.g., 'inches', 'meters')
+   */
+  unit?: string | null;
+  /**
+   * Order in which this variant type should be displayed
+   */
+  displayOrder: number;
+  description?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "tags".
  */
@@ -745,6 +733,49 @@ export interface Tag {
   id: string;
   name: string;
   products?: (string | Product)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Application and vendor-level roles for user permissions
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "roles".
+ */
+export interface Role {
+  id: string;
+  /**
+   * Role name (e.g., 'Vendor Owner', 'App Admin')
+   */
+  name: string;
+  /**
+   * URL-friendly identifier (auto-generated from name)
+   */
+  slug: string;
+  /**
+   * Role type: Application roles are for app-level access, Vendor roles are for vendor organization access
+   */
+  type: 'app' | 'vendor';
+  /**
+   * Description of what this role allows
+   */
+  description?: string | null;
+  /**
+   * List of permissions granted by this role
+   */
+  permissions?:
+    | {
+        /**
+         * Permission name (e.g., 'manage-products', 'view-orders')
+         */
+        permission: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Active roles can be assigned to users
+   */
+  isActive?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1266,6 +1297,43 @@ export interface VendorTaskMessage {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendor-hero-banners".
+ */
+export interface VendorHeroBanner {
+  id: string;
+  /**
+   * The vendor who owns this banner
+   */
+  vendor: string | Vendor;
+  /**
+   * Title for the hero banner section
+   */
+  title: string;
+  /**
+   * Optional subtitle text
+   */
+  subtitle?: string | null;
+  /**
+   * Optional background image for the banner (recommended: 1920x500px)
+   */
+  backgroundImage?: (string | null) | Media;
+  /**
+   * Select products to display in this hero banner (only your own products)
+   */
+  products: (string | Product)[];
+  /**
+   * Only active banners will be displayed on your vendor page
+   */
+  isActive?: boolean | null;
+  /**
+   * Display order (lower numbers appear first)
+   */
+  order?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -1343,6 +1411,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'vendor-task-messages';
         value: string | VendorTaskMessage;
+      } | null)
+    | ({
+        relationTo: 'vendor-hero-banners';
+        value: string | VendorHeroBanner;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1640,6 +1712,16 @@ export interface VendorsSelect<T extends boolean = true> {
   description?: T;
   logo?: T;
   coverImage?: T;
+  heroBanner?:
+    | T
+    | {
+        title?: T;
+        subtitle?: T;
+        backgroundImage?: T;
+        products?: T;
+        isActive?: T;
+        order?: T;
+      };
   email?: T;
   phone?: T;
   website?: T;
@@ -1799,6 +1881,21 @@ export interface VendorTaskMessagesSelect<T extends boolean = true> {
   body?: T;
   attachments?: T;
   isInternal?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendor-hero-banners_select".
+ */
+export interface VendorHeroBannersSelect<T extends boolean = true> {
+  vendor?: T;
+  title?: T;
+  subtitle?: T;
+  backgroundImage?: T;
+  products?: T;
+  isActive?: T;
+  order?: T;
   updatedAt?: T;
   createdAt?: T;
 }

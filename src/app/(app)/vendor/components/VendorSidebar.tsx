@@ -14,11 +14,13 @@ import {
   CreditCard,
   Bell,
   MessageCircle,
+  Image,
 } from "lucide-react";
 
 const navItems = [
   { href: "/vendor/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/vendor/products", label: "Products", icon: Package },
+  { href: "/vendor/hero-banner", label: "Hero Banner", icon: Image },
   { href: "/vendor/orders", label: "Orders", icon: ShoppingCart },
   { href: "/vendor/customers", label: "Customers", icon: Users },
   { href: "/vendor/analytics", label: "Analytics", icon: BarChart3 },

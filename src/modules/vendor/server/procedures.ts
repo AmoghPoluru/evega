@@ -51,14 +51,52 @@ export const vendorRouter = createTRPCRouter({
   }),
 
   getOne: baseProcedure
-    .input(z.object({ id: z.string() }))
+    .input(
+      z.object({ 
+        id: z.string(),
+        depth: z.number().optional().default(2),
+      })
+    )
     .query(async ({ ctx, input }) => {
       const vendor = await ctx.db.findByID({
         collection: "vendors",
         id: input.id,
-        depth: 0,
+        depth: input.depth,
       });
       return vendor;
+    }),
+
+  list: baseProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(100).optional().default(50),
+        status: z.enum(["approved", "pending", "rejected", "suspended"]).optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const where: any = {
+        isActive: { equals: true },
+      };
+
+      // Only show approved vendors by default
+      if (input.status) {
+        where.status = { equals: input.status };
+      } else {
+        where.status = { equals: "approved" };
+      }
+
+      const result = await ctx.db.find({
+        collection: "vendors",
+        where,
+        limit: input.limit,
+        sort: "-createdAt",
+        depth: 0,
+      });
+
+      return {
+        vendors: result.docs,
+        total: result.totalDocs,
+      };
     }),
 
   register: protectedProcedure
@@ -2429,4 +2467,246 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
 
       return updatedOrder;
     }),
+
+  updateHeroBanner: vendorProcedure
+    .input(
+      z.object({
+        title: z.string().optional(),
+        subtitle: z.string().optional(),
+        backgroundImage: z.string().optional(),
+        products: z.array(z.string()).optional(),
+        isActive: z.boolean().optional(),
+        order: z.number().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const vendorId = typeof ctx.session.vendor === "string"
+        ? ctx.session.vendor
+        : ctx.session.vendor.id;
+
+      // Validate that selected products belong to the vendor
+      if (input.products && input.products.length > 0) {
+        const vendorProducts = await ctx.db.find({
+          collection: "products",
+          where: {
+            vendor: { equals: vendorId },
+            id: { in: input.products },
+          },
+          limit: input.products.length,
+        });
+
+        if (vendorProducts.docs.length !== input.products.length) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Some selected products do not belong to your vendor account",
+          });
+        }
+      }
+
+      // Update vendor with hero banner fields
+      const updatedVendor = await ctx.db.update({
+        collection: "vendors",
+        id: vendorId,
+        data: {
+          heroBanner: {
+            title: input.title,
+            subtitle: input.subtitle,
+            backgroundImage: input.backgroundImage,
+            products: input.products,
+            isActive: input.isActive,
+            order: input.order,
+          },
+        },
+      });
+
+      return updatedVendor;
+    }),
+
+  // Vendor Hero Banners (multiple banners support)
+  heroBanners: {
+    list: vendorProcedure
+      .query(async ({ ctx }) => {
+        const vendorId = typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+        const banners = await ctx.db.find({
+          collection: "vendor-hero-banners",
+          where: {
+            vendor: { equals: vendorId },
+          },
+          sort: "order",
+          depth: 2, // Populate products and backgroundImage
+        });
+
+        return banners.docs;
+      }),
+
+    getOne: vendorProcedure
+      .input(z.object({ id: z.string() }))
+      .query(async ({ ctx, input }) => {
+        const vendorId = typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+        const banner = await ctx.db.findByID({
+          collection: "vendor-hero-banners",
+          id: input.id,
+          depth: 2,
+        });
+
+        // Verify ownership
+        const bannerVendorId = typeof banner.vendor === "string" ? banner.vendor : banner.vendor?.id;
+        if (bannerVendorId !== vendorId) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You can only access your own banners",
+          });
+        }
+
+        return banner;
+      }),
+
+    create: vendorProcedure
+      .input(
+        z.object({
+          title: z.string().min(1),
+          subtitle: z.string().optional(),
+          backgroundImage: z.string().optional(),
+          products: z.array(z.string()).min(1),
+          isActive: z.boolean().default(true),
+          order: z.number().default(0),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const vendorId = typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+        // Validate that selected products belong to the vendor
+        if (input.products && input.products.length > 0) {
+          const vendorProducts = await ctx.db.find({
+            collection: "products",
+            where: {
+              vendor: { equals: vendorId },
+              id: { in: input.products },
+            },
+            limit: input.products.length,
+          });
+
+          if (vendorProducts.docs.length !== input.products.length) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Some selected products do not belong to your vendor account",
+            });
+          }
+        }
+
+        const banner = await ctx.db.create({
+          collection: "vendor-hero-banners",
+          data: {
+            vendor: vendorId,
+            title: input.title,
+            subtitle: input.subtitle,
+            backgroundImage: input.backgroundImage,
+            products: input.products,
+            isActive: input.isActive,
+            order: input.order,
+          },
+        });
+
+        return banner;
+      }),
+
+    update: vendorProcedure
+      .input(
+        z.object({
+          id: z.string(),
+          title: z.string().min(1).optional(),
+          subtitle: z.string().optional(),
+          backgroundImage: z.string().optional(),
+          products: z.array(z.string()).optional(),
+          isActive: z.boolean().optional(),
+          order: z.number().optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const vendorId = typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+        // Verify ownership
+        const banner = await ctx.db.findByID({
+          collection: "vendor-hero-banners",
+          id: input.id,
+          depth: 0,
+        });
+
+        const bannerVendorId = typeof banner.vendor === "string" ? banner.vendor : banner.vendor?.id;
+        if (bannerVendorId !== vendorId) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You can only update your own banners",
+          });
+        }
+
+        // Validate products if provided
+        if (input.products && input.products.length > 0) {
+          const vendorProducts = await ctx.db.find({
+            collection: "products",
+            where: {
+              vendor: { equals: vendorId },
+              id: { in: input.products },
+            },
+            limit: input.products.length,
+          });
+
+          if (vendorProducts.docs.length !== input.products.length) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Some selected products do not belong to your vendor account",
+            });
+          }
+        }
+
+        const { id, ...updateData } = input;
+        const updatedBanner = await ctx.db.update({
+          collection: "vendor-hero-banners",
+          id: id,
+          data: updateData,
+        });
+
+        return updatedBanner;
+      }),
+
+    delete: vendorProcedure
+      .input(z.object({ id: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const vendorId = typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+        // Verify ownership
+        const banner = await ctx.db.findByID({
+          collection: "vendor-hero-banners",
+          id: input.id,
+          depth: 0,
+        });
+
+        const bannerVendorId = typeof banner.vendor === "string" ? banner.vendor : banner.vendor?.id;
+        if (bannerVendorId !== vendorId) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You can only delete your own banners",
+          });
+        }
+
+        await ctx.db.delete({
+          collection: "vendor-hero-banners",
+          id: input.id,
+        });
+
+        return { success: true };
+      }),
+  },
 });

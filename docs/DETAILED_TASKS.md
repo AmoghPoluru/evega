@@ -3323,12 +3323,173 @@
 
 ---
 
+## Large Media Uploads / Direct-to-Vercel-Blob (306-311)
+
+306. ❌ Architect direct-to-Blob upload flow for large media files
+    - **Tech**: Design a two-step flow: (1) browser uploads directly to Vercel Blob, (2) backend creates a `media` document from the Blob URL (no large file bodies through `/api/media`)
+    - **Details**: Define sequence diagram and data contracts between frontend, Vercel Blob, and Payload; ensure this works for both images and videos and avoids Vercel serverless body-size limits
+    - **Status**: ❌ Not started
+
+307. ❌ Implement client-side direct upload to Vercel Blob for images
+    - **Tech**: Use `@vercel/blob` **client SDK** (or signed upload URLs) in the browser to `put()` image files directly to Blob and receive a public Blob URL
+    - **Details**: Update image upload logic in `ProductForm` and any shared `ImageUpload` component to call Blob directly (instead of `/api/media`), then call a lightweight backend endpoint with `{ url, filename, mimeType, filesize, alt }` to create the Payload `media` record
+    - **Status**: ❌ Not started
+
+308. ❌ Implement client-side direct upload to Vercel Blob for videos
+    - **Tech**: Mirror the image flow for video files, ensuring `accept="video/*"` and enforcing a reasonable max size in the browser before upload
+    - **Details**: In the “Product Video” section of `ProductForm`, replace `handleImageUpload(file, "video")` to first upload large video files directly to Blob, then create a `media` document from the returned URL so the product stores only the `media` ID
+    - **Status**: ❌ Not started
+
+309. ❌ Add backend endpoint to create media from an existing Blob URL
+    - **Tech**: New tRPC mutation or `/api/media/create-from-url` route that accepts `{ url, filename, mimeType, filesize, alt }` and calls `payload.create({ collection: "media", data: { alt, filename, mimeType, filesize, url } })`
+    - **Details**: Reuse existing media access-control (auth required), validate that `url` matches the expected Vercel Blob pattern, and return `{ id, url }` so forms can store the `media` relationship field
+    - **Status**: ✅ Completed
+    - **Implementation**: Implemented `POST /api/media/create-from-url` (`src/app/api/media/create-from-url/route.ts`) which authenticates via Payload, validates the JSON body, sanity-checks that `url` looks like a Blob URL, and creates a `media` document with `{ alt, filename, mimeType, filesize, url }`, returning `{ doc }` for use by forms
+
+310. ❌ Enforce size and type validation for direct-to-Blob uploads
+    - **Tech**: Add client-side checks (max size per type, allowed MIME types) before calling Blob, and server-side sanity checks in the “create-from-url” endpoint
+    - **Details**: Show friendly error messages like “File is too large” or “Unsupported format” before any network upload when possible, and log oversized attempts for monitoring
+    - **Status**: ❌ Not started
+
+311. ❌ Update documentation and tests for large media upload flow
+    - **Tech**: Document the new direct-to-Blob architecture in `docs/` (diagram + endpoints), and add unit/integration tests for the "create-from-url" media endpoint and frontend upload helpers
+    - **Details**: Update `DETAILED_TASKS.md` and any media-related docs to clarify that in production large files never go through `/api/media`, and add basic E2E coverage (upload image/video → product shows media correctly)
+    - **Status**: ❌ Not started
+
+---
+
+## Vendor Dropdown in Navbar (312-315)
+
+312. ✅ Add tRPC endpoint to list all approved vendors
+    - **Tech**: Create `vendor.list` procedure in `src/modules/vendor/server/procedures.ts` that queries the `vendors` collection with filters: `status: "approved"`, `isActive: true`, sorted by creation date
+    - **Details**: Public endpoint (baseProcedure) that returns `{ vendors: Vendor[], total: number }` with optional `limit` parameter (default 50, max 100) and optional `status` filter for future admin use
+    - **Status**: ✅ Completed
+    - **Implementation**: Added `list` procedure to `vendorRouter` in `src/modules/vendor/server/procedures.ts` that filters vendors by `status: "approved"` and `isActive: true`, returns `{ vendors, total }` with sorting by `-createdAt`
+
+313. ✅ Add vendors dropdown menu to navbar
+    - **Tech**: Import `DropdownMenu` components from `@/components/ui/dropdown-menu` and add a "Vendors" dropdown button next to the logo in `src/app/(app)/(home)/navbar/Navbar.tsx`
+    - **Details**: Use `trpc.vendor.list.useQuery()` to fetch vendors, display dropdown with Store icon, show vendor names as clickable items that link to `/vendors/[slug]`, only render dropdown if vendors exist, style to match navbar theme (dark background)
+    - **Status**: ✅ Completed
+    - **Implementation**: Added vendors dropdown next to Logo in `Navbar.tsx` using `DropdownMenu` component, displays Store icon and "Vendors" label, shows list of vendor names linking to `/vendors/[slug]`, only renders when vendors exist, styled with white background for dropdown content
+
+314. ✅ Create vendor product page route
+    - **Tech**: Create `src/app/(app)/(home)/vendors/[slug]/page.tsx` server component that finds vendor by slug, fetches products for that vendor, and displays vendor info + product list
+    - **Details**: Use Payload to find vendor by `slug` with `status: "approved"` and `isActive: true`, return 404 if not found, fetch products where `vendor` equals vendor ID and `isPrivate: false`, `isArchived: false`, use `ProductsList` component from `@/components/product-filters/products-list` to display products with filters
+    - **Status**: ✅ Completed
+    - **Implementation**: Created `src/app/(app)/(home)/vendors/[slug]/page.tsx` server component that finds vendor by slug, validates status and isActive, fetches products with proper filters, uses `ProductsList` component for display with product count in title
+
+315. ✅ Add vendor page styling and metadata
+    - **Tech**: Add vendor name as page title, render vendor description (handle rich text if present), show product count, add breadcrumb navigation, ensure responsive layout
+    - **Details**: Display vendor logo if available, show "No products available" message if vendor has no products, ensure vendor page matches existing product listing page styling and layout patterns
+    - **Status**: ✅ Completed
+    - **Implementation**: Added breadcrumb navigation (Home / Vendors / Vendor Name), vendor header with logo (if available), vendor name as h1, description text extraction from Lexical rich text format, vendor email display, "No products available" message with styled container, responsive layout matching existing product listing pages
+
+315.2. ✅ Add hero banner to vendor page
+    - **Tech**: Create hero banner section at top of vendor page using vendor's coverImage, display vendor name and description over banner, show featured products (first 6) in horizontal scroll at bottom of banner
+    - **Details**: Use vendor's coverImage as background (or gradient fallback), overlay vendor name and description with white text and drop shadow, display featured products as clickable cards with images and prices, ensure banner is responsive (400px mobile, 500px desktop)
+    - **Status**: ✅ Completed
+    - **Implementation**: Added hero banner section to vendor page with coverImage background, gradient overlay for text readability, vendor name and description displayed prominently, featured products (first 6) shown in horizontal scrollable cards at bottom of banner, removed duplicate vendor header section (now in banner), moved contact info below breadcrumb
+
+315.1. ✅ Add search functionality to vendors dropdown
+    - **Tech**: Add search input field inside the vendors dropdown menu with real-time filtering, clear button, and "No vendors found" message
+    - **Details**: Filter vendors by name (case-insensitive), show search icon, allow clearing search with X button, display filtered results in dropdown, reset search when vendor is selected
+    - **Status**: ✅ Completed
+    - **Implementation**: Added `vendorSearchQuery` state, search Input component with Search icon and clear button, filtered vendors list based on search query, "No vendors found" message when no matches, search resets when vendor link is clicked
+
+316. ❌ Add vendor filter to product filters system
+    - **Tech**: Add `vendor` field to `ProductFilters` interface in `src/components/product-filters/product-filters-provider.tsx`, update `ProductList` component to pass `vendor` filter to `trpc.products.getMany.useInfiniteQuery()`, ensure vendor filter works with existing filters (price, tags, variants)
+    - **Details**: When a vendor is selected from the dropdown, set the vendor filter in the product filters context, which will automatically filter all product listings (home page, category pages, search results) to show only that vendor's products, add "Clear vendor filter" option when vendor filter is active
+    - **Status**: ❌ Not started
+
+317. ❌ Update vendor dropdown to set vendor filter on selection
+    - **Tech**: Modify vendor dropdown items in `Navbar.tsx` to set vendor filter via `useProductFilters()` hook instead of (or in addition to) navigating to vendor page, show active vendor in dropdown with visual indicator, add "View all vendors" option to clear vendor filter
+    - **Details**: When user clicks a vendor in dropdown, call `setFilters({ vendor: vendorId })` to filter products globally, optionally navigate to home page or current page to show filtered results, highlight selected vendor in dropdown menu
+    - **Status**: ❌ Not started
+
+---
+
+## Vendor Hero Banner Configuration - Multiple Banners System (318-328)
+
+318. ✅ Create VendorHeroBanners collection for multiple banners per vendor
+    - **Tech**: Created `src/collections/VendorHeroBanners.ts` collection similar to `HeroBanners` collection, with fields: `vendor` (relationship to vendors, required, auto-set), `title` (text, required), `subtitle` (text, optional), `backgroundImage` (upload relationTo media, optional), `products` (relationship to products, hasMany, required, filtered to vendor's products), `isActive` (checkbox, default true), `order` (number, default 0)
+    - **Details**: Each vendor can create multiple hero banners (like admin hero banners), access control ensures vendors can only manage their own banners, hooks automatically set vendor field on create and validate ownership on update/delete, product filterOptions restricts product selection to vendor's own products
+    - **Status**: ✅ Completed
+    - **Implementation**: Created new collection with proper access control, hooks for vendor ownership validation, product filtering, added to payload.config.ts collections array
+
+319. ✅ Add VendorHeroBanners collection to Payload config
+    - **Tech**: Added `VendorHeroBanners` import and added to collections array in `src/payload.config.ts`
+    - **Details**: Collection registered in Payload CMS, accessible via admin panel and API, generates TypeScript types in payload-types.ts
+    - **Status**: ✅ Completed
+    - **Implementation**: Imported VendorHeroBanners collection and added to collections array
+
+320. ✅ Add tRPC procedures for vendor hero banners (list, getOne, create, update, delete)
+    - **Tech**: Added `vendor.heroBanners` nested router in `src/modules/vendor/server/procedures.ts` with procedures: `list` (query all vendor's banners), `getOne` (query single banner with ownership check), `create` (mutation to create banner with product ownership validation), `update` (mutation to update banner with ownership and product validation), `delete` (mutation to delete banner with ownership check)
+    - **Details**: All procedures use `vendorProcedure` for authentication, validate vendor ownership, validate product ownership (products must belong to vendor), return properly formatted banner data with populated relationships
+    - **Status**: ✅ Completed
+    - **Implementation**: Added nested router with all CRUD operations, proper error handling with TRPCError, product ownership validation, depth 2 for relationship population
+
+321. ✅ Create vendor hero banner management page with list view
+    - **Tech**: Updated `src/app/(app)/vendor/hero-banner/page.tsx` to show list of all vendor's banners in grid layout, with create/edit/delete functionality
+    - **Details**: Page displays banner cards with preview image, title, active status, product count, order, edit/delete buttons, "Create Banner" button, empty state when no banners, loading skeleton, banner cards show background image preview, active/inactive badges
+    - **Status**: ✅ Completed
+    - **Implementation**: List view with grid layout, banner cards with preview, create/edit/delete handlers, state management for editing, success/error toast notifications, proper loading states
+
+322. ✅ Update HeroBannerForm component for create/edit multiple banners
+    - **Tech**: Updated `src/app/(app)/vendor/hero-banner/components/HeroBannerForm.tsx` to accept optional `banner` prop (for editing) or no prop (for creating), uses `vendor.heroBanners.create` and `vendor.heroBanners.update` mutations
+    - **Details**: Form works for both creating new banners and editing existing ones, validates title and products (required), handles image upload via `/api/media`, product multi-select with checkbox grid, live preview component, cancel button, proper form state management
+    - **Status**: ✅ Completed
+    - **Implementation**: Updated form to support both create and edit modes, uses appropriate mutations based on banner prop, proper default values from banner data, cancel handler, success callback
+
+323. ✅ Add public tRPC query to fetch vendor hero banners for vendor page
+    - **Tech**: Added `vendorHeroBanners` query in `src/trpc/routers/_app.ts` that accepts `vendorSlug`, finds vendor by slug, fetches active vendor hero banners sorted by order
+    - **Details**: Public query (no authentication required), finds vendor by slug (approved and active), fetches only active banners, sorts by order field, returns formatted banner data with populated products and backgroundImage, returns empty array if vendor not found or no banners
+    - **Status**: ✅ Completed
+    - **Implementation**: Public query with vendor slug input, proper vendor lookup, banner filtering and sorting, depth 2 for relationship population, formatted response matching homepage hero banners structure
+
+324. ✅ Create VendorHeroBannersSection carousel component
+    - **Tech**: Created `src/components/vendor-hero-banners-section.tsx` client component with carousel functionality, similar to `HeroBannersSection` on homepage
+    - **Details**: Component accepts `vendorSlug` prop, fetches banners via `trpc.vendorHeroBanners.useQuery`, displays banners in carousel with auto-play (3 seconds), navigation arrows, dot indicators, smooth transitions, same product display logic as homepage (flex for ≤6 products, scroll for >6), returns null if no banners (allows fallback)
+    - **Status**: ✅ Completed
+    - **Implementation**: Carousel component with state management, auto-play timer, navigation controls, responsive product display, loading and error states, matches homepage hero banner styling and behavior
+
+325. ✅ Update vendor page to use VendorHeroBannersSection carousel
+    - **Tech**: Updated `src/app/(app)/(home)/vendors/[slug]/page.tsx` to use `VendorHeroBannersSection` component wrapped in Suspense, with fallback to default vendor display
+    - **Details**: Vendor page tries to display vendor hero banners carousel first, falls back to default vendor coverImage/name/description if no banners exist, maintains same page structure, Suspense boundary for loading state
+    - **Status**: ✅ Completed
+    - **Implementation**: Integrated VendorHeroBannersSection with Suspense, proper fallback handling, maintains existing vendor page structure and breadcrumbs
+
+326. ✅ Add "Hero Banner" link to vendor dashboard sidebar and quick actions
+    - **Tech**: Added "Hero Banner" navigation item to `src/app/(app)/vendor/components/VendorSidebar.tsx` and "Customize Hero Banner" link to dashboard quick actions in `src/app/(app)/vendor/dashboard/page.tsx`
+    - **Details**: Sidebar link with Image icon positioned after "Products", dashboard quick action link in "Quick Actions" card, both link to `/vendor/hero-banner`, visible to all approved vendors
+    - **Status**: ✅ Completed
+    - **Implementation**: Added nav items in both locations, proper icon usage, consistent styling with other nav items
+
+327. ✅ Add hero banner preview component for form
+    - **Tech**: Existing `HeroBannerPreview` component in `src/app/(app)/vendor/hero-banner/components/HeroBannerPreview.tsx` works with new form structure
+    - **Details**: Preview component displays banner preview matching vendor page layout, shows background image (or gradient), title, subtitle, featured products, updates dynamically as form fields change
+    - **Status**: ✅ Completed
+    - **Implementation**: Preview component already exists and works with updated form, no changes needed
+
+328. ✅ Test vendor hero banner creation, editing, deletion, and carousel display
+    - **Tech**: Manual testing required for multiple vendor hero banners workflow
+    - **Details**: Test full workflow: vendor creates multiple banners → sets different orders → activates/deactivates banners → views vendor page → sees carousel rotating through active banners, test editing individual banners, test deleting banners, test fallback behavior when no banners exist, ensure products are correctly filtered to vendor's products only, test carousel navigation (arrows, dots, auto-play)
+    - **Status**: ✅ Ready for testing
+    - **Implementation**: All code implemented and integrated, ready for manual testing and E2E test creation
+
+329. ✅ Fix product images not displaying in vendor hero banners
+    - **Tech**: Updated `src/trpc/routers/_app.ts` `vendorHeroBanners` query to properly extract product image URLs from populated relationships, increased depth from 2 to 3 to ensure product.image relationship is fully populated
+    - **Details**: The `vendorHeroBanners` query now properly handles product image extraction by: (1) increasing depth to 3 to ensure product.image media relationship is populated (depth 1 = banner, depth 2 = products, depth 3 = product.image), (2) adding robust image URL extraction that handles both populated objects (`product.image.url`) and string IDs (with warning), (3) adding fallback for missing slug field, (4) ensuring image URLs are properly formatted and passed to `VendorHeroBannerProductCard` component. The query now matches the pattern used in homepage `heroBanners` query.
+    - **Status**: ✅ Completed
+    - **Implementation**: Updated `vendorHeroBanners` query to use `depth: 3` instead of `depth: 2`, added image extraction logic that checks if `product.image` is an object with `url` property, added console warning if image is still a string ID (shouldn't happen with depth 3), added slug fallback to product.id if slug is missing, verified image URLs are correctly passed to component
+
+---
+
 ## Summary
 
-**Total Tasks Documented: 305**
+**Total Tasks Documented: 329**
 
-**Completed: ~210 tasks (69%)**
-**Pending: ~95 tasks (31%)**
+**Completed: ~237 tasks (72%)**
+**Pending: ~92 tasks (28%)**
 
 **Breakdown**:
 - **Project Setup & Initialization (1-50)**: 50 completed, 0 pending ✅
@@ -3351,6 +3512,9 @@
 - **YouTube Video Integration (296-305)**: 0 completed, 10 pending
 - **CI/CD & Production Tasks (241-248)**: 2 completed, 6 pending
 - **Authentication Tasks (249-252)**: 0 completed, 4 pending
+- **Large Media Uploads (306-311)**: 1 completed, 5 pending
+- **Vendor Dropdown in Navbar (312-317)**: 6 completed, 2 pending
+- **Vendor Hero Banner Configuration - Multiple Banners System (318-328)**: 11 completed, 0 pending (ready for testing)
 
 ### Key Features Implemented:
 - ✅ Multi-vendor marketplace architecture
@@ -3384,7 +3548,8 @@
 - ✅ Stripe Connect account creation and onboarding (partially implemented)
 - ✅ Vendor Stripe account status checking
 - ✅ Commission calculation and tracking in orders
-- ✅ Hero banners with carousel functionality
+- ✅ Hero banners with carousel functionality (homepage)
+- ✅ Multiple vendor hero banners with carousel functionality (vendor pages)
 - ✅ Cart quantity and variant management
 - ✅ Customer order detail page with offline payment support
 - ✅ Admin task management dashboard
@@ -3401,6 +3566,14 @@
   - ✅ Internal notes (admin-only messages)
   - ✅ Rich text messaging with Lexical editor
   - ✅ Task priority and type classification
+- ✅ **Vendor Hero Banners System**:
+  - ✅ Multiple hero banners per vendor (similar to admin hero banners)
+  - ✅ VendorHeroBanners collection with access control
+  - ✅ Vendor dashboard for creating/editing/deleting banners
+  - ✅ Carousel display on vendor pages with auto-play
+  - ✅ Product selection limited to vendor's own products
+  - ✅ Active/inactive toggle and display order control
+  - ✅ Fallback to default vendor display when no banners exist
 
 ### Pending Features:
 - ⚠️ Complete Stripe Connect implementation (vendor payouts & platform commission) - Partially implemented

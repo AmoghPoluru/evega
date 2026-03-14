@@ -168,8 +168,75 @@ export const Vendors: CollectionConfig = {
       type: "upload",
       relationTo: "media",
       admin: {
-        description: "Vendor cover/banner image",
+        description: "Vendor cover/banner image (fallback if hero banner not configured)",
       },
+    },
+    {
+      name: "heroBanner",
+      type: "group",
+      label: "Hero Banner Configuration",
+      admin: {
+        description: "Configure a custom hero banner for your vendor page. If not configured, the cover image will be used.",
+        condition: (data, siblingData, { user }) => {
+          // Only show to vendors (they can edit their own) or super admins
+          return isSuperAdmin(user) || (user && (user as any).vendor);
+        },
+      },
+      fields: [
+        {
+          name: "title",
+          type: "text",
+          label: "Banner Title",
+          admin: {
+            description: "Main title displayed on the hero banner (e.g., 'Welcome to [Vendor Name]')",
+          },
+        },
+        {
+          name: "subtitle",
+          type: "text",
+          label: "Banner Subtitle",
+          admin: {
+            description: "Optional subtitle text displayed below the title",
+          },
+        },
+        {
+          name: "backgroundImage",
+          type: "upload",
+          relationTo: "media",
+          label: "Background Image",
+          admin: {
+            description: "Background image for the hero banner (recommended: 1920x500px). If not set, a gradient will be used.",
+          },
+        },
+        {
+          name: "products",
+          type: "relationship",
+          relationTo: "products",
+          hasMany: true,
+          label: "Featured Products",
+          admin: {
+            description: "Select products to display in the hero banner (4-6 products recommended). Only your own products can be selected.",
+          },
+        },
+        {
+          name: "isActive",
+          type: "checkbox",
+          label: "Active",
+          defaultValue: true,
+          admin: {
+            description: "Only active hero banners will be displayed on your vendor page",
+          },
+        },
+        {
+          name: "order",
+          type: "number",
+          label: "Display Order",
+          defaultValue: 0,
+          admin: {
+            description: "Display order (lower numbers appear first, if multiple banners exist)",
+          },
+        },
+      ],
     },
     {
       name: "email",

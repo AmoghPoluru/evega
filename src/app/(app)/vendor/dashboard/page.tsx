@@ -82,6 +82,12 @@ export default async function VendorDashboardPage() {
                 • Add New Product
               </a>
               <a
+                href="/vendor/hero-banner"
+                className="block text-sm text-blue-600 hover:underline"
+              >
+                • Customize Hero Banner
+              </a>
+              <a
                 href="/vendor/orders"
                 className="block text-sm text-blue-600 hover:underline"
               >
