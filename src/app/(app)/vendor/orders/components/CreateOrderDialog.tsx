@@ -41,15 +41,15 @@ const createOrderSchema = z.object({
   size: z.string().optional(),
   color: z.string().optional(),
   price: z.number().min(0.01, 'Price must be greater than 0'),
-  status: z.enum(['pending', 'payment_done', 'processing', 'complete']).default('pending'),
-  paymentMethod: z.enum(['stripe', 'offline']).default('offline'),
+  status: z.enum(['pending', 'payment_done', 'processing', 'complete']),
+  paymentMethod: z.enum(['stripe', 'offline']),
   shippingAddress: z.object({
     fullName: z.string().min(1, 'Recipient name is required'),
     street: z.string().min(1, 'Street address is required'),
     city: z.string().min(1, 'City is required'),
     state: z.string().min(1, 'State is required'),
     zipcode: z.string().min(1, 'ZIP code is required'),
-    country: z.string().optional().default('United States'),
+    country: z.string().optional(),
     phone: z.string().optional(),
   }),
 });
@@ -66,11 +66,14 @@ export function CreateOrderDialog({ open, onOpenChange, onSuccess }: CreateOrder
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   
   const form = useForm<CreateOrderFormValues>({
-    resolver: zodResolver(createOrderSchema),
+    resolver: zodResolver(createOrderSchema) as any,
     defaultValues: {
       quantity: 1,
       status: 'pending',
       paymentMethod: 'offline',
+      shippingAddress: {
+        country: 'United States',
+      },
     },
   });
 
@@ -117,15 +120,23 @@ export function CreateOrderDialog({ open, onOpenChange, onSuccess }: CreateOrder
   const handleSubmit = (values: CreateOrderFormValues) => {
     createOrder.mutate({
       customerEmail: values.customerEmail,
-      customerName: values.customerName,
+      customerName: values.customerName || undefined,
       productId: values.productId,
       quantity: values.quantity,
-      size: values.size,
-      color: values.color,
+      size: values.size || undefined,
+      color: values.color || undefined,
       price: values.price,
       status: values.status,
       paymentMethod: values.paymentMethod,
-      shippingAddress: values.shippingAddress,
+      shippingAddress: {
+        fullName: values.shippingAddress.fullName,
+        street: values.shippingAddress.street,
+        city: values.shippingAddress.city,
+        state: values.shippingAddress.state,
+        zipcode: values.shippingAddress.zipcode,
+        country: values.shippingAddress.country || 'United States',
+        phone: values.shippingAddress.phone || undefined,
+      },
     });
   };
 
@@ -226,7 +237,7 @@ export function CreateOrderDialog({ open, onOpenChange, onSuccess }: CreateOrder
                                   selectedProduct.variants
                                     .map((v: any) => v.variantData?.size)
                                     .filter(Boolean)
-                                )
+                                ) as Set<string>
                               ).map((size: string) => (
                                 <SelectItem key={size} value={size}>
                                   {size}
@@ -257,7 +268,7 @@ export function CreateOrderDialog({ open, onOpenChange, onSuccess }: CreateOrder
                                   selectedProduct.variants
                                     .map((v: any) => v.variantData?.color)
                                     .filter(Boolean)
-                                )
+                                ) as Set<string>
                               ).map((color: string) => (
                                 <SelectItem key={color} value={color}>
                                   {color}

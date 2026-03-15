@@ -77,7 +77,7 @@ export default function VendorProductsPage() {
               <div>
                 <p className="text-sm text-gray-600">Total Sold</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {data.docs.reduce((sum, p: any) => sum + (p.soldCount || 0), 0).toLocaleString()}
+                  {data.docs.reduce((sum: number, p: any) => sum + (p.soldCount || 0), 0).toLocaleString()}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
@@ -92,7 +92,7 @@ export default function VendorProductsPage() {
               <div>
                 <p className="text-sm text-gray-600">Total Remaining</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {data.docs.reduce((sum, p: any) => sum + (p.remainingStock || 0), 0).toLocaleString()}
+                  {data.docs.reduce((sum: number, p: any) => sum + (p.remainingStock || 0), 0).toLocaleString()}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
