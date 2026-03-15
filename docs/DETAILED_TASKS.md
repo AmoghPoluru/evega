@@ -3575,6 +3575,600 @@
   - ✅ Active/inactive toggle and display order control
   - ✅ Fallback to default vendor display when no banners exist
 
+
+  # Vendor Customers Page - Detailed Task List
+
+## Overview
+Implementation of a read-only vendor customers list page showing customer name, order list, and total amount paid for each customer who has placed orders with the vendor.
+
+**Route**: `/vendor/customers`
+**Status**: ✅ Completed
+
+---
+
+## Backend Implementation (tRPC)
+
+### Task 1: Update vendor.customers.list Query to Fetch from Orders
+**File**: `src/modules/vendor/server/procedures.ts`
+**Procedure**: `vendor.customers.list`
+
+**Technical Details**:
+- **Change**: Instead of querying the `customers` collection, query `orders` collection directly
+- **Reason**: Ensures all customers who have placed orders are shown, even if customer records don't exist
+- **Query**: Fetch all orders for the vendor: `collection: "orders", where: { vendor: { equals: vendorId } }, limit: 10000, depth: 2`
+- **Depth**: Use `depth: 2` to include user and product relationships
+- **Sort**: Sort orders by `-createdAt` (newest first)
+
+**Implementation Steps**:
+1. Remove query to `customers` collection
+2. Query all orders for the vendor (limit: 10000 to get all orders)
+3. Group orders by user ID using a Map/Record
+4. For each unique user, create a customer object with:
+   - User information (from order.user relationship)
+   - All orders for that user
+   - Calculated totals
+
+**Code Pattern**:
+```typescript
+// Group orders by user ID
+const customersMap: Record<string, {
+  user: any;
+  orders: any[];
+  userId: string;
+}> = {};
+
+allOrders.docs.forEach((order: any) => {
+  const userId = typeof order.user === "string" ? order.user : order.user?.id;
+  if (!userId) return;
+  
+  if (!customersMap[userId]) {
+    const user = typeof order.user === "string" ? null : order.user;
+    customersMap[userId] = {
+      user: user || order.user,
+      orders: [],
+      userId,
+    };
+  }
+  customersMap[userId].orders.push(order);
+});
+```
+
+---
+
+### Task 2: Transform Orders into Customer Objects
+**File**: `src/modules/vendor/server/procedures.ts`
+**Procedure**: `vendor.customers.list`
+
+**Technical Details**:
+- **Input**: Map of users to orders (`customersMap`)
+- **Output**: Array of customer objects with required fields
+- **Fields to Calculate**:
+  - `name`: From user.name or user.email or "Unknown"
+  - `email`: From user.email
+  - `orders`: Array of all orders for this customer
+  - `totalAmountPaid`: Sum of all order.total values
+  - `orderCount`: Length of orders array
+  - `averageOrderValue`: totalAmountPaid / orderCount
+  - `lastOrderDate`: Most recent order.createdAt
+  - `firstOrderDate`: Oldest order.createdAt
+  - `customerId`: User ID (used as customer identifier)
+
+**Code Pattern**:
+```typescript
+const customers = Object.values(customersMap).map((customerData) => {
+  const user = customerData.user;
+  const userId = customerData.userId;
+  const orders = customerData.orders;
+  
+  const userName = typeof user === "object" && user?.name 
+    ? user.name 
+    : typeof user === "object" && user?.email 
+    ? user.email 
+    : "Unknown";
+  const userEmail = typeof user === "object" && user?.email ? user.email : "";
+
+  const totalAmountPaid = orders.reduce((sum: number, order: any) => {
+    return sum + (order.total || 0);
+  }, 0);
+
+  const orderDates = orders.map((o: any) => new Date(o.createdAt)).sort((a, b) => b.getTime() - a.getTime());
+  const lastOrderDate = orderDates.length > 0 ? orderDates[0] : null;
+  const firstOrderDate = orderDates.length > 0 ? orderDates[orderDates.length - 1] : null;
+
+  return {
+    user: user || userId,
+    orders: orders,
+    totalSpent: totalAmountPaid,
+    totalAmountPaid,
+    orderCount: orders.length,
+    averageOrderValue: orders.length > 0 ? totalAmountPaid / orders.length : 0,
+    lastOrderDate,
+    firstOrderDate,
+    customerId: userId,
+    name: userName,
+    email: userEmail,
+  };
+});
+```
+
+---
+
+### Task 3: Apply Filters to Customer List
+**File**: `src/modules/vendor/server/procedures.ts`
+**Procedure**: `vendor.customers.list`
+
+**Technical Details**:
+- **Search Filter**: Filter by customer name or email (case-insensitive)
+- **Status Filter**: 
+  - `active`: Last order within 90 days
+  - `inactive`: Last order more than 90 days ago
+  - `new`: Single order within 30 days
+- **Order Count Filter**: Filter by `orderCountMin` and `orderCountMax`
+- **Total Spent Filter**: Filter by `totalSpentMin` and `totalSpentMax`
+- **Last Order Date Filter**: Filter by `lastOrderDays` (orders within X days)
+
+**Implementation**:
+- Apply filters after transforming orders to customers
+- Use JavaScript array `.filter()` method
+- Filter before sorting and pagination
+
+**Code Pattern**:
+```typescript
+// Apply search filter
+if (input.search) {
+  const searchLower = input.search.toLowerCase();
+  customers = customers.filter((c) => {
+    const nameMatch = c.name?.toLowerCase().includes(searchLower);
+    const emailMatch = c.email?.toLowerCase().includes(searchLower);
+    return nameMatch || emailMatch;
+  });
+}
+
+// Apply status filter
+if (input.status !== "all") {
+  const now = new Date();
+  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  customers = customers.filter((c) => {
+    if (!c.lastOrderDate) return input.status === "inactive";
+    
+    if (input.status === "active") {
+      return c.lastOrderDate >= ninetyDaysAgo;
+    } else if (input.status === "inactive") {
+      return c.lastOrderDate < ninetyDaysAgo;
+    } else if (input.status === "new") {
+      return c.orderCount === 1 && c.firstOrderDate && c.firstOrderDate >= thirtyDaysAgo;
+    }
+    return true;
+  });
+}
+```
+
+---
+
+### Task 4: Apply Sorting to Customer List
+**File**: `src/modules/vendor/server/procedures.ts`
+**Procedure**: `vendor.customers.list`
+
+**Technical Details**:
+- **Sort Fields**: `name`, `totalSpent`, `totalOrders`, `lastOrderDate`
+- **Sort Order**: `asc` or `desc`
+- **Default**: `lastOrderDate` descending (newest first)
+
+**Implementation**:
+- Use JavaScript array `.sort()` method
+- Handle different data types (string, number, Date)
+- Apply sorting after filtering, before pagination
+
+**Code Pattern**:
+```typescript
+customers.sort((a, b) => {
+  let aValue: any;
+  let bValue: any;
+
+  if (input.sortBy === "name") {
+    aValue = a.name || "";
+    bValue = b.name || "";
+  } else if (input.sortBy === "totalSpent") {
+    aValue = a.totalAmountPaid || 0;
+    bValue = b.totalAmountPaid || 0;
+  } else if (input.sortBy === "totalOrders") {
+    aValue = a.orderCount || 0;
+    bValue = b.orderCount || 0;
+  } else {
+    // lastOrderDate
+    aValue = a.lastOrderDate?.getTime() || 0;
+    bValue = b.lastOrderDate?.getTime() || 0;
+  }
+
+  if (input.sortOrder === "asc") {
+    return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+  } else {
+    return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+  }
+});
+```
+
+---
+
+### Task 5: Apply Pagination to Customer List
+**File**: `src/modules/vendor/server/procedures.ts`
+**Procedure**: `vendor.customers.list`
+
+**Technical Details**:
+- **Input**: `page` (default: 1), `limit` (default: 20)
+- **Calculate**: `totalDocs`, `totalPages`, `hasNextPage`, `hasPrevPage`
+- **Slice**: Array slice based on page and limit
+
+**Implementation**:
+- Calculate total docs before pagination
+- Calculate start and end indices
+- Slice the customers array
+- Return pagination metadata
+
+**Code Pattern**:
+```typescript
+const totalDocs = customers.length;
+const totalPages = Math.ceil(totalDocs / input.limit);
+const startIndex = (input.page - 1) * input.limit;
+const endIndex = startIndex + input.limit;
+const paginatedCustomers = customers.slice(startIndex, endIndex);
+
+return {
+  docs: paginatedCustomers,
+  totalDocs,
+  totalPages,
+  page: input.page,
+  hasNextPage: input.page < totalPages,
+  hasPrevPage: input.page > 1,
+};
+```
+
+---
+
+## Frontend Implementation
+
+### Task 6: Update CustomersTable Component Structure
+**File**: `src/app/(app)/vendor/customers/components/CustomersTable.tsx`
+
+**Technical Details**:
+- **Columns**: Customer Name, Order List, Amount Paid
+- **Read-only**: Remove all interactive elements (click handlers, dropdown menus)
+- **Remove**: Status column, Average Order Value, Last Order Date, Actions column
+
+**Table Structure**:
+```typescript
+<TableHeader>
+  <TableRow>
+    <TableHead>Customer Name</TableHead>
+    <TableHead>Order List</TableHead>
+    <TableHead className="text-right">Amount Paid</TableHead>
+  </TableRow>
+</TableHeader>
+```
+
+---
+
+### Task 7: Display Customer Name with Avatar
+**File**: `src/app/(app)/vendor/customers/components/CustomersTable.tsx`
+
+**Technical Details**:
+- **Component**: Use shadcn/ui `Avatar` and `AvatarFallback`
+- **Initials**: Generate from customer name (first letter of each word, max 2 letters)
+- **Display**: 
+  - Avatar with initials
+  - Customer name (bold, font-medium)
+  - Customer email (small, gray text below name)
+
+**Code Pattern**:
+```typescript
+const getInitials = (name: string) => {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+};
+
+// In table cell:
+<TableCell>
+  <div className="flex items-center gap-3">
+    <Avatar>
+      <AvatarFallback>
+        {getInitials(userName)}
+      </AvatarFallback>
+    </Avatar>
+    <div>
+      <div className="font-medium">{userName}</div>
+      <div className="text-sm text-gray-500">{userEmail}</div>
+    </div>
+  </div>
+</TableCell>
+```
+
+---
+
+### Task 8: Display Order List for Each Customer
+**File**: `src/app/(app)/vendor/customers/components/CustomersTable.tsx`
+
+**Technical Details**:
+- **Container**: Scrollable div with `max-h-48 overflow-y-auto`
+- **Each Order Shows**:
+  - Product name (bold)
+  - Order number, date, status (small gray text)
+  - Order amount (right-aligned, formatted currency)
+- **Empty State**: Show "No orders" if orders array is empty
+- **Styling**: Border between orders, last order has no border
+
+**Code Pattern**:
+```typescript
+<TableCell>
+  <div className="space-y-2 max-h-48 overflow-y-auto">
+    {orders.length === 0 ? (
+      <span className="text-sm text-gray-400">No orders</span>
+    ) : (
+      orders.map((order: any) => {
+        const product = typeof order.product === "string" ? null : order.product;
+        const productName = product?.name || "Unknown Product";
+        const orderNumber = order.orderNumber || order.id;
+        const orderDate = order.createdAt ? format(new Date(order.createdAt), "MMM d, yyyy") : "";
+        const orderTotal = order.total || 0;
+        const orderStatus = order.status || "pending";
+
+        return (
+          <div key={order.id} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
+            <div className="flex-1">
+              <div className="font-medium">{productName}</div>
+              <div className="text-xs text-gray-500">
+                {orderNumber} • {orderDate} • {orderStatus}
+              </div>
+            </div>
+            <div className="text-right font-medium ml-4">
+              {formatCurrency(orderTotal)}
+            </div>
+          </div>
+        );
+      })
+    )}
+  </div>
+</TableCell>
+```
+
+---
+
+### Task 9: Display Total Amount Paid
+**File**: `src/app/(app)/vendor/customers/components/CustomersTable.tsx`
+
+**Technical Details**:
+- **Display**: Large, bold amount (text-lg font-semibold)
+- **Label**: Order count below amount (e.g., "3 orders")
+- **Alignment**: Right-aligned
+- **Format**: Use `formatCurrency()` helper for currency formatting
+
+**Code Pattern**:
+```typescript
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(amount);
+};
+
+// In table cell:
+<TableCell className="text-right">
+  <div className="flex flex-col items-end">
+    <span className="text-lg font-semibold text-gray-900">
+      {formatCurrency(totalAmountPaid)}
+    </span>
+    <span className="text-xs text-gray-500">
+      {orders.length} order{orders.length !== 1 ? "s" : ""}
+    </span>
+  </div>
+</TableCell>
+```
+
+---
+
+### Task 10: Update Customer Interface Type
+**File**: `src/app/(app)/vendor/customers/components/CustomersTable.tsx`
+
+**Technical Details**:
+- **Add Field**: `totalAmountPaid?: number` to Customer interface
+- **Purpose**: Store total amount paid calculated from orders
+- **Fallback**: Use `totalSpent` if `totalAmountPaid` is not available
+
+**Code Pattern**:
+```typescript
+interface Customer {
+  user: any;
+  orders: any[];
+  totalSpent: number;
+  totalAmountPaid?: number; // Add this field
+  orderCount: number;
+  averageOrderValue: number;
+  lastOrderDate: Date | null;
+  customerId?: string;
+  name?: string;
+  email?: string;
+}
+```
+
+---
+
+### Task 11: Remove Interactive Elements
+**File**: `src/app/(app)/vendor/customers/components/CustomersTable.tsx`
+
+**Technical Details**:
+- **Remove**: `useRouter` import and usage
+- **Remove**: Row click handler (`onClick` on TableRow)
+- **Remove**: Actions dropdown menu
+- **Remove**: Status badge logic
+- **Remove**: Unused imports (Badge, DropdownMenu, MoreHorizontal, Mail icons)
+
+**Changes**:
+- Remove `onClick={() => router.push(...)}` from TableRow
+- Remove Actions TableHead and TableCell
+- Keep only read-only display elements
+
+---
+
+### Task 12: Update Empty State Message
+**File**: `src/app/(app)/vendor/customers/components/CustomersTable.tsx`
+
+**Technical Details**:
+- **Colspan**: Update from 7 to 3 (matching new column count)
+- **Message**: "No customers found"
+- **Styling**: Center-aligned, gray text, padding
+
+**Code Pattern**:
+```typescript
+{customers.length === 0 ? (
+  <TableRow>
+    <TableCell colSpan={3} className="text-center text-gray-500 py-8">
+      No customers found
+    </TableCell>
+  </TableRow>
+) : (
+  // ... customer rows
+)}
+```
+
+---
+
+## Data Flow
+
+### Task 13: Order Data Structure
+**Technical Details**:
+- **Order Object Fields Used**:
+  - `id`: Order ID
+  - `orderNumber`: Order number (or fallback to id)
+  - `product`: Product relationship (populated with depth: 2)
+  - `total`: Order total amount
+  - `status`: Order status
+  - `createdAt`: Order creation date
+  - `user`: User relationship (populated with depth: 2)
+
+**Product Access**:
+```typescript
+const product = typeof order.product === "string" ? null : order.product;
+const productName = product?.name || "Unknown Product";
+```
+
+**User Access**:
+```typescript
+const user = typeof customer.user === "string" ? null : customer.user;
+const userName = customer.name || user?.name || user?.email || "Unknown";
+const userEmail = customer.email || user?.email || "";
+```
+
+---
+
+## Testing Checklist
+
+### Task 14: Verify Customer Display
+- [ ] Customer name displays correctly (from user.name or user.email)
+- [ ] Customer email displays below name
+- [ ] Avatar shows correct initials
+- [ ] Empty state shows when no customers
+
+### Task 15: Verify Order List Display
+- [ ] All orders for customer are shown
+- [ ] Product name displays correctly
+- [ ] Order number, date, and status display correctly
+- [ ] Order amount displays correctly (formatted currency)
+- [ ] Scrollable container works when many orders
+- [ ] "No orders" message shows when customer has no orders
+
+### Task 16: Verify Amount Paid Display
+- [ ] Total amount paid is correct (sum of all order totals)
+- [ ] Currency formatting is correct
+- [ ] Order count is correct
+- [ ] Displays "1 order" vs "X orders" correctly
+
+### Task 17: Verify Filters Work
+- [ ] Search by name works
+- [ ] Search by email works
+- [ ] Status filter works (active/inactive/new)
+- [ ] Filters combine correctly
+
+### Task 18: Verify Pagination Works
+- [ ] Pagination displays correct page numbers
+- [ ] Previous/Next buttons work
+- [ ] Page count is correct
+- [ ] Customer count per page is correct (20 by default)
+
+---
+
+## Technical Notes
+
+### Performance Considerations
+- **Order Limit**: Query uses `limit: 10000` to get all orders. For vendors with many orders, consider pagination or date filtering.
+- **Memory**: All orders are loaded into memory for grouping. For very large datasets, consider server-side aggregation.
+- **Depth**: Using `depth: 2` ensures user and product relationships are populated, avoiding N+1 queries.
+
+### Data Consistency
+- **Customer Records**: The query doesn't require customer records to exist. Customers are derived from orders.
+- **User Data**: User information comes from the order.user relationship, which should always be populated.
+- **Product Data**: Product information comes from order.product relationship, which should always be populated.
+
+### Error Handling
+- **Missing User**: Falls back to "Unknown" if user data is missing
+- **Missing Product**: Falls back to "Unknown Product" if product data is missing
+- **Missing Order Data**: Handles undefined/null values gracefully with fallbacks
+
+---
+
+## File Changes Summary
+
+### Modified Files:
+1. `src/modules/vendor/server/procedures.ts`
+   - Updated `vendor.customers.list` query to fetch from orders instead of customers collection
+   - Added order grouping logic
+   - Added customer transformation logic
+   - Added client-side filtering, sorting, and pagination
+
+2. `src/app/(app)/vendor/customers/components/CustomersTable.tsx`
+   - Simplified table structure (3 columns)
+   - Added order list display
+   - Added amount paid display
+   - Removed interactive elements
+   - Updated Customer interface
+
+### No Changes Required:
+- `src/app/(app)/vendor/customers/page.tsx` - Already handles data fetching and pagination correctly
+
+---
+
+## Implementation Status
+
+✅ **Completed Tasks**:
+- Task 1: Updated query to fetch from orders
+- Task 2: Transform orders into customer objects
+- Task 3: Apply filters
+- Task 4: Apply sorting
+- Task 5: Apply pagination
+- Task 6: Updated table structure
+- Task 7: Customer name display
+- Task 8: Order list display
+- Task 9: Amount paid display
+- Task 10: Updated interface
+- Task 11: Removed interactive elements
+- Task 12: Updated empty state
+
+---
+
+## Usage
+
+The customers page is now accessible at `/vendor/customers` and displays:
+- **Customer Name**: With avatar and email
+- **Order List**: All orders for each customer with product name, order number, date, status, and amount
+- **Amount Paid**: Total amount paid across all orders with order count
+
+The page is fully read-only and shows all customers who have placed orders with the vendor, regardless of whether customer records exist in the customers collection.
+
+
 ### Pending Features:
 - ⚠️ Complete Stripe Connect implementation (vendor payouts & platform commission) - Partially implemented
 - ⚠️ Comprehensive testing suite - Setup complete, needs more test coverage

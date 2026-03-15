@@ -15,6 +15,7 @@ import {
   Bell,
   MessageCircle,
   Image,
+  ShoppingBag,
 } from "lucide-react";
 
 const navItems = [
@@ -46,6 +47,19 @@ export function VendorSidebar() {
           <Store className="h-6 w-6 text-gray-700" />
           <span className="font-semibold text-gray-900">Vendor Portal</span>
         </Link>
+      </div>
+
+      {/* Prominent Go Shopping Button */}
+      <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <a
+          href="https://evegasupplier-ind.vercel.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+        >
+          <ShoppingBag className="h-5 w-5" />
+          <span>Go Shopping</span>
+        </a>
       </div>
 
       {/* Navigation */}

@@ -2,7 +2,8 @@ import { getVendorStatus } from "@/lib/middleware/vendor-auth";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, AlertCircle, ShoppingBag } from "lucide-react";
+import { StatsCards } from "./components/StatsCards";
 
 export default async function VendorDashboardPage() {
   const vendorStatus = await getVendorStatus();
@@ -21,94 +22,9 @@ export default async function VendorDashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Products</CardTitle>
-            <CardDescription className="text-xs">Active products in your store</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">0</p>
-            <p className="text-xs text-gray-500 mt-1">Coming soon</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Orders</CardTitle>
-            <CardDescription className="text-xs">Orders received</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">0</p>
-            <p className="text-xs text-gray-500 mt-1">Coming soon</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Revenue</CardTitle>
-            <CardDescription className="text-xs">Total earnings</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">$0</p>
-            <p className="text-xs text-gray-500 mt-1">Coming soon</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Pending Orders</CardTitle>
-            <CardDescription className="text-xs">Orders awaiting fulfillment</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">0</p>
-            <p className="text-xs text-gray-500 mt-1">Coming soon</p>
-          </CardContent>
-        </Card>
-      </div>
+      <StatsCards />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Quick Actions</CardTitle>
-            <CardDescription>Manage your vendor account</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <a
-                href="/vendor/products/new"
-                className="block text-sm text-blue-600 hover:underline"
-              >
-                • Add New Product
-              </a>
-              <a
-                href="/vendor/hero-banner"
-                className="block text-sm text-blue-600 hover:underline"
-              >
-                • Customize Hero Banner
-              </a>
-              <a
-                href="/vendor/orders"
-                className="block text-sm text-blue-600 hover:underline"
-              >
-                • View Orders
-              </a>
-              <a
-                href="/vendor/stripe-onboarding"
-                className="block text-sm text-blue-600 hover:underline"
-              >
-                • Connect Stripe Account
-              </a>
-              <a
-                href="/vendor/tasks"
-                className="block text-sm text-blue-600 hover:underline"
-              >
-                • Support & Tasks (Ask BDO/Admin)
-              </a>
-            </div>
-          </CardContent>
-        </Card>
-
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Payment Account</CardTitle>
@@ -174,6 +90,21 @@ export default async function VendorDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Prominent Go Shopping Card */}
+      <Card className="mt-6 border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <CardContent className="pt-6">
+          <a
+            href="https://evegasupplier-ind.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-3 w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+          >
+            <ShoppingBag className="h-6 w-6" />
+            <span>Go Shopping</span>
+          </a>
+        </CardContent>
+      </Card>
     </div>
   );
 }

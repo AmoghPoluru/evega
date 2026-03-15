@@ -34,7 +34,14 @@ import {
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
+  Info,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -154,6 +161,38 @@ export function ProductsTable({
       return product.variants.reduce((sum: number, variant: any) => sum + (variant.stock || 0), 0);
     }
     return 0; // TODO: Add base stock field if needed
+  };
+
+  const getSoldQuantity = (product: any) => {
+    return product.soldCount || 0;
+  };
+
+  const getRemainingStock = (product: any) => {
+    return product.remainingStock !== undefined ? product.remainingStock : getStockQuantity(product);
+  };
+
+  const formatNumber = (value: number) => {
+    return new Intl.NumberFormat("en-US").format(value);
+  };
+
+  const getStockBadge = (remaining: number) => {
+    if (remaining === 0) {
+      return <Badge variant="destructive">Out of Stock</Badge>;
+    }
+    if (remaining < 5) {
+      return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100/80">Low Stock</Badge>;
+    }
+    return null;
+  };
+
+  const getStockTextColor = (remaining: number) => {
+    if (remaining === 0) {
+      return "text-red-600 font-semibold";
+    }
+    if (remaining < 5) {
+      return "text-yellow-600";
+    }
+    return "text-green-600";
   };
 
   const formatDate = (dateString: string) => {
@@ -288,7 +327,36 @@ export function ProductsTable({
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead>Stock</TableHead>
+              <TableHead className="text-right">
+                <div className="flex items-center justify-end gap-1">
+                  Sold
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3 w-3 text-gray-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Total units sold from orders</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </TableHead>
+              <TableHead className="text-right">
+                <div className="flex items-center justify-end gap-1">
+                  Remaining
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3 w-3 text-gray-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Current available inventory</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </TableHead>
               <TableHead>Status</TableHead>
               <TableHead>
                 <Button
@@ -324,6 +392,9 @@ export function ProductsTable({
                     <Skeleton className="h-4 w-16" />
                   </TableCell>
                   <TableCell>
+                    <Skeleton className="h-4 w-16" />
+                  </TableCell>
+                  <TableCell>
                     <Skeleton className="h-5 w-20" />
                   </TableCell>
                   <TableCell>
@@ -336,7 +407,7 @@ export function ProductsTable({
               ))
             ) : products.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-12 text-gray-500">
+                <TableCell colSpan={9} className="text-center py-12 text-gray-500">
                   No products found.{" "}
                   <Link href="/vendor/products/new" className="text-blue-600 hover:underline">
                     Create your first product
@@ -349,7 +420,10 @@ export function ProductsTable({
                   typeof product.image === "object" && product.image?.url
                     ? product.image.url
                     : null;
-                const stock = getStockQuantity(product);
+                const sold = getSoldQuantity(product);
+                const remaining = getRemainingStock(product);
+                const stockBadge = getStockBadge(remaining);
+                const stockTextColor = getStockTextColor(remaining);
 
                 return (
                   <TableRow 
@@ -383,10 +457,34 @@ export function ProductsTable({
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex flex-col">
+                        <span>{product.name}</span>
+                        <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <span className="font-medium text-gray-700">Sold:</span>
+                            <span className="text-gray-900">{formatNumber(sold)}</span>
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="font-medium text-gray-700">Remaining:</span>
+                            <span className={stockTextColor}>{formatNumber(remaining)}</span>
+                          </span>
+                        </div>
+                      </div>
+                    </TableCell>
                     <TableCell>{formatPrice(product.price)}</TableCell>
-                    <TableCell>
-                      <span className={stock === 0 ? "text-red-600" : ""}>{stock}</span>
+                    <TableCell className="text-right text-gray-900">
+                      <div className="flex flex-col items-end">
+                        <span className="text-lg font-semibold">{formatNumber(sold)}</span>
+                        <span className="text-xs text-gray-500">Total Sold</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={`text-lg font-semibold ${stockTextColor}`}>{formatNumber(remaining)}</span>
+                        <span className="text-xs text-gray-500">Remaining</span>
+                        {stockBadge}
+                      </div>
                     </TableCell>
                     <TableCell>{getStatusBadge(product)}</TableCell>
                     <TableCell className="text-sm text-gray-600">

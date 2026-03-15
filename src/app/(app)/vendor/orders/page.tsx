@@ -10,8 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, X, Download } from "lucide-react";
+import { Search, X, Download, Plus } from "lucide-react";
 import { parseAsString, useQueryStates } from "nuqs";
+import { CreateOrderDialog } from "./components/CreateOrderDialog";
 
 export default function VendorOrdersPage() {
   const router = useRouter();
@@ -28,6 +29,7 @@ export default function VendorOrdersPage() {
 
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
+  const [createOrderOpen, setCreateOrderOpen] = useState(false);
   const page = parseInt(queryState.page || "1", 10);
 
   // Task 4.3.3: Debounce search input (300ms) to reduce API calls
@@ -93,9 +95,15 @@ export default function VendorOrdersPage() {
   return (
     <div className="p-6">
       {/* Task 4.1.2: Header section with title and description */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Orders</h1>
-        <p className="text-sm text-gray-600 mt-1">Manage your orders</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Orders</h1>
+          <p className="text-sm text-gray-600 mt-1">Manage your orders</p>
+        </div>
+        <Button onClick={() => setCreateOrderOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Create Order
+        </Button>
       </div>
 
       {/* Filters Section */}
@@ -232,6 +240,16 @@ export default function VendorOrdersPage() {
           onSearchChange={setSearch}
         />
       )}
+
+      <CreateOrderDialog 
+        open={createOrderOpen} 
+        onOpenChange={setCreateOrderOpen}
+        onSuccess={() => {
+          setCreateOrderOpen(false);
+          // Refetch orders
+          router.refresh();
+        }}
+      />
     </div>
   );
 }

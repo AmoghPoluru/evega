@@ -216,7 +216,7 @@ export async function POST(req: Request) {
             });
 
             // Update product with new variant stock
-            await payload.update({
+            const updatedProduct = await payload.update({
               collection: "products",
               id: cartItem.productId,
               data: {
@@ -227,6 +227,19 @@ export async function POST(req: Request) {
             console.log(
               `Updated stock for ${product.name}${cartItem.size ? ` (${cartItem.size})` : ''}${cartItem.color ? ` - ${cartItem.color}` : ''}: ${variant.stock} → ${newStock}`
             );
+
+            // Task 1009: Check if product stock is now 0 and auto-draft if needed
+            const totalStock = updatedVariants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+            if (totalStock === 0 && updatedProduct.isPrivate === false) {
+              await payload.update({
+                collection: "products",
+                id: cartItem.productId,
+                data: {
+                  isPrivate: true,
+                },
+              });
+              console.log(`[Webhook] Auto-drafted product ${cartItem.productId} due to zero inventory after stock update`);
+            }
           } else if (product.variants && product.variants.length > 0) {
             console.warn(
               `Variant not found for ${product.name}${cartItem.size ? ` (${cartItem.size})` : ''}${cartItem.color ? ` - ${cartItem.color}` : ''}, skipping stock update`

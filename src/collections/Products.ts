@@ -120,6 +120,23 @@ export const Products: CollectionConfig = {
           }
         }
 
+        // Task 1007: Auto-draft when total stock reaches 0
+        if (operation === "update") {
+          // Calculate total stock from variants
+          let totalStock = 0;
+          if (data.variants && Array.isArray(data.variants) && data.variants.length > 0) {
+            totalStock = data.variants.reduce((sum: number, variant: any) => {
+              return sum + (variant.stock || 0);
+            }, 0);
+          }
+          
+          // If stock is 0 and product is not already private, set to draft
+          if (totalStock === 0 && data.isPrivate !== true) {
+            data.isPrivate = true;
+            console.log(`[Products Hook] Auto-drafted product due to zero inventory`);
+          }
+        }
+
         // Prevent vendors from changing vendor field
         if (operation === "update" && user && isVendor(user) && user.vendor) {
           const vendorId = getVendorId(user);
@@ -167,6 +184,37 @@ export const Products: CollectionConfig = {
               version: 1,
             },
           };
+        }
+        return doc;
+      },
+    ],
+    afterChange: [
+      // Task 1008: Check stock after variant updates and auto-draft if needed
+      async ({ doc, operation, req }) => {
+        if (operation === "update") {
+          // Calculate total stock from variants
+          let totalStock = 0;
+          if (doc.variants && Array.isArray(doc.variants) && doc.variants.length > 0) {
+            totalStock = doc.variants.reduce((sum: number, variant: any) => {
+              return sum + (variant.stock || 0);
+            }, 0);
+          }
+          
+          // If stock is 0 and product is published, auto-draft it
+          if (totalStock === 0 && doc.isPrivate === false) {
+            try {
+              await req.payload.update({
+                collection: "products",
+                id: doc.id,
+                data: {
+                  isPrivate: true,
+                },
+              });
+              console.log(`[Products Hook] Auto-drafted product ${doc.id} due to zero inventory after update`);
+            } catch (error) {
+              console.error(`[Products Hook] Failed to auto-draft product ${doc.id}:`, error);
+            }
+          }
         }
         return doc;
       },

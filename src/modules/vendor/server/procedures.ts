@@ -170,6 +170,72 @@ export const vendorRouter = createTRPCRouter({
     }),
 
   products: createTRPCRouter({
+    // Task 1001: Calculate sold quantity and remaining stock for products
+    stats: vendorProcedure
+      .input(
+        z.object({
+          productIds: z.array(z.string()),
+        })
+      )
+      .query(async ({ ctx, input }) => {
+        const vendorId = typeof ctx.session.vendor === "string" 
+          ? ctx.session.vendor 
+          : ctx.session.vendor.id;
+        
+        if (input.productIds.length === 0) {
+          return {};
+        }
+
+        // Query orders for these products
+        const orders = await ctx.db.find({
+          collection: "orders",
+          where: {
+            vendor: { equals: vendorId },
+            product: { in: input.productIds },
+          },
+          limit: 1000, // Get all orders for these products
+          depth: 0,
+        });
+
+        // Aggregate sold quantities by product ID
+        const soldCounts: Record<string, number> = {};
+        orders.docs.forEach((order: any) => {
+          const productId = typeof order.product === "string" ? order.product : order.product?.id;
+          if (productId) {
+            soldCounts[productId] = (soldCounts[productId] || 0) + (order.quantity || 0);
+          }
+        });
+
+        // Get products to calculate remaining stock
+        const products = await ctx.db.find({
+          collection: "products",
+          where: {
+            id: { in: input.productIds },
+          },
+          limit: input.productIds.length,
+          depth: 0,
+        });
+
+        // Calculate remaining stock for each product
+        const stats: Record<string, { sold: number; remaining: number }> = {};
+        products.docs.forEach((product: any) => {
+          const productId = product.id;
+          const sold = soldCounts[productId] || 0;
+          
+          // Calculate remaining stock: sum of all variant stocks
+          let remaining = 0;
+          if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
+            remaining = product.variants.reduce((sum: number, variant: any) => {
+              return sum + (variant.stock || 0);
+            }, 0);
+          }
+          
+          stats[productId] = { sold, remaining };
+        });
+
+        return stats;
+      }),
+
     list: vendorProcedure
       .input(
         z.object({
@@ -245,8 +311,60 @@ export const vendorRouter = createTRPCRouter({
           where,
         });
 
+        // Task 1002: Calculate soldCount and remainingStock for each product
+        const productIds = result.docs.map((p: any) => p.id);
+        const stats: Record<string, { sold: number; remaining: number }> = {};
+        
+        if (productIds.length > 0) {
+          // Query orders for these products
+          const orders = await ctx.db.find({
+            collection: "orders",
+            where: {
+              vendor: { equals: vendorId },
+              product: { in: productIds },
+            },
+            limit: 1000,
+            depth: 0,
+          });
+
+          // Aggregate sold quantities
+          const soldCounts: Record<string, number> = {};
+          orders.docs.forEach((order: any) => {
+            const productId = typeof order.product === "string" ? order.product : order.product?.id;
+            if (productId) {
+              soldCounts[productId] = (soldCounts[productId] || 0) + (order.quantity || 0);
+            }
+          });
+
+          // Calculate remaining stock for each product
+          result.docs.forEach((product: any) => {
+            const productId = product.id;
+            const sold = soldCounts[productId] || 0;
+            
+            // Calculate remaining stock: sum of all variant stocks
+            let remaining = 0;
+            if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
+              remaining = product.variants.reduce((sum: number, variant: any) => {
+                return sum + (variant.stock || 0);
+              }, 0);
+            }
+            
+            stats[productId] = { sold, remaining };
+          });
+        }
+
+        // Add soldCount and remainingStock to each product
+        const docsWithStats = result.docs.map((product: any) => {
+          const statsForProduct = stats[product.id] || { sold: 0, remaining: 0 };
+          return {
+            ...product,
+            soldCount: statsForProduct.sold,
+            remainingStock: statsForProduct.remaining,
+          };
+        });
+
         return {
-          docs: result.docs,
+          docs: docsWithStats,
           totalDocs: result.totalDocs,
           totalPages: result.totalPages,
           page: result.page,
@@ -1347,6 +1465,121 @@ export const vendorRouter = createTRPCRouter({
         return order;
       }),
 
+    // Create manual order
+    create: vendorProcedure
+      .input(
+        z.object({
+          customerEmail: z.string().email(),
+          customerName: z.string().optional(),
+          productId: z.string(),
+          quantity: z.number().min(1),
+          size: z.string().optional(),
+          color: z.string().optional(),
+          price: z.number().min(0.01),
+          status: z.enum(["pending", "payment_done", "processing", "complete"]).default("pending"),
+          paymentMethod: z.enum(["stripe", "offline"]).default("offline"),
+          shippingAddress: z.object({
+            fullName: z.string().min(1),
+            street: z.string().min(1),
+            city: z.string().min(1),
+            state: z.string().min(1),
+            zipcode: z.string().min(1),
+            country: z.string().optional().default("United States"),
+            phone: z.string().optional(),
+          }),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const vendorId = typeof ctx.session.vendor === "string" 
+          ? ctx.session.vendor 
+          : ctx.session.vendor.id;
+
+        // Verify product belongs to vendor
+        const product = await ctx.db.findByID({
+          collection: "products",
+          id: input.productId,
+          depth: 0,
+        });
+
+        const productVendorId = typeof product.vendor === "string" 
+          ? product.vendor 
+          : product.vendor?.id;
+
+        if (productVendorId !== vendorId) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Product does not belong to your vendor account",
+          });
+        }
+
+        // Find or create user by email
+        let user;
+        const existingUsers = await ctx.db.find({
+          collection: "users",
+          where: {
+            email: { equals: input.customerEmail },
+          },
+          limit: 1,
+        });
+
+        if (existingUsers.docs.length > 0) {
+          user = existingUsers.docs[0];
+        } else {
+          // Create a new user account for this customer
+          // Generate a random password (user can reset it later if needed)
+          const randomPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12) + "A1!";
+          
+          user = await ctx.db.create({
+            collection: "users",
+            data: {
+              email: input.customerEmail,
+              name: input.customerName || input.customerEmail.split("@")[0],
+              password: randomPassword, // Will be hashed by Payload
+            },
+          });
+        }
+
+        // Calculate total
+        const total = input.price * input.quantity;
+
+        // Generate order name
+        const orderName = input.size || input.color
+          ? `Order for ${product.name}${input.size ? ` (${input.size})` : ''}${input.color ? ` - ${input.color}` : ''}`
+          : `Order for ${product.name}`;
+
+        // Create order
+        const order = await ctx.db.create({
+          collection: "orders",
+          data: {
+            name: orderName,
+            user: user.id,
+            vendor: vendorId,
+            product: input.productId,
+            quantity: input.quantity,
+            size: input.size || undefined,
+            color: input.color || undefined,
+            total,
+            status: input.status,
+            paymentMethod: input.paymentMethod,
+            shippingAddress: {
+              fullName: input.shippingAddress.fullName,
+              street: input.shippingAddress.street,
+              city: input.shippingAddress.city,
+              state: input.shippingAddress.state,
+              zipcode: input.shippingAddress.zipcode,
+              country: input.shippingAddress.country || "United States",
+              phone: input.shippingAddress.phone || undefined,
+            },
+            // Order number will be auto-generated by beforeChange hook
+          },
+        });
+
+        return {
+          id: order.id,
+          orderNumber: (order as any).orderNumber,
+        };
+      }),
+
     // Task 4.17: Update order status - verify vendor ownership, update status and statusHistory
     updateStatus: vendorProcedure
       .input(
@@ -1581,17 +1814,92 @@ export const vendorRouter = createTRPCRouter({
           ? ctx.session.vendor 
           : ctx.session.vendor.id;
 
-        // Build where clause
-        const where: Where = {
-          vendors: { contains: vendorId },
+        // Query orders directly from this vendor to get customers
+        // This ensures we show all customers who have placed orders, even if customer records don't exist
+        const ordersWhere: Where = {
+          vendor: { equals: vendorId },
         };
+
+        // Get all orders for this vendor
+        const allOrders = await ctx.db.find({
+          collection: "orders",
+          where: ordersWhere,
+          limit: 10000, // Get all orders
+          depth: 2, // Include user and product relationships
+          sort: "-createdAt",
+        });
+
+        // Group orders by user ID to create customer list
+        const customersMap: Record<string, {
+          user: any;
+          orders: any[];
+          userId: string;
+        }> = {};
+
+        allOrders.docs.forEach((order: any) => {
+          const userId = typeof order.user === "string" ? order.user : order.user?.id;
+          if (!userId) return;
+
+          if (!customersMap[userId]) {
+            const user = typeof order.user === "string" ? null : order.user;
+            customersMap[userId] = {
+              user: user || order.user,
+              orders: [],
+              userId,
+            };
+          }
+          customersMap[userId].orders.push(order);
+        });
+
+        // Convert map to array and apply filters
+        let customers = Object.values(customersMap).map((customerData) => {
+          const user = customerData.user;
+          const userId = customerData.userId;
+          const orders = customerData.orders;
+          
+          // Get user details
+          const userName = typeof user === "object" && user?.name 
+            ? user.name 
+            : typeof user === "object" && user?.email 
+            ? user.email 
+            : "Unknown";
+          const userEmail = typeof user === "object" && user?.email 
+            ? user.email 
+            : "";
+
+          // Calculate totals from orders
+          const totalAmountPaid = orders.reduce((sum: number, order: any) => {
+            return sum + (order.total || 0);
+          }, 0);
+
+          // Get order dates
+          const orderDates = orders.map((o: any) => new Date(o.createdAt)).sort((a, b) => b.getTime() - a.getTime());
+          const lastOrderDate = orderDates.length > 0 ? orderDates[0] : null;
+          const firstOrderDate = orderDates.length > 0 ? orderDates[orderDates.length - 1] : null;
+
+          return {
+            user: user || userId,
+            orders: orders,
+            totalSpent: totalAmountPaid,
+            totalAmountPaid,
+            orderCount: orders.length,
+            averageOrderValue: orders.length > 0 ? totalAmountPaid / orders.length : 0,
+            lastOrderDate,
+            firstOrderDate,
+            customerId: userId,
+            name: userName,
+            email: userEmail,
+          };
+        });
 
         // Apply search filter
         if (input.search) {
-          where.or = [
-            { name: { contains: input.search } },
-            { email: { contains: input.search } },
-          ];
+          const searchLower = input.search.toLowerCase();
+          customers = customers.filter((c) => {
+            const nameMatch = c.name?.toLowerCase().includes(searchLower);
+            const emailMatch = c.email?.toLowerCase().includes(searchLower);
+            return nameMatch || emailMatch;
+          });
         }
 
         // Apply status filter
@@ -1600,90 +1908,97 @@ export const vendorRouter = createTRPCRouter({
           const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
           const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-          if (input.status === "active") {
-            where.lastOrderDate = { greater_than_equal: ninetyDaysAgo.toISOString() };
-          } else if (input.status === "inactive") {
-            where.lastOrderDate = { less_than: ninetyDaysAgo.toISOString() };
-          } else if (input.status === "new") {
-            where.and = [
-              { firstOrderDate: { greater_than_equal: thirtyDaysAgo.toISOString() } },
-              { totalOrders: { equals: 1 } },
-            ];
-          }
+          customers = customers.filter((c) => {
+            if (!c.lastOrderDate) return input.status === "inactive";
+            
+            if (input.status === "active") {
+              return c.lastOrderDate >= ninetyDaysAgo;
+            } else if (input.status === "inactive") {
+              return c.lastOrderDate < ninetyDaysAgo;
+            } else if (input.status === "new") {
+              return c.orderCount === 1 && c.firstOrderDate && c.firstOrderDate >= thirtyDaysAgo;
+            }
+            return true;
+          });
         }
 
         // Apply order count filter
         if (input.orderCountMin !== undefined || input.orderCountMax !== undefined) {
-          if (input.orderCountMin !== undefined && input.orderCountMax !== undefined) {
-            where.totalOrders = { greater_than_equal: input.orderCountMin, less_than_equal: input.orderCountMax };
-          } else if (input.orderCountMin !== undefined) {
-            where.totalOrders = { greater_than_equal: input.orderCountMin };
-          } else if (input.orderCountMax !== undefined) {
-            where.totalOrders = { less_than_equal: input.orderCountMax };
-          }
+          customers = customers.filter((c) => {
+            if (input.orderCountMin !== undefined && input.orderCountMax !== undefined) {
+              return c.orderCount >= input.orderCountMin && c.orderCount <= input.orderCountMax;
+            } else if (input.orderCountMin !== undefined) {
+              return c.orderCount >= input.orderCountMin;
+            } else if (input.orderCountMax !== undefined) {
+              return c.orderCount <= input.orderCountMax;
+            }
+            return true;
+          });
         }
 
         // Apply total spent filter
         if (input.totalSpentMin !== undefined || input.totalSpentMax !== undefined) {
-          if (input.totalSpentMin !== undefined && input.totalSpentMax !== undefined) {
-            where.totalSpent = { greater_than_equal: input.totalSpentMin, less_than_equal: input.totalSpentMax };
-          } else if (input.totalSpentMin !== undefined) {
-            where.totalSpent = { greater_than_equal: input.totalSpentMin };
-          } else if (input.totalSpentMax !== undefined) {
-            where.totalSpent = { less_than_equal: input.totalSpentMax };
-          }
+          customers = customers.filter((c) => {
+            if (input.totalSpentMin !== undefined && input.totalSpentMax !== undefined) {
+              return c.totalAmountPaid >= input.totalSpentMin && c.totalAmountPaid <= input.totalSpentMax;
+            } else if (input.totalSpentMin !== undefined) {
+              return c.totalAmountPaid >= input.totalSpentMin;
+            } else if (input.totalSpentMax !== undefined) {
+              return c.totalAmountPaid <= input.totalSpentMax;
+            }
+            return true;
+          });
         }
 
         // Apply last order date filter
         if (input.lastOrderDays !== undefined) {
           const daysAgo = new Date(Date.now() - input.lastOrderDays * 24 * 60 * 60 * 1000);
-          where.lastOrderDate = { greater_than_equal: daysAgo.toISOString() };
+          customers = customers.filter((c) => {
+            return c.lastOrderDate && c.lastOrderDate >= daysAgo;
+          });
         }
 
-        // Build sort
-        let sortField = "lastOrderDate";
-        if (input.sortBy === "name") sortField = "name";
-        else if (input.sortBy === "totalSpent") sortField = "totalSpent";
-        else if (input.sortBy === "totalOrders") sortField = "totalOrders";
-        else if (input.sortBy === "lastOrderDate") sortField = "lastOrderDate";
+        // Apply sorting
+        customers.sort((a, b) => {
+          let aValue: any;
+          let bValue: any;
 
-        const sort: Sort = `${input.sortOrder === "desc" ? "-" : ""}${sortField}`;
+          if (input.sortBy === "name") {
+            aValue = a.name || "";
+            bValue = b.name || "";
+          } else if (input.sortBy === "totalSpent") {
+            aValue = a.totalAmountPaid || 0;
+            bValue = b.totalAmountPaid || 0;
+          } else if (input.sortBy === "totalOrders") {
+            aValue = a.orderCount || 0;
+            bValue = b.orderCount || 0;
+          } else {
+            // lastOrderDate
+            aValue = a.lastOrderDate?.getTime() || 0;
+            bValue = b.lastOrderDate?.getTime() || 0;
+          }
 
-        // Query customers collection
-        const result = await ctx.db.find({
-          collection: "customers",
-          where,
-          limit: input.limit,
-          page: input.page,
-          sort,
-          depth: 1, // Include user relationship
+          if (input.sortOrder === "asc") {
+            return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+          } else {
+            return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+          }
         });
 
-        // Transform results to match expected format
-        const customers = result.docs.map((customer: any) => {
-          const user = typeof customer.user === "string" ? null : customer.user;
-          const lastOrderDate = customer.lastOrderDate ? new Date(customer.lastOrderDate) : null;
-          
-          return {
-            user: user || customer.user,
-            orders: [], // Will be populated if needed
-            totalSpent: customer.totalSpent || 0,
-            orderCount: customer.totalOrders || 0,
-            averageOrderValue: customer.totalOrders > 0 ? (customer.totalSpent || 0) / customer.totalOrders : 0,
-            lastOrderDate,
-            customerId: customer.id,
-            name: customer.name,
-            email: customer.email,
-          };
-        });
+        // Apply pagination
+        const totalDocs = customers.length;
+        const totalPages = Math.ceil(totalDocs / input.limit);
+        const startIndex = (input.page - 1) * input.limit;
+        const endIndex = startIndex + input.limit;
+        const paginatedCustomers = customers.slice(startIndex, endIndex);
 
         return {
-          docs: customers,
-          totalDocs: result.totalDocs,
-          totalPages: result.totalPages,
-          page: result.page,
-          hasNextPage: result.hasNextPage,
-          hasPrevPage: result.hasPrevPage,
+          docs: paginatedCustomers,
+          totalDocs,
+          totalPages,
+          page: input.page,
+          hasNextPage: input.page < totalPages,
+          hasPrevPage: input.page > 1,
         };
       }),
 
@@ -1762,6 +2077,57 @@ export const vendorRouter = createTRPCRouter({
           status,
         };
       }),
+  }),
+
+  // Dashboard Statistics
+  dashboard: createTRPCRouter({
+    stats: vendorProcedure.query(async ({ ctx }) => {
+      const vendorId = typeof ctx.session.vendor === "string" 
+        ? ctx.session.vendor 
+        : ctx.session.vendor.id;
+
+      // Get total products count
+      const productsResult = await ctx.db.find({
+        collection: "products",
+        where: {
+          vendor: { equals: vendorId },
+          isArchived: { equals: false },
+        },
+        limit: 0, // Just get count
+      });
+
+      // Get all orders for revenue calculation
+      const allOrdersResult = await ctx.db.find({
+        collection: "orders",
+        where: {
+          vendor: { equals: vendorId },
+        },
+        limit: 1000, // Get all orders for revenue calculation
+        depth: 0,
+      });
+
+      // Get pending orders count
+      const pendingOrdersResult = await ctx.db.find({
+        collection: "orders",
+        where: {
+          vendor: { equals: vendorId },
+          status: { equals: "pending" },
+        },
+        limit: 0, // Just get count
+      });
+
+      // Calculate total revenue from all orders
+      const totalRevenue = allOrdersResult.docs.reduce((sum: number, order: any) => {
+        return sum + (order.total || 0);
+      }, 0);
+
+      return {
+        totalProducts: productsResult.totalDocs,
+        totalOrders: allOrdersResult.totalDocs,
+        totalRevenue,
+        pendingOrders: pendingOrdersResult.totalDocs,
+      };
+    }),
   }),
 
   // Analytics & Reports

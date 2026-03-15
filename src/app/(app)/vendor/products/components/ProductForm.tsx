@@ -625,13 +625,33 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                     <FormLabel>Price (USD) *</FormLabel>
                     <FormControl>
                       <Input
-                        type="number"
-                        step="0.01"
-                        min="0.01"
+                        type="text"
+                        inputMode="decimal"
                         placeholder="0.00"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                        onBlur={field.onBlur}
+                        value={field.value === 0 ? "" : (field.value?.toString() ?? "")}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          // Allow empty string while typing
+                          if (val === "" || val === "-") {
+                            field.onChange(undefined as any);
+                            return;
+                          }
+                          // Only allow numbers and decimal point
+                          if (/^\d*\.?\d*$/.test(val)) {
+                            const num = parseFloat(val);
+                            if (!isNaN(num)) {
+                              field.onChange(num);
+                            }
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const val = e.target.value;
+                          // On blur, if empty or invalid, set to 0 (will trigger validation)
+                          if (val === "" || isNaN(parseFloat(val))) {
+                            field.onChange(0);
+                          }
+                          field.onBlur();
+                        }}
                         name={field.name}
                       />
                     </FormControl>
@@ -1343,12 +1363,33 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                                 <FormLabel>Stock *</FormLabel>
                                 <FormControl>
                                   <Input
-                                    type="number"
-                                    min="0"
+                                    type="text"
+                                    inputMode="numeric"
                                     placeholder="0"
-                                    value={field.value ?? ""}
-                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                                    onBlur={field.onBlur}
+                                    value={field.value === 0 ? "" : (field.value?.toString() ?? "")}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      // Allow empty string while typing
+                                      if (val === "" || val === "-") {
+                                        field.onChange(undefined as any);
+                                        return;
+                                      }
+                                      // Only allow integers
+                                      if (/^\d+$/.test(val)) {
+                                        const num = parseInt(val, 10);
+                                        if (!isNaN(num)) {
+                                          field.onChange(num);
+                                        }
+                                      }
+                                    }}
+                                    onBlur={(e) => {
+                                      const val = e.target.value;
+                                      // On blur, if empty or invalid, set to 0 (will trigger validation)
+                                      if (val === "" || isNaN(parseInt(val, 10))) {
+                                        field.onChange(0);
+                                      }
+                                      field.onBlur();
+                                    }}
                                     name={field.name}
                                   />
                                 </FormControl>

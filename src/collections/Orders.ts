@@ -168,6 +168,40 @@ export const Orders: CollectionConfig = {
             console.error("Failed to send order status update email:", error);
           }
         }
+
+        // Task 1009: Check product stock after order creation and auto-draft if needed
+        if (operation === "create" && doc.product) {
+          try {
+            const productId = typeof doc.product === "string" ? doc.product : doc.product.id;
+            const product = await req.payload.findByID({
+              collection: "products",
+              id: productId,
+              depth: 0,
+            });
+
+            // Calculate total stock from variants
+            let totalStock = 0;
+            if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
+              totalStock = product.variants.reduce((sum: number, variant: any) => {
+                return sum + (variant.stock || 0);
+              }, 0);
+            }
+
+            // If stock is 0 and product is published, auto-draft it
+            if (totalStock === 0 && product.isPrivate === false) {
+              await req.payload.update({
+                collection: "products",
+                id: productId,
+                data: {
+                  isPrivate: true,
+                },
+              });
+              console.log(`[Orders Hook] Auto-drafted product ${productId} due to zero inventory after order creation`);
+            }
+          } catch (error) {
+            console.error(`[Orders Hook] Failed to check/auto-draft product after order creation:`, error);
+          }
+        }
       },
     ],
   },
