@@ -55,13 +55,17 @@ export const CheckoutView = () => {
     },
     onSuccess: (data) => {
       if (data.paymentMethod === "offline" && data.orderId) {
-        // For offline payments, redirect to order confirmation
+        // For offline payments, clear cart and redirect to order confirmation
+        clearCart();
         toast.success("Order placed! Please contact vendor to complete payment.");
         router.push(`/orders/${data.orderId}?payment=pending`);
       } else if (data.url) {
+        // For Stripe checkout, cart will be cleared after payment in webhook
         // Redirect to Stripe checkout
         window.location.href = data.url;
       } else {
+        // For other success cases, clear cart
+        clearCart();
         toast.success("Purchase completed successfully");
         setStates({ success: true, cancel: false });
       }
@@ -80,6 +84,7 @@ export const CheckoutView = () => {
       const buyNow = urlParams.get('buyNow') === 'true';
       const cartItemsParam = urlParams.get('cartItems');
 
+      // Clear cart when order is successfully placed (returning from Stripe or other success)
       if (buyNow && cartItemsParam) {
         try {
           const purchasedCartItems = JSON.parse(decodeURIComponent(cartItemsParam));
@@ -93,7 +98,9 @@ export const CheckoutView = () => {
           toast.success("Purchase completed! Cart cleared.");
         }
       } else {
+        // For regular checkout, clear entire cart
         clearCart();
+        toast.success("Order placed successfully! Cart cleared.");
       }
 
       setStates({ success: false, cancel: false });

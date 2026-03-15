@@ -171,11 +171,13 @@ export async function POST(req: Request) {
           console.log(`Found product: ${product.name}, vendor: ${product.vendor}`);
 
           // Find matching variant if size/color specified
+          // Variants are stored in variantData JSON object: { variantData: { size: "M", color: "Red" }, stock: 10, price: 49.99 }
           let variant = null;
           if (product.variants && Array.isArray(product.variants)) {
             variant = product.variants.find((v: any) => {
-              const sizeMatch = !cartItem.size || v.size === cartItem.size;
-              const colorMatch = !cartItem.color || v.color === cartItem.color;
+              const variantData = v.variantData || {};
+              const sizeMatch = !cartItem.size || variantData.size === cartItem.size || variantData.blouseSize === cartItem.size;
+              const colorMatch = !cartItem.color || variantData.color === cartItem.color;
               return sizeMatch && colorMatch;
             });
           }

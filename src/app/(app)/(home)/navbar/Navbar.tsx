@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Poppins } from "next/font/google"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import NavbarSidebar from "./navbar-sidebar";
@@ -39,11 +39,50 @@ export function Navbar() {
   const { data: session } = trpc.auth.session.useQuery()
   const { data: categoriesData } = trpc.categories.useQuery()
   const { data: vendorsData } = trpc.vendor.list.useQuery({ limit: 50 })
+  
+  // Clear cart when user changes (login/logout)
+  useEffect(() => {
+    const { useCartStore } = require("@/modules/checkout/store/use-cart-store");
+    const currentUserId = session?.user?.id;
+    const cartUserId = useCartStore.getState().userId;
+    
+    // If user logged out (no current user but cart has a user)
+    if (!currentUserId && cartUserId) {
+      // User logged out - clear cart immediately
+      useCartStore.getState().clearCart();
+    } 
+    // If user logged in and it's a different user
+    else if (currentUserId && currentUserId !== cartUserId) {
+      // User changed - update cart user ID (this will clear cart if different user)
+      useCartStore.getState().setUserId(currentUserId);
+    }
+    // If user logged in and it's the same user, ensure userId is set
+    else if (currentUserId && !cartUserId) {
+      useCartStore.getState().setUserId(currentUserId);
+    }
+  }, [session?.user?.id]);
+  
   const logout = trpc.auth.logout.useMutation({
     onError: (error) => {
       toast.error(error.message);
     },
     onSuccess: async () => {
+      // Clear cart when user logs out
+      const { useCartStore } = await import("@/modules/checkout/store/use-cart-store");
+      useCartStore.getState().clearCart();
+      
+      // Wait a bit to ensure state and localStorage are cleared
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Double-check and force clear if needed
+      const cartState = useCartStore.getState();
+      if (cartState.items.length > 0 || cartState.productIds.length > 0) {
+        useCartStore.getState().clearCart();
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('evega-cart');
+        }
+      }
+      
       await queryClient.invalidateQueries({ queryKey: [['auth', 'session']] });
       router.push("/");
       toast.success("Logged out successfully");

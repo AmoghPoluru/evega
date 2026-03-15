@@ -12,12 +12,14 @@ export interface CartItem {
 interface CartState {
   items: CartItem[];
   productIds: string[]; // Legacy: for backward compatibility
+  userId?: string; // Track which user owns this cart
   addProduct: (productId: string, size?: string, color?: string, variantPrice?: number) => void;
   removeProduct: (productId: string, size?: string, color?: string) => void;
   clearCart: () => void;
   getCartCount: () => number;
   isProductInCart: (productId: string, size?: string, color?: string) => boolean;
   getCartItems: () => CartItem[];
+  setUserId: (userId: string | undefined) => void;
 }
 
 export const useCartStore = create<CartState>()(
@@ -25,6 +27,7 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
       productIds: [], // Legacy support
+      userId: undefined,
       
       addProduct: (productId, size, color, variantPrice) => {
         set((state) => {
@@ -89,11 +92,55 @@ export const useCartStore = create<CartState>()(
         });
       },
       
-      clearCart: () =>
+      clearCart: () => {
+        // Clear from state first
         set({
           items: [],
           productIds: [],
-        }),
+          userId: undefined,
+        });
+        // Then clear localStorage to ensure it's removed
+        // This needs to happen after set() so Zustand persist middleware can sync
+        if (typeof window !== 'undefined') {
+          try {
+            // Use setTimeout to ensure state update happens first
+            setTimeout(() => {
+              localStorage.removeItem('evega-cart');
+              // Force a state update to trigger re-render
+              const store = get();
+              if (store.items.length > 0 || store.productIds.length > 0) {
+                // If items still exist, clear again (defensive)
+                set({
+                  items: [],
+                  productIds: [],
+                  userId: undefined,
+                });
+              }
+            }, 0);
+          } catch (e) {
+            console.error('Failed to clear cart from localStorage:', e);
+          }
+        }
+      },
+      
+      setUserId: (userId: string | undefined) => {
+        const currentUserId = get().userId;
+        // If user changed, clear the cart
+        if (currentUserId && currentUserId !== userId) {
+          // Clear localStorage first
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('evega-cart');
+          }
+          // Then set new state with cleared cart and new userId
+          set({
+            items: [],
+            productIds: [],
+            userId,
+          });
+        } else {
+          set({ userId });
+        }
+      },
       
       getCartCount: () => {
         const items = get().items;

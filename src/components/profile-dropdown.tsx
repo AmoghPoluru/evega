@@ -56,6 +56,22 @@ export function ProfileDropdown() {
       toast.error(error.message);
     },
     onSuccess: async () => {
+      // Clear cart when user logs out
+      const { useCartStore } = await import("@/modules/checkout/store/use-cart-store");
+      useCartStore.getState().clearCart();
+      
+      // Wait a bit to ensure state and localStorage are cleared
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Double-check and force clear if needed
+      const cartState = useCartStore.getState();
+      if (cartState.items.length > 0 || cartState.productIds.length > 0) {
+        useCartStore.getState().clearCart();
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('evega-cart');
+        }
+      }
+      
       await queryClient.invalidateQueries({ queryKey: [["auth", "session"]] });
       router.push("/");
       toast.success("Logged out successfully");
