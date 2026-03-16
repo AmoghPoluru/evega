@@ -26,6 +26,7 @@
     "db:seed:variants": "npx tsx src/seed/seed-variants.ts",
     "db:seed:prices": "npx tsx src/seed/seed-prices.ts",
     "db:seed:colors": "npx tsx src/seed/seed-colors.ts",
+    "db:seed:templates": "npx tsx src/scripts/seed-templates.ts",
     "db:update:tags": "npx tsx src/update-products-tags.ts",
     "db:clear:products": "npx tsx src/scripts/clear-products.ts",
     "db:clear:vendors": "npx tsx src/scripts/clear-vendors.ts",

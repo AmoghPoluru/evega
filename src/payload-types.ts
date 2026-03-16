@@ -82,6 +82,7 @@ export interface Config {
     'vendor-tasks': VendorTask;
     'vendor-task-messages': VendorTaskMessage;
     'vendor-hero-banners': VendorHeroBanner;
+    'vendor-templates': VendorTemplate;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -108,6 +109,7 @@ export interface Config {
     'vendor-tasks': VendorTasksSelect<false> | VendorTasksSelect<true>;
     'vendor-task-messages': VendorTaskMessagesSelect<false> | VendorTaskMessagesSelect<true>;
     'vendor-hero-banners': VendorHeroBannersSelect<false> | VendorHeroBannersSelect<true>;
+    'vendor-templates': VendorTemplatesSelect<false> | VendorTemplatesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -468,6 +470,22 @@ export interface Vendor {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Selected UI/UX template for vendor storefront
+   */
+  selectedTemplate?: (string | null) | VendorTemplate;
+  /**
+   * Vendor-specific template customizations (colors, fonts, layout, etc.)
+   */
+  templateCustomization?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -733,6 +751,93 @@ export interface Tag {
   id: string;
   name: string;
   products?: (string | Product)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * UI/UX templates for vendor storefronts
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendor-templates".
+ */
+export interface VendorTemplate {
+  id: string;
+  /**
+   * Template name (e.g., 'Modern Minimal', 'Classic Elegance')
+   */
+  name: string;
+  /**
+   * URL-friendly identifier (auto-generated from name)
+   */
+  slug: string;
+  /**
+   * Template description shown to vendors
+   */
+  description?: string | null;
+  /**
+   * Screenshot/preview image of the template (recommended: 1920x1080px)
+   */
+  previewImage?: (string | null) | Media;
+  /**
+   * Small thumbnail for template selection UI (recommended: 400x300px)
+   */
+  thumbnailImage?: (string | null) | Media;
+  /**
+   * Template category for filtering
+   */
+  category: 'minimal' | 'elegant' | 'bold' | 'colorful' | 'classic';
+  /**
+   * Whether this is the default template for new vendors
+   */
+  isDefault?: boolean | null;
+  /**
+   * Whether template is available for selection
+   */
+  isActive?: boolean | null;
+  /**
+   * Template version number
+   */
+  version?: string | null;
+  /**
+   * Template creator/author
+   */
+  author?: string | null;
+  /**
+   * Template configuration schema (colors, fonts, spacing, layout, components)
+   */
+  templateConfig:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * CSS custom properties/variables for the template
+   */
+  cssVariables:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Component structure mapping (which component variants to use)
+   */
+  componentMapping:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1415,6 +1520,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'vendor-hero-banners';
         value: string | VendorHeroBanner;
+      } | null)
+    | ({
+        relationTo: 'vendor-templates';
+        value: string | VendorTemplate;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1760,6 +1869,8 @@ export interface VendorsSelect<T extends boolean = true> {
         notes?: T;
         id?: T;
       };
+  selectedTemplate?: T;
+  templateCustomization?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1896,6 +2007,27 @@ export interface VendorHeroBannersSelect<T extends boolean = true> {
   products?: T;
   isActive?: T;
   order?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendor-templates_select".
+ */
+export interface VendorTemplatesSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
+  previewImage?: T;
+  thumbnailImage?: T;
+  category?: T;
+  isDefault?: T;
+  isActive?: T;
+  version?: T;
+  author?: T;
+  templateConfig?: T;
+  cssVariables?: T;
+  componentMapping?: T;
   updatedAt?: T;
   createdAt?: T;
 }

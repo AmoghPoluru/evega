@@ -4065,6 +4065,277 @@ const userEmail = customer.email || user?.email || "";
 
 ---
 
+
+# Fix Remaining Stock Not Decreasing - Technical Todo List
+
+## Issue
+When vendors create manual orders through the vendor dashboard, the "Remaining" stock is not decreasing even though "Sold" count is working correctly. This is because the `vendor.orders.create` mutation creates orders but doesn't decrement variant stock.
+
+**Root Cause**: Stock is only decremented in the Stripe webhook and checkout flow, not for manual vendor-created orders.
+
+---
+
+## Todo List
+
+### 1. Add stock decrement logic to `vendor.orders.create` mutation
+**Task**: Find matching variant by size/color and decrement `variant.stock` by order quantity
+
+- **File**: `src/modules/vendor/server/procedures.ts` (around line 1492)
+- **Location**: Inside `vendor.orders.create` mutation, after product verification (line 1513) and before order creation (line 1550)
+- **Code Pattern**: 
+  ```typescript
+  // Find matching variant
+  let variant = null;
+  if (product.variants && Array.isArray(product.variants)) {
+    variant = product.variants.find((v: any) => {
+      const variantData = v.variantData || {};
+      const sizeMatch = !input.size || variantData.size === input.size || variantData.blouseSize === input.size;
+      const colorMatch = !input.color || variantData.color === input.color;
+      return sizeMatch && colorMatch;
+    });
+  }
+  ```
+
+---
+
+### 2. Handle variant matching in manual order creation
+**Task**: Match variant using `variantData.size/color` or `size/color` fields, similar to webhook logic
+
+- **Reference**: Check `src/app/api/stripe/webhook/route.ts` lines 177-182 for variant matching pattern
+- **Handle**: Both `variantData.size` and direct `v.size` properties
+- **Handle**: Both `variantData.color` and direct `v.color` properties
+- **Handle**: `blouseSize` field for blouse products
+
+---
+
+### 3. Update product variants array after stock decrement
+**Task**: Use `ctx.db.update` to save updated variants array with decremented stock
+
+- **Code Pattern**:
+  ```typescript
+  if (variant) {
+    const newStock = Math.max(0, variant.stock - input.quantity);
+    const updatedVariants = (product.variants || []).map((v: any) => {
+      const variantData = v.variantData || {};
+      const sizeMatch = !input.size || variantData.size === input.size || variantData.blouseSize === input.size;
+      const colorMatch = !input.color || variantData.color === input.color;
+      if (sizeMatch && colorMatch) {
+        return { ...v, stock: newStock };
+      }
+      return v;
+    });
+    
+    await ctx.db.update({
+      collection: "products",
+      id: input.productId,
+      data: { variants: updatedVariants },
+    });
+  }
+  ```
+
+---
+
+### 4. Add stock validation before decrementing
+**Task**: Check if `variant.stock >= quantity`, throw error if insufficient stock for manual orders
+
+- **Code Pattern**:
+  ```typescript
+  if (variant) {
+    if (variant.stock < input.quantity) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `Insufficient stock. Only ${variant.stock} units available.`,
+      });
+    }
+    // Then proceed with decrement
+  }
+  ```
+
+---
+
+### 5. Handle products without variants
+**Task**: If product has no variants, check if base product stock exists and decrement it
+
+- **Code Pattern**:
+  ```typescript
+  if (!variant && (!product.variants || product.variants.length === 0)) {
+    // Product has no variants, check base stock
+    if (product.stock !== undefined && product.stock !== null) {
+      if (product.stock < input.quantity) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Insufficient stock. Only ${product.stock} units available.`,
+        });
+      }
+      const newStock = Math.max(0, product.stock - input.quantity);
+      await ctx.db.update({
+        collection: "products",
+        id: input.productId,
+        data: { stock: newStock },
+      });
+    }
+  }
+  ```
+
+---
+
+### 6. Add auto-draft check after manual order stock update
+**Task**: If total stock becomes 0, set `product.isPrivate` to `true` (draft the product)
+
+- **Code Pattern**:
+  ```typescript
+  // After stock update, check total stock
+  const updatedProduct = await ctx.db.findByID({
+    collection: "products",
+    id: input.productId,
+    depth: 0,
+  });
+  
+  let totalStock = 0;
+  if (updatedProduct.variants && Array.isArray(updatedProduct.variants)) {
+    totalStock = updatedProduct.variants.reduce((sum: number, v: any) => {
+      return sum + (v.stock || 0);
+    }, 0);
+  } else if (updatedProduct.stock !== undefined) {
+    totalStock = updatedProduct.stock || 0;
+  }
+  
+  if (totalStock === 0 && updatedProduct.isPrivate === false) {
+    await ctx.db.update({
+      collection: "products",
+      id: input.productId,
+      data: { isPrivate: true },
+    });
+  }
+  ```
+
+---
+
+### 7. Test remaining stock calculation
+**Task**: Verify that `remainingStock = sum of all variant stocks` after orders are placed
+
+- **File**: `src/modules/vendor/server/procedures.ts` (lines 340-350)
+- **Current Logic**: `remaining = product.variants.reduce((sum, variant) => sum + (variant.stock || 0), 0)`
+- **Verify**: After manual order, remaining stock should decrease by order quantity
+- **Test**: Create manual order, check `remainingStock` in products list query
+
+---
+
+### 8. Verify sold count accuracy
+**Task**: Ensure `soldCount` correctly sums all order quantities for the product
+
+- **File**: `src/modules/vendor/server/procedures.ts` (lines 331-336)
+- **Current Logic**: `soldCounts[productId] = (soldCounts[productId] || 0) + (order.quantity || 0)`
+- **Verify**: Manual orders are included in the count (they should be, as they're in orders collection)
+- **Test**: Create manual order, verify `soldCount` increases by order quantity
+
+---
+
+### 9. Test manual order creation with variants
+**Task**: Create manual order with size/color and verify variant stock decreases
+
+- **Test Case**: Product with variants (e.g., Size M, Color Red, stock: 10)
+- **Action**: Create manual order with quantity 3, size M, color Red
+- **Expected**: Variant stock should be 7, remainingStock should be 7 (if only one variant)
+
+---
+
+### 10. Test manual order creation without variants
+**Task**: Create manual order for product without variants and verify stock handling
+
+- **Test Case**: Product without variants (base stock: 20)
+- **Action**: Create manual order with quantity 5
+- **Expected**: Base product stock should be 15, remainingStock should reflect this
+
+---
+
+### 11. Add console logging for debugging
+**Task**: Log stock updates in manual order creation for debugging
+
+- **Code Pattern**:
+  ```typescript
+  console.log(`[Manual Order] Updated stock for ${product.name}${input.size ? ` (${input.size})` : ''}${input.color ? ` - ${input.color}` : ''}: ${variant.stock} → ${newStock}`);
+  ```
+
+---
+
+### 12. Handle edge case: variant not found but product has variants
+**Task**: If variant doesn't match but product has variants, log warning and don't update stock
+
+- **Code Pattern**:
+  ```typescript
+  if (!variant && product.variants && product.variants.length > 0) {
+    console.warn(`[Manual Order] Variant not found for ${product.name}${input.size ? ` (${input.size})` : ''}${input.color ? ` - ${input.color}` : ''}, skipping stock update`);
+  }
+  ```
+
+---
+
+### 13. Ensure order creation happens after stock update
+**Task**: Stock should be decremented before order is created to maintain data consistency
+
+- **Order**: 1) Validate stock, 2) Decrement stock, 3) Create order
+- **Error Handling**: If stock update fails, don't create order
+
+---
+
+### 14. Add transaction/rollback consideration
+**Task**: Consider if stock update and order creation should be atomic (may require Payload transaction support)
+
+- **Note**: Payload CMS doesn't have built-in transactions, so ensure error handling is robust
+- **Fallback**: If order creation fails after stock update, consider restoring stock (complex scenario)
+
+---
+
+### 15. Update remainingStock calculation to handle base stock
+**Task**: If product has no variants but has base stock, include it in remainingStock
+
+- **File**: `src/modules/vendor/server/procedures.ts` (lines 345-350)
+- **Current**: Only sums variant stocks
+- **Update**: Also check `product.stock` if no variants exist
+- **Code Pattern**:
+  ```typescript
+  let remaining = 0;
+  if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
+    remaining = product.variants.reduce((sum: number, variant: any) => {
+      return sum + (variant.stock || 0);
+    }, 0);
+  } else if (product.stock !== undefined && product.stock !== null) {
+    remaining = product.stock || 0;
+  }
+  ```
+
+---
+
+## Implementation Order
+
+1. **First**: Tasks 1-3 (Core stock decrement logic)
+2. **Second**: Tasks 4-5 (Validation and edge cases)
+3. **Third**: Task 6 (Auto-draft)
+4. **Fourth**: Task 15 (Update remainingStock calculation)
+5. **Fifth**: Tasks 11-12 (Logging and edge cases)
+6. **Sixth**: Tasks 7-10 (Testing)
+7. **Seventh**: Tasks 13-14 (Error handling and transactions)
+
+---
+
+## Reference Files
+
+- **Main Implementation**: `src/modules/vendor/server/procedures.ts` (lines 1468-1581)
+- **Webhook Reference**: `src/app/api/stripe/webhook/route.ts` (lines 200-247)
+- **Checkout Reference**: `src/modules/checkout/server/procedures.ts` (lines 325-343)
+- **Stock Calculation**: `src/modules/vendor/server/procedures.ts` (lines 314-364)
+
+---
+
+## Notes
+
+- Stock decrement should happen **before** order creation to maintain consistency
+- If stock update fails, the order should not be created
+- Manual orders should follow the same stock decrement logic as webhook/checkout flows
+- Consider adding a flag to track whether stock was decremented for an order (for potential rollback scenarios)
+
+
 ## Testing Checklist
 
 ### Task 14: Verify Customer Display

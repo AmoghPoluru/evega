@@ -222,12 +222,14 @@ export const vendorRouter = createTRPCRouter({
           const productId = product.id;
           const sold = soldCounts[productId] || 0;
           
-          // Calculate remaining stock: sum of all variant stocks
+          // Calculate remaining stock: sum of all variant stocks, or base stock if no variants
           let remaining = 0;
           if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
             remaining = product.variants.reduce((sum: number, variant: any) => {
               return sum + (variant.stock || 0);
             }, 0);
+          } else if (product.stock !== undefined && product.stock !== null) {
+            remaining = product.stock || 0;
           }
           
           stats[productId] = { sold, remaining };
@@ -341,12 +343,33 @@ export const vendorRouter = createTRPCRouter({
             const productId = product.id;
             const sold = soldCounts[productId] || 0;
             
-            // Calculate remaining stock: sum of all variant stocks
+            // Calculate remaining stock: sum of all variant stocks, or base stock if no variants
             let remaining = 0;
             if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
               remaining = product.variants.reduce((sum: number, variant: any) => {
-                return sum + (variant.stock || 0);
+                const variantStock = variant.stock || 0;
+                // Debug logging for first product
+                if (productId === result.docs[0]?.id && process.env.NODE_ENV === "development") {
+                  console.log(`[PRODUCTS LIST] Variant stock:`, {
+                    productId,
+                    variantId: variant.id,
+                    stock: variantStock,
+                    variantData: variant.variantData,
+                  });
+                }
+                return sum + variantStock;
               }, 0);
+              
+              // Debug logging for first product
+              if (productId === result.docs[0]?.id && process.env.NODE_ENV === "development") {
+                console.log(`[PRODUCTS LIST] Product ${product.name} (${productId}):`, {
+                  variantsCount: product.variants.length,
+                  totalRemaining: remaining,
+                  sold,
+                });
+              }
+            } else if (product.stock !== undefined && product.stock !== null) {
+              remaining = product.stock || 0;
             }
             
             stats[productId] = { sold, remaining };
@@ -1510,6 +1533,144 @@ export const vendorRouter = createTRPCRouter({
             code: "FORBIDDEN",
             message: "Product does not belong to your vendor account",
           });
+        }
+
+        // Find matching variant for stock decrement
+        let variant = null;
+        if (product.variants && Array.isArray(product.variants)) {
+          variant = product.variants.find((v: any) => {
+            const variantData = v.variantData || {};
+            // Match by variantData (preferred) or direct properties
+            const sizeMatch = !input.size || 
+              variantData.size === input.size || 
+              variantData.blouseSize === input.size ||
+              v.size === input.size ||
+              v.blouseSize === input.size;
+            const colorMatch = !input.color || 
+              variantData.color === input.color ||
+              v.color === input.color;
+            return sizeMatch && colorMatch;
+          });
+        }
+
+        // Decrement stock if variant exists
+        if (variant) {
+          // Validate stock before decrementing
+          if (variant.stock < input.quantity) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Insufficient stock. Only ${variant.stock} units available for this variant.`,
+            });
+          }
+
+          const newStock = Math.max(0, variant.stock - input.quantity);
+          
+          // Update the variant in the product's variants array
+          const updatedVariants = (product.variants || []).map((v: any) => {
+            const variantData = v.variantData || {};
+            // Match by variantData (preferred) or direct properties
+            const sizeMatch = !input.size || 
+              variantData.size === input.size || 
+              variantData.blouseSize === input.size ||
+              v.size === input.size ||
+              v.blouseSize === input.size;
+            const colorMatch = !input.color || 
+              variantData.color === input.color ||
+              v.color === input.color;
+            
+            if (sizeMatch && colorMatch) {
+              return {
+                ...v,
+                stock: newStock,
+              };
+            }
+            return v;
+          });
+
+          // Update product with new variant stock
+          await ctx.db.update({
+            collection: "products",
+            id: input.productId,
+            data: {
+              variants: updatedVariants,
+            },
+          });
+
+          console.log(
+            `[Manual Order] Updated stock for ${product.name}${input.size ? ` (${input.size})` : ''}${input.color ? ` - ${input.color}` : ''}: ${variant.stock} → ${newStock}`
+          );
+
+          // Re-fetch product to verify update and check total stock
+          const updatedProduct = await ctx.db.findByID({
+            collection: "products",
+            id: input.productId,
+            depth: 0,
+          });
+
+          // Verify the stock was actually updated
+          const updatedVariant = updatedProduct.variants?.find((v: any) => {
+            const variantData = v.variantData || {};
+            const sizeMatch = !input.size || variantData.size === input.size || variantData.blouseSize === input.size;
+            const colorMatch = !input.color || variantData.color === input.color;
+            return sizeMatch && colorMatch;
+          });
+
+          if (updatedVariant) {
+            console.log(`[Manual Order] Verified stock update: variant stock is now ${updatedVariant.stock}`);
+          }
+
+          // Check if product stock is now 0 and auto-draft if needed
+          let totalStock = 0;
+          if (updatedProduct.variants && Array.isArray(updatedProduct.variants)) {
+            totalStock = updatedProduct.variants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+          }
+          
+          if (totalStock === 0 && updatedProduct.isPrivate === false) {
+            await ctx.db.update({
+              collection: "products",
+              id: input.productId,
+              data: {
+                isPrivate: true,
+              },
+            });
+            console.log(`[Manual Order] Auto-drafted product ${input.productId} due to zero inventory after stock update`);
+          }
+        } else if (product.variants && product.variants.length > 0) {
+          // Variant not found but product has variants
+          console.warn(
+            `[Manual Order] Variant not found for ${product.name}${input.size ? ` (${input.size})` : ''}${input.color ? ` - ${input.color}` : ''}, skipping stock update`
+          );
+        } else if (!product.variants || product.variants.length === 0) {
+          // Product has no variants, check base stock
+          if (product.stock !== undefined && product.stock !== null) {
+            if (product.stock < input.quantity) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: `Insufficient stock. Only ${product.stock} units available.`,
+              });
+            }
+            const newStock = Math.max(0, product.stock - input.quantity);
+            await ctx.db.update({
+              collection: "products",
+              id: input.productId,
+              data: { stock: newStock },
+            });
+            console.log(
+              `[Manual Order] Updated base stock for ${product.name}: ${product.stock} → ${newStock}`
+            );
+
+            // Check if product stock is now 0 and auto-draft if needed
+            if (newStock === 0 && product.isPrivate === false) {
+              await ctx.db.update({
+                collection: "products",
+                id: input.productId,
+                data: {
+                  isPrivate: true,
+                },
+              });
+              console.log(`[Manual Order] Auto-drafted product ${input.productId} due to zero inventory after stock update`);
+            }
+          }
         }
 
         // Find or create user by email
@@ -3075,4 +3236,208 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
         return { success: true };
       }),
   },
+
+  // Template Management
+  templates: createTRPCRouter({
+    // List all available templates
+    list: vendorProcedure
+      .input(
+        z.object({
+          category: z.string().optional(),
+          search: z.string().optional(),
+        })
+      )
+      .query(async ({ ctx, input }) => {
+        const vendorId = typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+        // Get vendor's current template
+        const vendor = await ctx.db.findByID({
+          collection: "vendors",
+          id: vendorId,
+          depth: 0,
+        });
+
+        const where: Where = {
+          isActive: { equals: true },
+        };
+
+        if (input.category) {
+          where.category = { equals: input.category };
+        }
+
+        if (input.search) {
+          where.or = [
+            { name: { contains: input.search } },
+            { description: { contains: input.search } },
+          ];
+        }
+
+        const templates = await ctx.db.find({
+          collection: "vendor-templates",
+          where,
+          sort: "-createdAt",
+        });
+
+        return {
+          docs: templates.docs.map((template: any) => ({
+            ...template,
+            isSelected: template.id === vendor.selectedTemplate,
+          })),
+        };
+      }),
+
+    // Get current vendor's template and customization
+    getCustomization: vendorProcedure
+      .query(async ({ ctx }) => {
+        const vendorId = typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+        const vendor = await ctx.db.findByID({
+          collection: "vendors",
+          id: vendorId,
+          depth: 1, // Include template
+        });
+
+        const { resolveVendorTemplate } = await import("@/lib/templates/template-engine");
+        const resolvedTemplate = await resolveVendorTemplate(vendorId, ctx.db);
+
+        return {
+          template: resolvedTemplate,
+          customization: vendor.templateCustomization || {},
+        };
+      }),
+
+    // Select a template
+    select: vendorProcedure
+      .input(z.object({ templateId: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const vendorId = typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+        // Verify template exists and is active
+        const template = await ctx.db.findByID({
+          collection: "vendor-templates",
+          id: input.templateId,
+        });
+
+        if (!template.isActive) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Template is not available",
+          });
+        }
+
+        // Update vendor template
+        await ctx.db.update({
+          collection: "vendors",
+          id: vendorId,
+          data: {
+            selectedTemplate: input.templateId,
+            templateCustomization: {}, // Reset to defaults
+          },
+        });
+
+        return { success: true };
+      }),
+
+    // Customize template
+    customize: vendorProcedure
+      .input(
+        z.object({
+          customization: z.object({
+            colors: z
+              .object({
+                primary: z.string().optional(),
+                secondary: z.string().optional(),
+                accent: z.string().optional(),
+                background: z.string().optional(),
+                text: z.string().optional(),
+                textSecondary: z.string().optional(),
+                border: z.string().optional(),
+                cardBackground: z.string().optional(),
+              })
+              .optional(),
+            fonts: z
+              .object({
+                heading: z.string().optional(),
+                body: z.string().optional(),
+              })
+              .optional(),
+            spacing: z
+              .object({
+                sectionPadding: z.string().optional(),
+                cardGap: z.string().optional(),
+                containerMaxWidth: z.string().optional(),
+              })
+              .optional(),
+            layout: z
+              .object({
+                productGridColumns: z.number().min(2).max(6).optional(),
+                showBanner: z.boolean().optional(),
+                showCategories: z.boolean().optional(),
+                showFilters: z.boolean().optional(),
+                showReviews: z.boolean().optional(),
+              })
+              .optional(),
+            components: z
+              .object({
+                heroBanner: z
+                  .object({
+                    enabled: z.boolean().optional(),
+                    style: z.enum(["minimal", "full-width", "split"]).optional(),
+                    height: z.string().optional(),
+                  })
+                  .optional(),
+                productCard: z
+                  .object({
+                    style: z.enum(["minimal", "detailed", "compact"]).optional(),
+                    showPrice: z.boolean().optional(),
+                    showRating: z.boolean().optional(),
+                    showDescription: z.boolean().optional(),
+                    borderRadius: z.string().optional(),
+                  })
+                  .optional(),
+                navigation: z
+                  .object({
+                    style: z.enum(["top", "sidebar", "sticky"]).optional(),
+                    backgroundColor: z.string().optional(),
+                  })
+                  .optional(),
+              })
+              .optional(),
+          }),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const vendorId = typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+        const vendor = await ctx.db.findByID({
+          collection: "vendors",
+          id: vendorId,
+          depth: 0,
+        });
+
+        // Merge with existing customization
+        const updatedCustomization = {
+          ...(vendor.templateCustomization || {}),
+          ...input.customization,
+        };
+
+        await ctx.db.update({
+          collection: "vendors",
+          id: vendorId,
+          data: {
+            templateCustomization: updatedCustomization,
+          },
+        });
+
+        return { customization: updatedCustomization };
+      }),
+  }),
 });

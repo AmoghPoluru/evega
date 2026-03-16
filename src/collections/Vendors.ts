@@ -566,5 +566,45 @@ export const Vendors: CollectionConfig = {
         },
       ],
     },
+    {
+      name: "selectedTemplate",
+      type: "relationship",
+      relationTo: "vendor-templates",
+      admin: {
+        description: "Selected UI/UX template for vendor storefront",
+        position: "sidebar",
+      },
+      hooks: {
+        beforeValidate: [
+          async ({ value, data, operation, req }) => {
+            // Set default template if not specified on create
+            if (operation === "create" && !value) {
+              try {
+                const defaultTemplate = await req.payload.find({
+                  collection: "vendor-templates",
+                  where: { isDefault: { equals: true } },
+                  limit: 1,
+                });
+                if (defaultTemplate.docs.length > 0) {
+                  return defaultTemplate.docs[0].id;
+                }
+              } catch (error) {
+                console.error("Error fetching default template:", error);
+              }
+            }
+            return value;
+          },
+        ],
+      },
+    },
+    {
+      name: "templateCustomization",
+      type: "json",
+      defaultValue: {},
+      admin: {
+        description: "Vendor-specific template customizations (colors, fonts, layout, etc.)",
+        position: "sidebar",
+      },
+    },
   ],
 };
