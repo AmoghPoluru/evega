@@ -32,10 +32,11 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { X, Plus, Upload, Eye } from "lucide-react";
+import { X, Plus, Upload, Eye, Copy, Zap, CheckSquare } from "lucide-react";
 import Image from "next/image";
 import type { Product } from "@/payload-types";
 import { ProductPreviewModal } from "./ProductPreviewModal";
+import { BulkVariantGenerator } from "./BulkVariantGenerator";
 import { isValidYouTubeUrl, isValidTimeFormat, timeToSeconds, secondsToTime, extractYouTubeVideoId } from "@/lib/youtube-utils";
 
 const productFormSchema = z.object({
@@ -45,7 +46,7 @@ const productFormSchema = z.object({
   category: z.string().min(1, "Category is required"),
   subcategory: z.string().optional(),
   image: z.string().optional(),
-  cover: z.string().optional(),
+  cover: z.array(z.string()).optional(),
   videoSource: z.enum(["upload", "youtube"]).optional().default("upload"),
   video: z.string().optional(), // Video is completely optional - vendors can skip it
   youtubeUrl: z.string().optional().refine(
@@ -99,30 +100,54 @@ const productFormSchema = z.object({
   }
 );
 
-type ProductFormValues = z.infer<typeof productFormSchema>;
+const staffProductFormSchema = productFormSchema.extend({
+  vendor: z.string().min(1, "Vendor is required"),
+});
+
+type ProductFormValues = z.infer<typeof productFormSchema> & { vendor?: string };
+
+interface VendorOption {
+  id: string;
+  name: string;
+}
 
 interface ProductFormProps {
   product?: Product;
   onSuccess?: () => void;
+  /** When `staff`, uses admin API and requires vendor picker. */
+  context?: "vendor" | "staff";
+  vendors?: VendorOption[];
 }
 
-export function ProductForm({ product, onSuccess }: ProductFormProps) {
+export function ProductForm({
+  product,
+  onSuccess,
+  context = "vendor",
+  vendors = [],
+}: ProductFormProps) {
+  const isStaffContext = context === "staff";
   const router = useRouter();
   const isEditing = !!product;
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [coverPreviews, setCoverPreviews] = useState<string[]>([]);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [bulkGeneratorOpen, setBulkGeneratorOpen] = useState(false);
+  const [selectedVariants, setSelectedVariants] = useState<Set<number>>(new Set());
 
   const queryClient = trpc.useUtils();
 
   const form = useForm<ProductFormValues>({
     // @ts-expect-error - React Hook Form type inference issue with Zod defaults for nested objects
-    resolver: zodResolver(productFormSchema),
+    resolver: zodResolver(isStaffContext ? staffProductFormSchema : productFormSchema),
     defaultValues: {
+      vendor:
+        typeof product?.vendor === "string"
+          ? product.vendor
+          : product?.vendor?.id || "",
       name: product?.name || "",
       description: (() => {
         // Extract text from Lexical format if description exists
@@ -150,7 +175,11 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       category: typeof product?.category === "string" ? product.category : product?.category?.id || "",
       subcategory: typeof product?.subcategory === "string" ? product.subcategory : product?.subcategory?.id || "",
       image: typeof product?.image === "string" ? product.image : product?.image?.id || "",
-      cover: typeof product?.cover === "string" ? product.cover : product?.cover?.id || "",
+      cover: Array.isArray(product?.cover) 
+        ? product.cover.map((c: any) => typeof c === "string" ? c : c?.id || "").filter(Boolean)
+        : product?.cover 
+          ? [typeof product.cover === "string" ? product.cover : product.cover?.id || ""].filter(Boolean)
+          : [],
       videoSource: (product as any)?.videoSource || "upload",
       video: typeof product?.video === "string" ? product.video : product?.video?.id || "",
       youtubeUrl: (product as any)?.youtubeUrl || "",
@@ -220,6 +249,40 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
     },
   });
 
+  const applyCreateValidationErrors = (error: { message: string }) => {
+    const errorMessages = error.message.split("; ").filter(Boolean);
+
+    if (errorMessages.length > 1) {
+      toast.error(`${errorMessages.length} validation errors found. Please check the form.`);
+
+      errorMessages.forEach((errMsg) => {
+        const match = errMsg.match(/(\w+) in Variant (\d+):/);
+        if (match) {
+          const [, fieldName, variantNum] = match;
+          const variantIndex = parseInt(variantNum) - 1;
+          const fieldSlug = fieldName.toLowerCase();
+
+          form.setError(`variants.${variantIndex}.variantData.${fieldSlug}`, {
+            type: "manual",
+            message: errMsg.split(": ")[1] || errMsg,
+          });
+        }
+      });
+    } else {
+      toast.error(error.message);
+    }
+  };
+
+  const createStaffProduct = trpc.admin.products.create.useMutation({
+    onSuccess: () => {
+      toast.success("Product created successfully");
+      queryClient.admin.products.list.invalidate();
+      router.push("/staff/products");
+      onSuccess?.();
+    },
+    onError: applyCreateValidationErrors,
+  });
+
   const updateProduct = trpc.vendor.products.update.useMutation({
     onSuccess: () => {
       toast.success("Product updated successfully");
@@ -269,6 +332,25 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
 
   const handleImageUpload = async (file: File, type: "image" | "cover" | "video") => {
     console.log(`[ProductForm] Starting upload for ${type}:`, file.name, file.size, file.type);
+    
+    // Client-side validation for large files
+    const fileSizeMB = file.size / (1024 * 1024);
+    
+    // For videos, warn if file is very large (but still allow upload)
+    if (type === "video") {
+      if (fileSizeMB > 500) {
+        toast.error(`Video file is very large (${fileSizeMB.toFixed(2)} MB). Maximum recommended size is 500 MB. Please compress the video or use a YouTube link instead.`);
+        return;
+      } else if (fileSizeMB > 100) {
+        toast.warning(`Large video file detected (${fileSizeMB.toFixed(2)} MB). Upload may take several minutes. Please be patient.`);
+      }
+    }
+    
+    // For images, warn if file is very large
+    if ((type === "image" || type === "cover") && fileSizeMB > 50) {
+      toast.warning(`Large image file detected (${fileSizeMB.toFixed(2)} MB). Consider compressing the image for better performance.`);
+    }
+    
     const formData = new FormData();
     formData.append("file", file);
 
@@ -325,22 +407,35 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       const mediaId = data.doc.id;
       console.log(`[ProductForm] Upload successful! Media ID:`, mediaId);
 
-      form.setValue(type, mediaId);
-      console.log(`[ProductForm] Form field ${type} set to:`, mediaId);
-      toast.success(`${type === "image" ? "Image" : type === "cover" ? "Cover image" : "Video"} uploaded successfully`);
-
-      // Set preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (type === "image") {
-          setImagePreview(reader.result as string);
-        } else if (type === "cover") {
-          setCoverPreview(reader.result as string);
-        } else {
-          setVideoPreview(reader.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+      // Handle multiple images for cover field
+      if (type === "cover") {
+        const currentCovers = form.getValues("cover") || [];
+        form.setValue("cover", [...currentCovers, mediaId]);
+        console.log(`[ProductForm] Form field cover updated with new image:`, mediaId);
+        
+        // Set preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setCoverPreviews(prev => [...prev, reader.result as string]);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        form.setValue(type, mediaId);
+        console.log(`[ProductForm] Form field ${type} set to:`, mediaId);
+        
+        // Set preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (type === "image") {
+            setImagePreview(reader.result as string);
+          } else {
+            setVideoPreview(reader.result as string);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+      
+      toast.success(`${type === "image" ? "Image" : type === "cover" ? "Additional image" : "Video"} uploaded successfully`);
     } catch (error: any) {
       console.error(`[ProductForm] Upload error for ${type}:`, error);
 
@@ -409,12 +504,15 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
       }
     }
 
-    // Set cover preview
+    // Set cover previews (multiple images)
     if (product?.cover) {
-      const coverUrl = getMediaUrl(product.cover);
-      if (coverUrl) {
-        console.log("[ProductForm] Setting cover preview:", coverUrl);
-        setCoverPreview(coverUrl);
+      const covers = Array.isArray(product.cover) ? product.cover : [product.cover];
+      const coverUrls = covers
+        .map((c: any) => getMediaUrl(c))
+        .filter((url): url is string => url !== null);
+      if (coverUrls.length > 0) {
+        console.log("[ProductForm] Setting cover previews:", coverUrls);
+        setCoverPreviews(coverUrls);
       }
     }
 
@@ -544,8 +642,22 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
     }
 
     if (isEditing) {
+      if (isStaffContext) {
+        toast.error("Use the products list to edit basic fields, or edit in the vendor portal.");
+        return;
+      }
       updateProduct.mutate({
         id: product!.id,
+        ...submitData,
+      });
+    } else if (isStaffContext) {
+      const vendorId = values.vendor;
+      if (!vendorId) {
+        toast.error("Please select a vendor");
+        return;
+      }
+      createStaffProduct.mutate({
+        vendor: vendorId,
         ...submitData,
       });
     } else {
@@ -578,9 +690,40 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
-            <CardDescription>Enter the basic details of your product</CardDescription>
+            <CardDescription>
+              {isStaffContext
+                ? "Select the vendor and enter product details"
+                : "Enter the basic details of your product"}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {isStaffContext && (
+              <FormField
+                control={form.control}
+                name="vendor"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vendor *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select vendor" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {vendors.map((v) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <FormField
               control={form.control}
               name="name"
@@ -777,7 +920,7 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
               name="image"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Main Image</FormLabel>
+                  <FormLabel>Cover Image</FormLabel>
                   <FormControl>
                     <div className="space-y-2">
                       {imagePreview ? (
@@ -837,56 +980,69 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
               name="cover"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Cover Image (Optional)</FormLabel>
+                  <FormLabel>Additional Images</FormLabel>
                   <FormControl>
-                    <div className="space-y-2">
-                      {coverPreview ? (
-                        <div className="relative w-32 h-32 rounded-md overflow-hidden border">
-                          <Image
-                            src={coverPreview}
-                            alt="Cover image"
-                            fill
-                            className="object-cover"
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-1 right-1 h-6 w-6"
-                            onClick={() => {
-                              setCoverPreview(null);
-                              field.onChange("");
-                            }}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="border-2 border-dashed rounded-md p-4">
-                          <label className="cursor-pointer">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  handleImageUpload(file, "cover");
-                                }
-                              }}
-                              disabled={uploadingCover}
-                            />
-                            <div className="flex flex-col items-center justify-center space-y-2">
-                              <Upload className="h-8 w-8 text-gray-400" />
-                              <span className="text-sm text-gray-600">
-                                {uploadingCover ? "Uploading..." : "Click to upload"}
-                              </span>
+                    <div className="space-y-4">
+                      {/* Display uploaded images */}
+                      {coverPreviews.length > 0 && (
+                        <div className="grid grid-cols-4 gap-4">
+                          {coverPreviews.map((preview, index) => (
+                            <div key={index} className="relative w-32 h-32 rounded-md overflow-hidden border">
+                              <Image
+                                src={preview}
+                                alt={`Additional image ${index + 1}`}
+                                fill
+                                className="object-cover"
+                              />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                className="absolute top-1 right-1 h-6 w-6"
+                                onClick={() => {
+                                  const newPreviews = coverPreviews.filter((_, i) => i !== index);
+                                  setCoverPreviews(newPreviews);
+                                  const currentCovers = field.value || [];
+                                  const newCovers = currentCovers.filter((_, i) => i !== index);
+                                  field.onChange(newCovers);
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
                             </div>
-                          </label>
+                          ))}
                         </div>
                       )}
+                      
+                      {/* Upload button */}
+                      <div className="border-2 border-dashed rounded-md p-4">
+                        <label className="cursor-pointer">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => {
+                              const files = Array.from(e.target.files || []);
+                              files.forEach((file) => {
+                                handleImageUpload(file, "cover");
+                              });
+                            }}
+                            disabled={uploadingCover}
+                          />
+                          <div className="flex flex-col items-center justify-center space-y-2">
+                            <Upload className="h-8 w-8 text-gray-400" />
+                            <span className="text-sm text-gray-600">
+                              {uploadingCover ? "Uploading..." : "Click to upload multiple images"}
+                            </span>
+                          </div>
+                        </label>
+                      </div>
                     </div>
                   </FormControl>
+                  <FormDescription>
+                    Upload multiple additional images for your product
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -1132,6 +1288,96 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
                 </p>
               </div>
             ) : null}
+
+            {/* Bulk Actions Bar */}
+            {fields.length > 0 && (
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">
+                    {selectedVariants.size > 0 ? (
+                      <>{selectedVariants.size} variant{selectedVariants.size !== 1 ? 's' : ''} selected</>
+                    ) : (
+                      <>Select variants to perform bulk actions</>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {selectedVariants.size > 0 && (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const stockValue = prompt("Enter stock value to apply to selected variants:");
+                          if (stockValue !== null) {
+                            const stock = parseInt(stockValue);
+                            if (!isNaN(stock) && stock >= 0) {
+                              selectedVariants.forEach(index => {
+                                form.setValue(`variants.${index}.stock`, stock);
+                              });
+                              toast.success(`Updated stock for ${selectedVariants.size} variant${selectedVariants.size !== 1 ? 's' : ''}`);
+                              setSelectedVariants(new Set());
+                            } else {
+                              toast.error("Please enter a valid number");
+                            }
+                          }
+                        }}
+                      >
+                        Fill Stock
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const priceValue = prompt("Enter price value to apply to selected variants (leave empty to clear):");
+                          if (priceValue !== null) {
+                            if (priceValue === "") {
+                              selectedVariants.forEach(index => {
+                                form.setValue(`variants.${index}.price`, undefined);
+                              });
+                              toast.success(`Cleared price for ${selectedVariants.size} variant${selectedVariants.size !== 1 ? 's' : ''}`);
+                            } else {
+                              const price = parseFloat(priceValue);
+                              if (!isNaN(price) && price >= 0) {
+                                selectedVariants.forEach(index => {
+                                  form.setValue(`variants.${index}.price`, price);
+                                });
+                                toast.success(`Updated price for ${selectedVariants.size} variant${selectedVariants.size !== 1 ? 's' : ''}`);
+                              } else {
+                                toast.error("Please enter a valid number");
+                              }
+                            }
+                            setSelectedVariants(new Set());
+                          }
+                        }}
+                      >
+                        Fill Price
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedVariants(new Set())}
+                      >
+                        Clear Selection
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    onClick={() => setBulkGeneratorOpen(true)}
+                    className="ml-2"
+                  >
+                    <Zap className="h-4 w-4 mr-2" />
+                    Bulk Generate
+                  </Button>
+                </div>
+              </div>
+            )}
             
             {fields.map((field, index) => {
               const variantData = form.watch(`variants.${index}.variantData`) || {};
@@ -1178,16 +1424,53 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
               };
               
               const allFieldErrors = getAllFieldErrors();
+              const isSelected = selectedVariants.has(index);
               
               return (
-                <div key={field.id} className="border p-4 rounded-md space-y-4">
+                <div key={field.id} className={`border p-4 rounded-md space-y-4 ${isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`}>
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-sm">Variant {index + 1}</h4>
-                    {allFieldErrors.length > 0 && (
-                      <div className="text-xs text-red-600 font-medium">
-                        {allFieldErrors.length} field{allFieldErrors.length > 1 ? 's' : ''} with error{allFieldErrors.length > 1 ? 's' : ''}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => {
+                          setSelectedVariants(prev => {
+                            const next = new Set(prev);
+                            if (checked) {
+                              next.add(index);
+                            } else {
+                              next.delete(index);
+                            }
+                            return next;
+                          });
+                        }}
+                      />
+                      <h4 className="font-medium text-sm">Variant {index + 1}</h4>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {allFieldErrors.length > 0 && (
+                        <div className="text-xs text-red-600 font-medium">
+                          {allFieldErrors.length} field{allFieldErrors.length > 1 ? 's' : ''} with error{allFieldErrors.length > 1 ? 's' : ''}
+                        </div>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          // Duplicate this variant
+                          const currentVariant = form.getValues(`variants.${index}`);
+                          append({
+                            variantData: { ...currentVariant.variantData },
+                            stock: currentVariant.stock || 0,
+                            price: currentVariant.price,
+                          });
+                          toast.success("Variant duplicated");
+                        }}
+                        title="Duplicate variant"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   
                   {/* Display all field errors as a summary */}
@@ -1486,7 +1769,11 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
           </Button>
           <Button
             type="submit"
-            disabled={createProduct.isPending || updateProduct.isPending}
+            disabled={
+              createProduct.isPending ||
+              createStaffProduct.isPending ||
+              updateProduct.isPending
+            }
           >
             {isEditing ? "Update Product" : "Create Product"}
           </Button>
@@ -1499,6 +1786,21 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
         open={previewOpen && isEditing && !!product?.id}
         onOpenChange={setPreviewOpen}
       />
+
+      {/* Bulk Variant Generator */}
+      {categoryData?.variantConfig && (
+        <BulkVariantGenerator
+          open={bulkGeneratorOpen}
+          onOpenChange={setBulkGeneratorOpen}
+          variantTypes={categoryData.variantConfig.variantTypes || []}
+          variantOptionsMap={categoryData.variantConfig.variantOptionsMap || {}}
+          onGenerate={(variants) => {
+            variants.forEach(variant => {
+              append(variant);
+            });
+          }}
+        />
+      )}
     </Form>
   );
 }

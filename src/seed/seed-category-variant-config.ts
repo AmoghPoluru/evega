@@ -33,7 +33,8 @@ const CATEGORY_VARIANT_CONFIGS: Record<string, VariantConfig> = {
         "Red", "Maroon", "Pink", "Blue", "Green", "Yellow", "Orange", "Purple",
         "Black", "White", "Navy", "Gold", "Silver", "Rose Gold", "Champagne",
         "Midnight Blue", "Emerald", "Ruby Red", "Sapphire Blue", "Ivory",
-        "Beige", "Tan", "Cream", "Brown", "Bronze"
+        "Beige", "Tan", "Cream", "Brown", "Bronze",
+        "Ivory Cream & Pink", "Olive Gold", "Lilac Purple", "Coral Orange", "Sunshine Yellow"
       ],
       material: ["Silk", "Cotton", "Georgette", "Chiffon", "Linen", "Net", "Organza", "Tussar", "Raw Silk"],
       sareeLength: ["5.5 meters", "6 meters", "6.5 meters"],
@@ -64,7 +65,8 @@ const CATEGORY_VARIANT_CONFIGS: Record<string, VariantConfig> = {
         "Red", "Maroon", "Pink", "Blue", "Green", "Yellow", "Orange", "Purple",
         "Black", "White", "Navy", "Gold", "Silver", "Rose Gold", "Champagne",
         "Midnight Blue", "Emerald", "Ruby Red", "Sapphire Blue", "Ivory",
-        "Beige", "Tan", "Cream", "Brown", "Bronze"
+        "Beige", "Tan", "Cream", "Brown", "Bronze",
+        "Ivory Cream & Pink", "Olive Gold", "Lilac Purple", "Coral Orange", "Sunshine Yellow"
       ],
       material: ["Silk", "Georgette", "Chiffon", "Net", "Velvet", "Organza"],
       blouseStyle: ["Sleeveless", "Half Sleeve", "Full Sleeve", "Backless"],
@@ -98,7 +100,8 @@ const CATEGORY_VARIANT_CONFIGS: Record<string, VariantConfig> = {
         "Red", "Maroon", "Pink", "Blue", "Green", "Yellow", "Orange", "Purple",
         "Black", "White", "Navy", "Gold", "Silver", "Rose Gold", "Champagne",
         "Midnight Blue", "Emerald", "Ruby Red", "Sapphire Blue", "Ivory",
-        "Beige", "Tan", "Cream", "Brown", "Bronze"
+        "Beige", "Tan", "Cream", "Brown", "Bronze",
+        "Ivory Cream & Pink", "Olive Gold", "Lilac Purple", "Coral Orange", "Sunshine Yellow"
       ],
       material: ["Cotton", "Georgette", "Chiffon", "Silk", "Linen"],
       bottomType: ["Patiala", "Palazzo", "Straight", "Churidar", "Dhoti"],
@@ -130,7 +133,8 @@ const CATEGORY_VARIANT_CONFIGS: Record<string, VariantConfig> = {
         "Red", "Maroon", "Pink", "Blue", "Green", "Yellow", "Orange", "Purple",
         "Black", "White", "Navy", "Gold", "Silver", "Rose Gold", "Champagne",
         "Midnight Blue", "Emerald", "Ruby Red", "Sapphire Blue", "Ivory",
-        "Beige", "Tan", "Cream", "Brown", "Bronze"
+        "Beige", "Tan", "Cream", "Brown", "Bronze",
+        "Ivory Cream & Pink", "Olive Gold", "Lilac Purple", "Coral Orange", "Sunshine Yellow"
       ],
       material: ["Cotton", "Georgette", "Chiffon", "Linen"],
       length: ["Short", "Medium", "Long", "Knee Length"],
@@ -161,7 +165,8 @@ const CATEGORY_VARIANT_CONFIGS: Record<string, VariantConfig> = {
         "Red", "Maroon", "Pink", "Blue", "Green", "Yellow", "Orange", "Purple",
         "Black", "White", "Navy", "Gold", "Silver", "Rose Gold", "Champagne",
         "Midnight Blue", "Emerald", "Ruby Red", "Sapphire Blue", "Ivory",
-        "Beige", "Tan", "Cream", "Brown", "Bronze"
+        "Beige", "Tan", "Cream", "Brown", "Bronze",
+        "Ivory Cream & Pink", "Olive Gold", "Lilac Purple", "Coral Orange", "Sunshine Yellow"
       ],
       material: ["Cotton", "Georgette", "Chiffon", "Linen", "Silk"],
     },
@@ -189,7 +194,8 @@ const CATEGORY_VARIANT_CONFIGS: Record<string, VariantConfig> = {
         "Red", "Maroon", "Pink", "Blue", "Green", "Yellow", "Orange", "Purple",
         "Black", "White", "Navy", "Gold", "Silver", "Rose Gold", "Champagne",
         "Midnight Blue", "Emerald", "Ruby Red", "Sapphire Blue", "Ivory",
-        "Beige", "Tan", "Cream", "Brown", "Bronze"
+        "Beige", "Tan", "Cream", "Brown", "Bronze",
+        "Ivory Cream & Pink", "Olive Gold", "Lilac Purple", "Coral Orange", "Sunshine Yellow"
       ],
       material: ["Silk", "Cotton", "Georgette", "Chiffon"],
       blouseStyle: ["Sleeveless", "Half Sleeve", "Full Sleeve", "Backless"],
@@ -214,7 +220,8 @@ const CATEGORY_VARIANT_CONFIGS: Record<string, VariantConfig> = {
         "Red", "Maroon", "Pink", "Blue", "Green", "Yellow", "Orange", "Purple",
         "Black", "White", "Navy", "Gold", "Silver", "Rose Gold", "Champagne",
         "Midnight Blue", "Emerald", "Ruby Red", "Sapphire Blue", "Ivory",
-        "Beige", "Tan", "Cream", "Brown", "Bronze"
+        "Beige", "Tan", "Cream", "Brown", "Bronze",
+        "Ivory Cream & Pink", "Olive Gold", "Lilac Purple", "Coral Orange", "Sunshine Yellow"
       ],
       material: ["Silk", "Cotton", "Georgette", "Chiffon", "Pashmina"],
       length: ["2.5 meters", "2.75 meters", "3 meters"],
@@ -256,7 +263,8 @@ const CATEGORY_VARIANT_CONFIGS: Record<string, VariantConfig> = {
         "Red", "Maroon", "Pink", "Blue", "Green", "Yellow", "Orange", "Purple",
         "Black", "White", "Navy", "Gold", "Silver", "Rose Gold", "Champagne",
         "Midnight Blue", "Emerald", "Ruby Red", "Sapphire Blue", "Ivory",
-        "Beige", "Tan", "Cream", "Brown", "Bronze"
+        "Beige", "Tan", "Cream", "Brown", "Bronze",
+        "Ivory Cream & Pink", "Olive Gold", "Lilac Purple", "Coral Orange", "Sunshine Yellow"
       ],
       material: ["Cotton", "Linen", "Silk"],
       length: ["Short", "Medium", "Long"],
@@ -286,7 +294,8 @@ const CATEGORY_VARIANT_CONFIGS: Record<string, VariantConfig> = {
         "Red", "Maroon", "Pink", "Blue", "Green", "Yellow", "Orange", "Purple",
         "Black", "White", "Navy", "Gold", "Silver", "Rose Gold", "Champagne",
         "Midnight Blue", "Emerald", "Ruby Red", "Sapphire Blue", "Ivory",
-        "Beige", "Tan", "Cream", "Brown", "Bronze"
+        "Beige", "Tan", "Cream", "Brown", "Bronze",
+        "Ivory Cream & Pink", "Olive Gold", "Lilac Purple", "Coral Orange", "Sunshine Yellow"
       ],
       material: ["Cotton", "Georgette", "Chiffon"],
     },

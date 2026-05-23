@@ -40,9 +40,10 @@ describe('Users Collection', () => {
       // Check for key fields
       expect(fieldNames).toContain('username');
       expect(fieldNames).toContain('name');
+      expect(fieldNames).toContain('role');
       expect(fieldNames).toContain('vendor');
-      expect(fieldNames).toContain('vendorRole');
-      expect(fieldNames).toContain('appRole');
+      expect(fieldNames).toContain('oauthProvider');
+      expect(fieldNames).toContain('avatar');
     });
   });
 });

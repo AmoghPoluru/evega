@@ -28,10 +28,17 @@ const heroBannerSchema = z.object({
   backgroundImage: z.string().optional(),
   products: z.array(z.string()).min(1, "At least one product is required"),
   isActive: z.boolean(),
-  order: z.number(),
+  order: z.union([
+    z.number(),
+    z.string().transform((val) => {
+      if (val === "" || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? undefined : num;
+    })
+  ]).optional(),
 });
 
-type HeroBannerFormValues = z.infer<typeof heroBannerSchema>;
+type HeroBannerFormValues = z.input<typeof heroBannerSchema>;
 
 interface HeroBannerFormProps {
   banner?: any; // Banner to edit, or undefined for create
@@ -62,6 +69,12 @@ export function HeroBannerForm({ banner, onSuccess, onCancel }: HeroBannerFormPr
       onSuccess?.();
     },
     onError: (error) => {
+      console.error("[HeroBannerForm] Create error:", error);
+      console.error("[HeroBannerForm] Error details:", {
+        message: error.message,
+        code: error.data?.code,
+        shape: error.shape,
+      });
       toast.error(error.message || "Failed to create hero banner");
     },
   });
@@ -99,7 +112,7 @@ export function HeroBannerForm({ banner, onSuccess, onCancel }: HeroBannerFormPr
           : []
         : [],
       isActive: banner?.isActive !== undefined ? banner.isActive : true,
-      order: banner?.order !== undefined ? banner.order : 0,
+      order: banner?.order !== undefined && banner.order !== null && banner.order !== 0 ? banner.order : undefined,
     },
   });
 
@@ -137,15 +150,49 @@ export function HeroBannerForm({ banner, onSuccess, onCancel }: HeroBannerFormPr
   };
 
   const onSubmit = async (values: HeroBannerFormValues) => {
+    // Clean up empty values and validate products
+    const cleanedProducts = (values.products || [])
+      .filter((id: string) => id && id.trim() !== "") // Remove empty strings
+      .filter((id: string, index: number, arr: string[]) => arr.indexOf(id) === index); // Remove duplicates
+
+    if (cleanedProducts.length === 0) {
+      toast.error("Please select at least one product");
+      return;
+    }
+
+    const cleanedValues: any = {
+      ...values,
+      // Convert empty string to undefined for optional fields
+      backgroundImage: values.backgroundImage && values.backgroundImage.trim() !== "" 
+        ? values.backgroundImage 
+        : undefined,
+      subtitle: values.subtitle && values.subtitle.trim() !== "" 
+        ? values.subtitle 
+        : undefined,
+      // Use cleaned products array
+      products: cleanedProducts,
+    };
+
+    // Handle order - only include if it's a valid number, otherwise omit it
+    if (values.order !== undefined && values.order !== null && values.order !== "") {
+      const orderNum = typeof values.order === "number" ? values.order : Number(values.order);
+      if (!isNaN(orderNum)) {
+        cleanedValues.order = orderNum;
+      }
+    }
+    // If order is empty/undefined, don't include it (will use default from collection)
+
+    console.log("[HeroBannerForm] Submitting with values:", cleanedValues);
+
     if (banner?.id) {
       // Update existing banner
       updateMutation.mutate({
         id: banner.id,
-        ...values,
+        ...cleanedValues,
       });
     } else {
       // Create new banner
-      createMutation.mutate(values);
+      createMutation.mutate(cleanedValues);
     }
   };
 
@@ -371,16 +418,44 @@ export function HeroBannerForm({ banner, onSuccess, onCancel }: HeroBannerFormPr
             name="order"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Display Order</FormLabel>
+                <FormLabel>Display Order (Optional)</FormLabel>
                 <FormControl>
                   <Input
-                    type="number"
-                    {...field}
-                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                    type="text"
+                    placeholder="Leave empty for default order"
+                    value={field.value !== undefined && field.value !== null && field.value !== 0 ? String(field.value) : ""}
+                    onChange={(e) => {
+                      const value = e.target.value.trim();
+                      if (value === "") {
+                        field.onChange(undefined);
+                      } else {
+                        const numValue = Number(value);
+                        if (!isNaN(numValue)) {
+                          field.onChange(numValue);
+                        } else {
+                          // Allow typing, but don't update until valid number
+                          field.onChange(value);
+                        }
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim();
+                      if (value === "") {
+                        field.onChange(undefined);
+                      } else {
+                        const numValue = Number(value);
+                        if (!isNaN(numValue)) {
+                          field.onChange(numValue);
+                        } else {
+                          // Reset to empty if invalid
+                          field.onChange(undefined);
+                        }
+                      }
+                    }}
                   />
                 </FormControl>
                 <FormDescription>
-                  Display order (lower numbers appear first, if multiple banners exist)
+                  Display order (lower numbers appear first, if multiple banners exist). Leave empty for default ordering.
                 </FormDescription>
                 <FormMessage />
               </FormItem>

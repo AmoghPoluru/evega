@@ -62,6 +62,8 @@ export const authRouter = createTRPCRouter({
           email: input.email,
           username: input.username,
           password: input.password, // This will be hashed by Payload
+          role: "user",
+          oauthProvider: "email",
         },
       });
 

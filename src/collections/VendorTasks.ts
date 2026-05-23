@@ -1,5 +1,5 @@
 import type { CollectionConfig } from "payload";
-import { isSuperAdmin, getVendorId, isVendor } from "@/lib/access";
+import { isAppStaff, getVendorId, isVendor } from "@/lib/access";
 
 export const VendorTasks: CollectionConfig = {
   slug: "vendor-tasks",
@@ -11,7 +11,7 @@ export const VendorTasks: CollectionConfig = {
   access: {
     read: ({ req }) => {
       const user = req.user;
-      if (isSuperAdmin(user)) return true;
+      if (isAppStaff(user)) return true;
 
       // Vendors can read only their own tasks
       if (isVendor(user)) {
@@ -29,12 +29,12 @@ export const VendorTasks: CollectionConfig = {
     create: ({ req }) => {
       const user = req.user;
       // Super admins and vendors can create tasks
-      if (isSuperAdmin(user)) return true;
+      if (isAppStaff(user)) return true;
       return isVendor(user);
     },
     update: ({ req }) => {
       const user = req.user;
-      if (isSuperAdmin(user)) return true;
+      if (isAppStaff(user)) return true;
 
       // Vendors can update only their own tasks (e.g., add notes, close/reopen)
       if (isVendor(user)) {
@@ -51,7 +51,7 @@ export const VendorTasks: CollectionConfig = {
     },
     delete: ({ req }) => {
       // Only super admins can delete tasks
-      return isSuperAdmin(req.user);
+      return isAppStaff(req.user);
     },
   },
   fields: [
@@ -191,7 +191,7 @@ export const VendorTasks: CollectionConfig = {
 
         if (operation === "create") {
           // Auto-set vendor and createdBy on create
-          if (!isSuperAdmin(user) && isVendor(user)) {
+          if (!isAppStaff(user) && isVendor(user)) {
             const vendorId = getVendorId(user);
             if (vendorId) {
               data.vendor = vendorId;

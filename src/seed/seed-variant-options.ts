@@ -38,6 +38,11 @@ const COLOR_HEX_CODES: Record<string, string> = {
   Cream: "#FFFDD0",
   Brown: "#A52A2A",
   Bronze: "#CD7F32",
+  "Ivory Cream & Pink": "#F5E1DA",
+  "Olive Gold": "#B5AD4D",
+  "Lilac Purple": "#C8A2E0",
+  "Coral Orange": "#FF6F61",
+  "Sunshine Yellow": "#FFEB3B",
 };
 
 interface VariantOptionData {
@@ -132,10 +137,15 @@ const VARIANT_OPTIONS: VariantOptionData[] = [
   { value: "Cream", variantTypeSlug: "color", hexCode: COLOR_HEX_CODES.Cream, displayOrder: 23 },
   { value: "Brown", variantTypeSlug: "color", hexCode: COLOR_HEX_CODES.Brown, displayOrder: 24 },
   { value: "Bronze", variantTypeSlug: "color", hexCode: COLOR_HEX_CODES.Bronze, displayOrder: 25 },
-  { value: "Copper", variantTypeSlug: "color", hexCode: "#B87333", displayOrder: 26 },
-  { value: "Natural", variantTypeSlug: "color", hexCode: "#F5F5DC", displayOrder: 27 },
-  { value: "Painted", variantTypeSlug: "color", hexCode: "#FFFFFF", displayOrder: 28 },
-  { value: "Various", variantTypeSlug: "color", hexCode: "#000000", displayOrder: 29 },
+  { value: "Ivory Cream & Pink", variantTypeSlug: "color", hexCode: COLOR_HEX_CODES["Ivory Cream & Pink"], displayOrder: 26 },
+  { value: "Olive Gold", variantTypeSlug: "color", hexCode: COLOR_HEX_CODES["Olive Gold"], displayOrder: 27 },
+  { value: "Lilac Purple", variantTypeSlug: "color", hexCode: COLOR_HEX_CODES["Lilac Purple"], displayOrder: 28 },
+  { value: "Coral Orange", variantTypeSlug: "color", hexCode: COLOR_HEX_CODES["Coral Orange"], displayOrder: 29 },
+  { value: "Sunshine Yellow", variantTypeSlug: "color", hexCode: COLOR_HEX_CODES["Sunshine Yellow"], displayOrder: 30 },
+  { value: "Copper", variantTypeSlug: "color", hexCode: "#B87333", displayOrder: 31 },
+  { value: "Natural", variantTypeSlug: "color", hexCode: "#F5F5DC", displayOrder: 32 },
+  { value: "Painted", variantTypeSlug: "color", hexCode: "#FFFFFF", displayOrder: 33 },
+  { value: "Various", variantTypeSlug: "color", hexCode: "#000000", displayOrder: 34 },
 
   // Material options - Fabric
   { value: "Silk", variantTypeSlug: "material", displayOrder: 1 },

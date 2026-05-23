@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, Store, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { isAppStaff, getUserRole, hasVendor } from "@/lib/access";
+import type { User } from "@/payload-types";
 
 const poppins = Poppins({
   weight: ["700"],
@@ -89,26 +91,22 @@ export function Navbar() {
     },
   });
   const isLoggedIn = !!session?.user
-  const isAdmin =
-    !!session?.user &&
-    (
-      (Array.isArray((session.user as any).roles) && (session.user as any).roles.includes("super-admin")) ||
-      (session.user as any).appRole
-    )
+  const sessionUser = session?.user as User | undefined
+  const isAdmin = !!sessionUser && isAppStaff(sessionUser)
   const canSeeVendorDashboard =
-    !!session?.user &&
-    (
-      // Has vendor relationship
-      !!(session.user as any).vendor ||
-      // Or has appRole / legacy super-admin role
-      (Array.isArray((session.user as any).roles) && (session.user as any).roles.includes("super-admin")) ||
-      (session.user as any).appRole
-    )
+    !!sessionUser &&
+    (isAppStaff(sessionUser) ||
+      hasVendor(sessionUser) ||
+      getUserRole(sessionUser) === "vendor")
 
   // Hide navbar on vendor dashboard pages only (not vendor public pages)
   // Vendor dashboard: /vendor/* (singular)
   // Vendor public pages: /vendors/* (plural) - should show navbar
   if (pathname?.startsWith("/vendor/") && !pathname?.startsWith("/vendors/")) {
+    return null
+  }
+
+  if (pathname?.startsWith("/staff/")) {
     return null
   }
 
@@ -232,8 +230,8 @@ export function Navbar() {
             variant="outline"
             className="border-gray-600 text-white bg-transparent hover:bg-gray-800 hover:text-white"
           >
-            <Link href="/admin-tasks">
-              Admin Dashboard
+            <Link href="/staff/tasks">
+              Admin Console
             </Link>
           </Button>
         )}
@@ -274,7 +272,7 @@ export function Navbar() {
             variant="outline"
             className="border-gray-600 text-white bg-transparent hover:bg-gray-800 hover:text-white px-3 py-2 text-xs"
           >
-            <Link href="/admin-tasks">
+            <Link href="/staff/tasks">
               Admin
             </Link>
           </Button>

@@ -276,6 +276,7 @@ export const Products: CollectionConfig = {
       name: "cover",
       type: "upload",
       relationTo: "media",
+      hasMany: true,
     },
     {
       name: "videoSource",

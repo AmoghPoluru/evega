@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Store } from "lucide-react";
+import { Shield, Store } from "lucide-react";
 import { trpc } from "@/trpc/client";
+import { isAppStaff } from "@/lib/access";
+import type { User } from "@/payload-types";
 
 import {
   Sheet,
@@ -62,6 +64,10 @@ export default function NavbarSidebar({
     isLoggedIn &&
     isApprovedVendor &&
     !isLoadingVendorStatus
+  );
+
+  const showAdminConsole = Boolean(
+    isLoggedIn && session?.user && isAppStaff(session.user as User),
   );
 
   const logout = trpc.auth.logout.useMutation({
@@ -155,13 +161,16 @@ export default function NavbarSidebar({
                     Become Vendor
                   </Link>
                 )}
-                <Link 
-                  onClick={() => onOpenChange(false)} 
-                  href="/admin" 
-                  className="w-full text-left p-4 hover:bg-black hover:text-white flex items-center text-base font-medium"
-                >
-                  Admin Dashboard
-                </Link>
+                {showAdminConsole && (
+                  <Link
+                    onClick={() => onOpenChange(false)}
+                    href="/staff/tasks"
+                    className="flex w-full items-center gap-2 p-4 text-base font-medium hover:bg-black hover:text-white"
+                  >
+                    <Shield className="h-4 w-4" />
+                    Admin Console
+                  </Link>
+                )}
                 <button
                   onClick={handleLogout}
                   disabled={logout.isPending}

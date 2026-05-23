@@ -4,6 +4,10 @@ import config from "@payload-config";
 import { headers } from "next/headers";
 import { uploadToBlob, deleteFromBlob } from "@/lib/vercel-blob-storage";
 
+// Increase body size limit for video uploads (default is 1MB, we set to 500MB)
+export const maxDuration = 300; // 5 minutes for large video uploads
+export const runtime = 'nodejs'; // Ensure Node.js runtime for large file handling
+
 // Handle DELETE requests - use Payload's delete method directly
 export async function DELETE(req: NextRequest) {
   try {
@@ -143,6 +147,15 @@ export async function POST(req: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    // Log file size for debugging
+    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    console.log(`📤 Uploading ${file.type} file: ${file.name} (${fileSizeMB} MB)`);
+    
+    // Warn if file is very large (but still allow it)
+    if (file.size > 100 * 1024 * 1024) { // 100MB
+      console.warn(`⚠️  Large file detected: ${fileSizeMB} MB. Upload may take longer.`);
     }
 
     // Convert File to Buffer

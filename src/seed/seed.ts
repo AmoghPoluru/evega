@@ -49,7 +49,8 @@ const seedAdminUser = async (payload: any) => {
           email: "admin@example.com",
           password: "admin123",
           username: "admin",
-          roles: ["super-admin"],
+          role: "admin",
+          oauthProvider: "email",
         },
       });
       console.log("✓ Admin user created: admin@example.com / admin123");

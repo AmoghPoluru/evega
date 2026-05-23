@@ -12,6 +12,7 @@
     "generate:importmap": "payload generate:importmap",
     "db:fresh": "payload migrate:fresh",
     "db:seed": "npx tsx src/seed/seed.ts",
+    "db:reset-admin-password": "npx tsx scripts/reset-admin-password.ts",
     "db:seed:all": "npx tsx src/seed/seed-all.ts",
     "db:seed:fresh": "npx tsx src/seed/seed-fresh.ts",
     "db:seed:core": "npx tsx src/seed/seed-core.ts",

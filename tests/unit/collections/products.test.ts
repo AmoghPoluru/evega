@@ -85,7 +85,7 @@ describe('Products Collection', () => {
       it('should allow super admin to create products', () => {
         const user: Partial<User> = {
           id: 'admin-123',
-          appRole: { slug: 'app-admin' } as any,
+          role: 'admin',
         };
 
         const req = {
@@ -143,7 +143,7 @@ describe('Products Collection', () => {
       it('should allow super admin to update any product', () => {
         const user: Partial<User> = {
           id: 'admin-123',
-          appRole: { slug: 'app-admin' } as any,
+          role: 'admin',
         };
 
         const req = {
@@ -212,7 +212,7 @@ describe('Products Collection', () => {
       it('should allow super admin to delete any product', () => {
         const user: Partial<User> = {
           id: 'admin-123',
-          appRole: { slug: 'app-admin' } as any,
+          role: 'admin',
         };
 
         const req = {

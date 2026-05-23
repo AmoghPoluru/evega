@@ -28,7 +28,7 @@ function getNextAuthHandlers() {
     if (!process.env.NEXTAUTH_URL && !isBuildTime) {
       console.warn(
         "NEXTAUTH_URL is not set. Defaulting to http://localhost:3000. " +
-        "Set it in .env.local for production."
+        "Set it in your .env.local for production."
       );
     }
 
@@ -65,28 +65,28 @@ function getNextAuthHandlers() {
 
         if (existingUser) {
           // Link OAuth account to existing user
-          const oauthData: any = {};
+          const oauthData: Record<string, unknown> = {};
           
           // Update name if not set or if OAuth provides a name
-          if (user.name && !(existingUser as any).name) {
+          if (user.name && !(existingUser as { name?: string }).name) {
             oauthData.name = user.name;
           }
           
           if (account.provider === "google") {
-            oauthData["oauthProviders.google.id"] = account.providerAccountId;
-            oauthData["oauthProviders.google.email"] = user.email;
+            oauthData.oauthProvider = "google";
+            oauthData.oauthId = account.providerAccountId;
           } else if (account.provider === "facebook") {
-            oauthData["oauthProviders.facebook.id"] = account.providerAccountId;
-            oauthData["oauthProviders.facebook.email"] = user.email;
+            oauthData.oauthProvider = "facebook";
+            oauthData.oauthId = account.providerAccountId;
           }
 
           if (user.image) {
-            oauthData.profilePicture = user.image;
+            oauthData.avatar = user.image;
           }
 
           // For OAuth login, we need to ensure the user has a password to log in with Payload CMS
           // Generate a password if user doesn't have one (OAuth-only users)
-          const userHasPassword = !!(existingUser as any).password;
+          const userHasPassword = !!(existingUser as { password?: string }).password;
           
           let loginPassword: string;
           
@@ -153,36 +153,23 @@ function getNextAuthHandlers() {
             }
           }
 
-          const userData: any = {
-            email: user.email,
-            username: username,
-            roles: ["user"],
-          };
-
-          // Save user's full name if available
-          if (user.name) {
-            userData.name = user.name;
-          }
-
-          if (account.provider === "google") {
-            userData["oauthProviders.google.id"] = account.providerAccountId;
-            userData["oauthProviders.google.email"] = user.email;
-          } else if (account.provider === "facebook") {
-            userData["oauthProviders.facebook.id"] = account.providerAccountId;
-            userData["oauthProviders.facebook.email"] = user.email;
-          }
-
-          if (user.image) {
-            userData.profilePicture = user.image;
-          }
-
-          // Generate random password for OAuth users
           const randomPassword = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}-${Math.random().toString(36).substring(2, 15)}`;
-          userData.password = randomPassword;
 
-          const newUser = await payload.create({
+          await payload.create({
             collection: "users",
-            data: userData,
+            data: {
+              email: user.email!,
+              username,
+              role: "user",
+              password: randomPassword,
+              ...(user.name ? { name: user.name } : {}),
+              ...(account.provider === "google"
+                ? { oauthProvider: "google" as const, oauthId: account.providerAccountId }
+                : account.provider === "facebook"
+                  ? { oauthProvider: "facebook" as const, oauthId: account.providerAccountId }
+                  : {}),
+              ...(user.image ? { avatar: user.image } : {}),
+            },
           });
 
           // Generate Payload auth token
@@ -209,21 +196,19 @@ function getNextAuthHandlers() {
       }
     },
     async redirect({ url, baseUrl }) {
-      // Redirect to homepage after successful login
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       if (new URL(url).origin === baseUrl) return url;
       return baseUrl;
     },
   },
     });
-    
+
     nextAuthHandlers = handlers;
   }
-  
+
   return nextAuthHandlers;
 }
 
-// Export handlers that lazily initialize NextAuth
 export const GET = async (req: Request) => {
   const handlers = getNextAuthHandlers();
   return handlers.GET(req);

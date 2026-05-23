@@ -1,5 +1,6 @@
 import type { CollectionConfig } from "payload";
 import type { Where } from "payload";
+import { isAppAdmin } from "@/lib/access";
 
 export const Customers: CollectionConfig = {
   slug: "customers",
@@ -11,7 +12,7 @@ export const Customers: CollectionConfig = {
     read: ({ req }) => {
       const user = req.user;
       // Super admins can read all customers
-      if (user?.roles?.includes("super-admin")) {
+      if (isAppAdmin(user)) {
         return true;
       }
       // Vendors can read customers who have ordered from them
@@ -33,7 +34,7 @@ export const Customers: CollectionConfig = {
     update: ({ req }) => {
       const user = req.user;
       // Super admins can update all customers
-      if (user?.roles?.includes("super-admin")) {
+      if (isAppAdmin(user)) {
         return true;
       }
       // Vendors can update customers who have ordered from them
@@ -50,7 +51,7 @@ export const Customers: CollectionConfig = {
     },
     delete: ({ req }) => {
       // Only super admins can delete customers
-      return req.user?.roles?.includes("super-admin") || false;
+      return isAppAdmin(req.user) || false;
     },
   },
   fields: [

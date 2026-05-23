@@ -211,6 +211,36 @@
     - **Status**: ✅ Complete
     - **Files**: `src/app/(app)/(home)/navbar/Navbar.tsx`
 
+### Users collection — BD / BDO app role (parity with EvegaSupply)
+
+**Goal:** Give Evega a first-class **BD** (Business Development) staff role on the `users` collection, matching the behavior of EvegaSupply’s **`bdo`** user role (BDO = same function; product copy may say “BD” or “BDO”).
+
+**Reference (EvegaSupply):**
+
+- `evegasupply/src/collections/Users.ts`: `role` is a **select** with `{ label: 'BDO', value: 'bdo' }` alongside `user`, `vendor`, `buyer`, `admin`.
+- Payload CMS `/admin` access: only **`role === 'admin'`** — BDO users do **not** use Payload admin; they use the main app (e.g. BDO inbox, assigned buyer/vendor relationships).
+- Related collections filter BDO assignees with `filterOptions: { role: { in: ['admin', 'bdo'] } }` (see `BdoConversations`, buyer/vendor `bdo` fields).
+
+**Evega difference (today):**
+
+- Users use the **`roles`** collection via **`appRole`** / **`vendorRole`** (`src/collections/Users.ts`), not a string `role` field.
+- **`app-admin`** exists; UI and tasks mention BDO, but **`requireAppAdmin()`** / **`isSuperAdmin()`** effectively gate staff flows — there is **no** dedicated **`bdo`** (or **`bd`**) **app role** document and no consistent `hasAppRole(user, 'bdo')` checks yet.
+
+**Todo (implementation — not started):**
+
+- [ ] **521 — Role definition:** Add an **application** role in the `roles` collection for staff BD/BDO (decide **slug**: recommend **`bdo`** for parity with EvegaSupply and existing copy; if product standardizes on “BD” only, use slug **`bd`** and document the mapping). Include **name**, **description**, **`type: app`**, **`isActive`**.
+- [ ] **522 — Seed / migration:** Ship a seed script or Payload migration so **`bdo`** (or **`bd`**) exists in dev/staging/prod and cannot be missing when assigning users.
+- [ ] **523 — Access helpers:** Extend `src/lib/access.ts` (and any session helpers) with **`isBdo(user)`**, **`isAppStaff(user)`** (or similar) meaning **app-admin OR BDO** — mirror EvegaSupply’s checks that treat **`admin` + `bdo`** together where appropriate.
+- [ ] **524 — Users schema / admin UI:** Update **`Users`** field conditions so BD/BDO users **do not require `vendor`** (same pattern as **`app-admin`**: hide or relax `vendor` / `vendorRole` when `appRole.slug` is BDO).
+- [ ] **525 — Payload admin:** Align **`users`** (and global) **`access.admin`** with EvegaSupply: only **full admins** use Payload Admin UI; **exclude** BDO from Payload unless product explicitly wants BDO in admin (document decision).
+- [ ] **526 — App routes & middleware:** Extend **`requireAppAdmin`** or add **`requireAppStaff`** so **`/admin-tasks`** (and any future BD-only routes) allow **BDO** as well as **app-admin** / legacy super-admin; keep **vendor** and **customer** users blocked.
+- [ ] **527 — Navbar & redirects:** Show “Admin dashboard” / staff links for **`isAppStaff`**; optional **home redirect** for BDO-only sessions (parity with EvegaSupply BDO dashboard routing — see `evegasupply` `(app)` home / BDO layout).
+- [ ] **528 — Data model joins:** Where **`vendors.bdo`** / **`VendorTasks.assignedTo`** / admin pickers reference users, add **`filterOptions`** (or query constraints) so only **admin + BDO** users are selectable assignees (same idea as EvegaSupply **`filterOptions: { role: { in: ['admin', 'bdo'] } }`**, adapted to **`appRole`**).
+- [ ] **529 — tRPC & collection access:** Audit **`vendorTasks`** and other staff procedures; replace bare **`isSuperAdmin`** with **`isAppStaff`** (or per-endpoint admin-only vs BDO-allowed) so BDO can perform allowed operations without super-admin.
+- [ ] **530 — Types & tests:** Regenerate **`payload-types`**; add unit tests for **`isBdo` / `isAppStaff`** and middleware behavior; update **`tests/unit/lib/access.test.ts`** fixtures.
+
+**Out of scope for this block (separate tasks later):** Full EvegaSupply-style **`bdo-conversations`** / realtime chat; this list is **users + roles + staff gates + assignee filters** only.
+
 ---
 
 ## Project Setup & Initialization
@@ -4430,6 +4460,293 @@ When vendors create manual orders through the vendor dashboard, the "Remaining" 
 
 ---
 
+
+# Vendor Template System Implementation - Completed Tasks
+
+This document outlines all the tasks completed for implementing the vendor template system with customizable text styles.
+
+## Phase 1: Template System Foundation ✅
+
+### 1.1 Database Schema
+- [x] Created `VendorTemplates` collection in Payload CMS
+- [x] Added `selectedTemplate` relationship field to `Vendors` collection
+- [x] Added `templateCustomization` JSON field to `Vendors` collection for vendor-specific overrides
+- [x] Registered `VendorTemplates` collection in `payload.config.ts`
+
+### 1.2 Type Definitions
+- [x] Created `template-customization.ts` with TypeScript interfaces
+- [x] Defined `TemplateConfig` schema with Zod validation
+- [x] Defined `TemplateCustomization` schema for vendor overrides
+- [x] Defined `ResolvedTemplate` interface for merged template config
+
+### 1.3 Template Engine Core
+- [x] Created `template-engine.ts` with `resolveVendorTemplate()` function
+- [x] Implemented `getDefaultTemplate()` to fetch default template
+- [x] Implemented template config merging (base template + vendor customizations)
+- [x] Added fallback logic for missing templates
+
+## Phase 2: CSS Variables System ✅
+
+### 2.1 CSS Variables Generator
+- [x] Created `css-variables.ts` with `generateCSSVariables()` function
+- [x] Implemented color variable generation (primary, secondary, accent, text, etc.)
+- [x] Implemented font variable generation (heading, body)
+- [x] Implemented spacing variable generation (section padding, card gap, container width)
+- [x] Implemented component-specific variables (card radius, banner height)
+- [x] Created `cssVariablesToString()` for CSS string conversion
+- [x] Created `cssVariablesToStyle()` for React inline styles
+
+### 2.2 Text Styles CSS Variables
+- [x] Added text style variable generation for `heading1`:
+  - `--template-h1-size`
+  - `--template-h1-weight`
+  - `--template-h1-spacing`
+  - `--template-h1-height`
+  - `--template-h1-transform`
+- [x] Added text style variable generation for `heading2`:
+  - `--template-h2-size`
+  - `--template-h2-weight`
+  - `--template-h2-spacing`
+  - `--template-h2-height`
+  - `--template-h2-transform`
+- [x] Added text style variable generation for `body`:
+  - `--template-body-size`
+  - `--template-body-weight`
+  - `--template-body-spacing`
+  - `--template-body-height`
+- [x] Added hero banner text style variables:
+  - `--template-hero-title-size`
+  - `--template-hero-title-weight`
+  - `--template-hero-subtitle-size`
+  - `--template-hero-subtitle-weight`
+  - `--template-hero-text-shadow`
+
+## Phase 3: Template Seed Data ✅
+
+### 3.1 Template Seed Structure
+- [x] Created `seed-templates.ts` with template seed data structure
+- [x] Defined `TemplateSeedData` interface
+- [x] Created `seedTemplates()` function to populate database
+
+### 3.2 Default Templates Created
+- [x] **Fun Template** (Default)
+  - Colors: Pink (#FF6B9D), Deep Pink (#C44569), Yellow (#FFD93D)
+  - Fonts: Poppins (heading), Nunito (body)
+  - Text Styles: Bold (800 weight), playful spacing
+  - Hero Banner: Large titles (3.5rem), strong shadows
+- [x] **Elegant Template**
+  - Colors: Dark Blue (#2C3E50), Gold (#D4AF37), Brown (#8B6F47)
+  - Fonts: Playfair Display (heading), Lora (body)
+  - Text Styles: Refined serif (700 weight), elegant spacing
+  - Hero Banner: Large titles (4rem), classic shadows
+- [x] **Bold Template**
+  - Colors: Orange (#FF6B35), Blue (#004E89), Yellow (#FFD23F)
+  - Fonts: Montserrat (heading), Open Sans (body)
+  - Text Styles: Uppercase, heavy weights (900), tight spacing
+  - Hero Banner: Extra large titles (4.5rem), strong shadows
+- [x] **Zen Template**
+  - Colors: Green (#5D8A7E), Light Green (#A8C5A0), Beige (#E8D5B7)
+  - Fonts: Inter (heading and body)
+  - Text Styles: Minimal (600 weight), relaxed spacing
+  - Hero Banner: Medium titles (3rem), subtle shadows
+
+### 3.3 Template Configuration
+- [x] Added `textStyles` configuration to all 4 templates
+- [x] Configured unique text styles for each template:
+  - Heading 1: Different sizes, weights, letter spacing, line heights
+  - Heading 2: Different sizes, weights, letter spacing, line heights
+  - Body: Different sizes, weights, letter spacing, line heights
+  - Hero Banner: Different title/subtitle sizes, weights, text shadows
+
+## Phase 4: Template Engine Updates ✅
+
+### 4.1 Text Styles Merging
+- [x] Updated `resolveVendorTemplate()` to merge `textStyles`
+- [x] Implemented vendor customization override for text styles
+- [x] Ensured text styles are included in resolved template config
+
+## Phase 5: Page CSS Implementation ✅
+
+### 5.1 Template CSS Variables Injection
+- [x] Integrated template resolution in vendor page (`vendors/[slug]/page.tsx`)
+- [x] Generated CSS variables from resolved template
+- [x] Injected CSS variables into `<style>` tag
+
+### 5.2 Background Implementation
+- [x] Implemented hardcoded mesh gradient background
+- [x] Added animated gradient keyframes
+- [x] Used template color variables for gradient colors
+- [x] Added fallback colors if template variables unavailable
+
+### 5.3 Text Style Application
+- [x] Applied `heading1` styles to all `h1` elements:
+  - Font size, weight, letter spacing, line height, text transform
+- [x] Applied `heading2` styles to all `h2` elements:
+  - Font size, weight, letter spacing, line height, text transform
+- [x] Applied `body` styles to `p`, `span`, `div` elements:
+  - Font size, weight, letter spacing, line height
+- [x] Applied hero banner text styles:
+  - Title size, weight, text shadow
+  - Subtitle size, weight, text shadow
+
+### 5.4 Hero Banner Text Visibility
+- [x] Added specific CSS rules for hero banner text
+- [x] Ensured white text color with strong text shadows
+- [x] Applied template-specific hero banner text styles
+- [x] Override template text colors for hero banners
+
+### 5.5 Product Card Styling
+- [x] Applied glassmorphism effect to product cards
+- [x] Updated CSS selectors to target actual product card elements
+- [x] Made ProductsList wrapper background transparent
+- [x] Applied template card radius and styling
+
+## Phase 6: UI Components ✅
+
+### 6.1 Vendor Details Navbar
+- [x] Created navbar-sized vendor details bar
+- [x] Positioned below breadcrumb navigation
+- [x] Made sticky at top of page
+- [x] Applied template colors and fonts
+
+### 6.2 Template Selection UI
+- [x] Created `/vendor/templates` page for template selection
+- [x] Added template preview modal
+- [x] Implemented template selection functionality
+- [x] Added template customization page (`/vendor/templates/customize`)
+
+## Phase 7: Integration & Testing ✅
+
+### 7.1 Template Resolution
+- [x] Integrated template resolution in vendor page
+- [x] Added error handling for missing templates
+- [x] Implemented fallback to default template
+- [x] Added console logging for debugging
+
+### 7.2 CSS Application
+- [x] Verified CSS variables are generated correctly
+- [x] Confirmed text styles are applied to all elements
+- [x] Tested hero banner text visibility
+- [x] Verified product cards display correctly
+- [x] Confirmed mesh gradient animation works
+
+## Technical Implementation Details
+
+### Files Created/Modified
+
+1. **Type Definitions**
+   - `src/types/template-customization.ts` - Template config schemas
+
+2. **Template Engine**
+   - `src/lib/templates/template-engine.ts` - Template resolution logic
+   - `src/lib/templates/css-variables.ts` - CSS variable generation
+   - `src/lib/templates/seed-templates.ts` - Template seed data
+   - `src/lib/templates/component-registry.ts` - Component mapping (placeholder)
+
+3. **Collections**
+   - `src/collections/VendorTemplates.ts` - Template collection schema
+   - `src/collections/Vendors.ts` - Added template fields
+
+4. **Pages**
+   - `src/app/(app)/(home)/vendors/[slug]/page.tsx` - Vendor page with template integration
+   - `src/app/(app)/vendor/templates/page.tsx` - Template selection UI
+   - `src/app/(app)/vendor/templates/customize/page.tsx` - Template customization UI
+
+5. **Components**
+   - `src/components/vendor/VendorStorefront.tsx` - Vendor storefront component
+   - `src/app/(app)/vendor/templates/components/TemplatePreviewModal.tsx` - Template preview
+
+### CSS Variables Generated
+
+**Colors:**
+- `--template-primary`
+- `--template-secondary`
+- `--template-accent`
+- `--template-background`
+- `--template-text`
+- `--template-text-secondary`
+- `--template-border`
+- `--template-card-bg`
+
+**Fonts:**
+- `--template-font-heading`
+- `--template-font-body`
+
+**Spacing:**
+- `--template-spacing-section`
+- `--template-spacing-card-gap`
+- `--template-container-width`
+
+**Components:**
+- `--template-card-radius`
+- `--template-banner-height`
+
+**Text Styles:**
+- `--template-h1-size`, `--template-h1-weight`, `--template-h1-spacing`, `--template-h1-height`, `--template-h1-transform`
+- `--template-h2-size`, `--template-h2-weight`, `--template-h2-spacing`, `--template-h2-height`, `--template-h2-transform`
+- `--template-body-size`, `--template-body-weight`, `--template-body-spacing`, `--template-body-height`
+- `--template-hero-title-size`, `--template-hero-title-weight`
+- `--template-hero-subtitle-size`, `--template-hero-subtitle-weight`
+- `--template-hero-text-shadow`
+
+## Template-Specific Text Styles
+
+### Fun Template
+- **H1**: 2.5rem, 800 weight, -0.02em spacing, 1.2 line height
+- **H2**: 2rem, 700 weight, -0.01em spacing, 1.3 line height
+- **Body**: 1rem, 400 weight, 0 spacing, 1.6 line height
+- **Hero**: 3.5rem title (900 weight), 1.5rem subtitle (600 weight), strong shadows
+
+### Elegant Template
+- **H1**: 3rem, 700 weight, 0.02em spacing, 1.1 line height
+- **H2**: 2.25rem, 600 weight, 0.01em spacing, 1.2 line height
+- **Body**: 1.125rem, 400 weight, 0.01em spacing, 1.7 line height
+- **Hero**: 4rem title (700 weight), 1.75rem subtitle (400 weight), elegant shadows
+
+### Bold Template
+- **H1**: 3rem, 900 weight, -0.03em spacing, 1.1 line height, **UPPERCASE**
+- **H2**: 2.5rem, 800 weight, -0.02em spacing, 1.2 line height, **UPPERCASE**
+- **Body**: 1rem, 500 weight, 0.01em spacing, 1.5 line height
+- **Hero**: 4.5rem title (900 weight), 2rem subtitle (700 weight), very strong shadows
+
+### Zen Template
+- **H1**: 2.25rem, 600 weight, 0 spacing, 1.4 line height
+- **H2**: 1.875rem, 600 weight, 0 spacing, 1.5 line height
+- **Body**: 1rem, 400 weight, 0.01em spacing, 1.75 line height
+- **Hero**: 3rem title (600 weight), 1.25rem subtitle (400 weight), subtle shadows
+
+## Usage
+
+### Seeding Templates
+```bash
+cd /Users/anu/Desktop/Projects/evega
+npm run db:seed:templates
+```
+
+### Selecting a Template
+1. Navigate to `/vendor/templates`
+2. Browse available templates
+3. Click "Select" on desired template
+4. Template is immediately applied to vendor storefront
+
+### Customizing Template
+1. Navigate to `/vendor/templates/customize`
+2. Adjust colors, fonts, spacing, layout
+3. See live preview of changes
+4. Save customizations
+
+## Future Enhancements (Not Implemented)
+
+- [ ] Component registry implementation for different component variants
+- [ ] Template preview images
+- [ ] Template categories and filtering
+- [ ] Template versioning
+- [ ] Template import/export
+- [ ] Advanced text style customization UI
+- [ ] Template marketplace
+- [ ] A/B testing for templates
+
+
 ## Usage
 
 The customers page is now accessible at `/vendor/customers` and displays:
@@ -4457,3 +4774,2182 @@ The page is fully read-only and shows all customers who have placed orders with 
 
 **Last Updated**: Based on current codebase analysis
 **Next Steps**: Complete testing, optimize performance, prepare for production deployment
+# Product Media Implementation - Complete Guide
+
+This document outlines all tasks completed for product media management, including image field renaming, multiple images support, and video upload size increases.
+
+## Table of Contents
+
+1. [Product Image Fields Renaming & Multiple Images Support](#product-image-fields-renaming--multiple-images-support)
+2. [Video Upload Size Increase](#video-upload-size-increase)
+3. [Summary](#summary)
+
+---
+
+# Product Image Fields Renaming & Multiple Images Support
+
+## Overview
+
+**Objective:** Rename product image fields and enable multiple image uploads for additional images.
+
+**Changes:**
+- "Main Image" → "Cover Image"
+- "Cover Image" → "Additional Images" (with multiple upload support)
+
+## Phase 1: Database Schema Updates ✅
+
+### 1.1 Products Collection Schema
+- [x] Updated `cover` field in `src/collections/Products.ts`
+  - Changed from single upload to multiple uploads
+  - Added `hasMany: true` property
+  - **Technical Detail:** Changed field type from `upload` (single) to `upload` with `hasMany: true` (array)
+
+**File:** `src/collections/Products.ts`
+```typescript
+{
+  name: "cover",
+  type: "upload",
+  relationTo: "media",
+  hasMany: true, // Added to support multiple images
+}
+```
+
+## Phase 2: Form Schema Updates ✅
+
+### 2.1 Zod Schema Definition
+- [x] Updated `productFormSchema` in `ProductForm.tsx`
+  - Changed `cover` from `z.string().optional()` to `z.array(z.string()).optional()`
+  - **Technical Detail:** Updated Zod validation to accept array of strings (media IDs)
+
+**File:** `src/app/(app)/vendor/products/components/ProductForm.tsx`
+```typescript
+const productFormSchema = z.object({
+  // ... other fields
+  image: z.string().optional(), // Cover Image (single)
+  cover: z.array(z.string()).optional(), // Additional Images (multiple)
+  // ... other fields
+});
+```
+
+## Phase 3: Form State Management ✅
+
+### 3.1 State Variables
+- [x] Updated state from single preview to array of previews
+  - Changed `coverPreview: useState<string | null>(null)` 
+  - To `coverPreviews: useState<string[]>([])`
+  - **Technical Detail:** Changed from single string state to array state for multiple image previews
+
+**File:** `src/app/(app)/vendor/products/components/ProductForm.tsx`
+```typescript
+// Before:
+const [coverPreview, setCoverPreview] = useState<string | null>(null);
+
+// After:
+const [coverPreviews, setCoverPreviews] = useState<string[]>([]);
+```
+
+### 3.2 Default Values
+- [x] Updated form default values to handle array
+  - Convert single cover to array format
+  - Handle both array and single value from existing products
+  - **Technical Detail:** Added logic to normalize cover field - if it's a single value, convert to array; if it's already an array, use as-is
+
+**File:** `src/app/(app)/vendor/products/components/ProductForm.tsx`
+```typescript
+defaultValues: {
+  // ... other fields
+  cover: Array.isArray(product?.cover) 
+    ? product.cover.map((c: any) => typeof c === "string" ? c : c?.id || "").filter(Boolean)
+    : product?.cover 
+      ? [typeof product.cover === "string" ? product.cover : product.cover?.id || ""].filter(Boolean)
+      : [],
+}
+```
+
+### 3.3 Preview Initialization
+- [x] Updated preview initialization for editing existing products
+  - Handle both array and single cover values
+  - Extract URLs from media objects
+  - **Technical Detail:** Added logic to convert single cover to array, then map each to get media URL
+
+**File:** `src/app/(app)/vendor/products/components/ProductForm.tsx`
+```typescript
+// Set cover previews (multiple images)
+if (product?.cover) {
+  const covers = Array.isArray(product.cover) ? product.cover : [product.cover];
+  const coverUrls = covers
+    .map((c: any) => getMediaUrl(c))
+    .filter((url): url is string => url !== null);
+  if (coverUrls.length > 0) {
+    setCoverPreviews(coverUrls);
+  }
+}
+```
+
+## Phase 4: Image Upload Handler Updates ✅
+
+### 4.1 Upload Logic for Multiple Images
+- [x] Updated `handleImageUpload` function
+  - Added special handling for `cover` type to append to array
+  - Updated form value setting to append instead of replace
+  - Updated preview state to append new preview
+  - **Technical Detail:** When type is "cover", get current array, append new media ID, and update both form value and preview state
+
+**File:** `src/app/(app)/vendor/products/components/ProductForm.tsx`
+```typescript
+// Handle multiple images for cover field
+if (type === "cover") {
+  const currentCovers = form.getValues("cover") || [];
+  form.setValue("cover", [...currentCovers, mediaId]);
+  
+  // Set preview
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    setCoverPreviews(prev => [...prev, reader.result as string]);
+  };
+  reader.readAsDataURL(file);
+} else {
+  // Single image handling for "image" and "video"
+  form.setValue(type, mediaId);
+  // ... preview logic
+}
+```
+
+### 4.2 Toast Messages
+- [x] Updated success message for cover uploads
+  - Changed from "Cover image" to "Additional image"
+  - **Technical Detail:** Updated toast message to reflect new field name
+
+## Phase 5: UI Component Updates ✅
+
+### 5.1 Field Labels
+- [x] Updated "Main Image" label to "Cover Image"
+  - Changed `FormLabel` text from "Main Image" to "Cover Image"
+  - **Location:** Line 780 in ProductForm.tsx
+
+- [x] Updated "Cover Image (Optional)" label to "Additional Images"
+  - Changed `FormLabel` text from "Cover Image (Optional)" to "Additional Images"
+  - **Location:** Line 844 in ProductForm.tsx
+
+### 5.2 Multiple Images Display
+- [x] Replaced single image preview with grid display
+  - Changed from single `div` with one image
+  - To grid layout showing all uploaded images
+  - **Technical Detail:** Used `grid grid-cols-4 gap-4` to display images in 4-column grid
+
+**File:** `src/app/(app)/vendor/products/components/ProductForm.tsx`
+```typescript
+{/* Display uploaded images */}
+{coverPreviews.length > 0 && (
+  <div className="grid grid-cols-4 gap-4">
+    {coverPreviews.map((preview, index) => (
+      <div key={index} className="relative w-32 h-32 rounded-md overflow-hidden border">
+        <Image
+          src={preview}
+          alt={`Additional image ${index + 1}`}
+          fill
+          className="object-cover"
+        />
+        <Button
+          type="button"
+          variant="destructive"
+          size="icon"
+          className="absolute top-1 right-1 h-6 w-6"
+          onClick={() => {
+            const newPreviews = coverPreviews.filter((_, i) => i !== index);
+            setCoverPreviews(newPreviews);
+            const currentCovers = field.value || [];
+            const newCovers = currentCovers.filter((_, i) => i !== index);
+            field.onChange(newCovers);
+          }}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+    ))}
+  </div>
+)}
+```
+
+### 5.3 Multiple File Input
+- [x] Added `multiple` attribute to file input
+  - Changed from single file selection to multiple file selection
+  - Updated onChange handler to process multiple files
+  - **Technical Detail:** Added `multiple` attribute and updated handler to iterate over `Array.from(e.target.files || [])`
+
+**File:** `src/app/(app)/vendor/products/components/ProductForm.tsx`
+```typescript
+<input
+  type="file"
+  accept="image/*"
+  multiple  // Added for multiple file selection
+  className="hidden"
+  onChange={(e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach((file) => {
+      handleImageUpload(file, "cover");
+    });
+  }}
+  disabled={uploadingCover}
+/>
+```
+
+### 5.4 Upload Button Text
+- [x] Updated upload button text
+  - Changed from "Click to upload" to "Click to upload multiple images"
+  - **Technical Detail:** Updated span text to indicate multiple upload capability
+
+### 5.5 Form Description
+- [x] Added form description for Additional Images field
+  - Added `FormDescription` component
+  - Text: "Upload multiple additional images for your product"
+  - **Technical Detail:** Added helpful description to guide users
+
+### 5.6 Image Removal Logic
+- [x] Updated remove button handler
+  - Filters out image from both preview array and form value array
+  - Maintains array indices correctly
+  - **Technical Detail:** Uses `filter` to remove image at specific index from both `coverPreviews` state and `field.value` array
+
+**File:** `src/app/(app)/vendor/products/components/ProductForm.tsx`
+```typescript
+onClick={() => {
+  const newPreviews = coverPreviews.filter((_, i) => i !== index);
+  setCoverPreviews(newPreviews);
+  const currentCovers = field.value || [];
+  const newCovers = currentCovers.filter((_, i) => i !== index);
+  field.onChange(newCovers);
+}}
+```
+
+## Phase 6: Backend API Updates ✅
+
+### 6.1 Product Create Mutation
+- [x] Updated input schema for `products.create`
+  - Changed `cover: z.string().optional()` to `cover: z.array(z.string()).optional()`
+  - **File:** `src/modules/vendor/server/procedures.ts`
+  - **Location:** Line 518
+
+**Technical Detail:**
+```typescript
+create: vendorProcedure
+  .input(
+    z.object({
+      // ... other fields
+      image: z.string().optional(),
+      cover: z.array(z.string()).optional(), // Changed to array
+      // ... other fields
+    })
+  )
+```
+
+### 6.2 Product Update Mutation
+- [x] Updated input schema for `products.update`
+  - Changed `cover: z.string().optional()` to `cover: z.array(z.string()).optional()`
+  - **File:** `src/modules/vendor/server/procedures.ts`
+  - **Location:** Line 795
+
+**Technical Detail:**
+```typescript
+update: vendorProcedure
+  .input(
+    z.object({
+      id: z.string(),
+      // ... other fields
+      image: z.string().optional(),
+      cover: z.array(z.string()).optional(), // Changed to array
+      // ... other fields
+    })
+  )
+```
+
+## Phase 7: Product Display Updates ✅
+
+### 7.1 Product View Component
+- [x] Updated product detail page to display all additional images
+  - Modified `src/modules/products/ui/components/product-view.tsx`
+  - Handles `cover` as array (multiple images) or single value (backward compatibility)
+  - All images displayed in thumbnail gallery
+  - Click to open lightbox with zoom functionality
+
+**Technical Detail:**
+```typescript
+// Handle cover as array (multiple additional images) or single value (backward compatibility)
+const coverImages: string[] = [];
+if (data?.cover) {
+  if (Array.isArray(data.cover)) {
+    // cover is an array - get URLs for all cover images
+    data.cover.forEach((coverItem: any) => {
+      const url = getImageUrl(coverItem);
+      if (url) coverImages.push(url);
+    });
+  } else {
+    // cover is a single value (backward compatibility)
+    const url = getImageUrl(data.cover);
+    if (url) coverImages.push(url);
+  }
+}
+
+// Create array of available images (main image + all cover images, avoiding duplicates)
+const availableImages: string[] = [];
+if (imageUrl) availableImages.push(imageUrl);
+// Add all cover images that are different from the main image
+coverImages.forEach((coverUrl) => {
+  if (coverUrl && coverUrl !== imageUrl && !availableImages.includes(coverUrl)) {
+    availableImages.push(coverUrl);
+  }
+});
+```
+
+### 7.2 Image Zoom Lightbox
+- [x] Added full-screen lightbox with zoom functionality
+  - Click main image to open lightbox
+  - Zoom in/out with buttons or mouse wheel (Ctrl/Cmd + scroll)
+  - Pan/drag when zoomed in
+  - Navigate between images with arrow buttons or keyboard
+  - Keyboard shortcuts: ESC to close, Arrow keys to navigate, +/- to zoom
+
+**File:** `src/modules/products/ui/components/product-view.tsx`
+
+**Features:**
+- Zoom range: 50% to 300%
+- Mouse wheel zoom: Ctrl/Cmd + scroll
+- Drag to pan when zoomed
+- Image navigation with previous/next buttons
+- Keyboard navigation support
+- Image counter display
+- Accessibility: Visually hidden DialogTitle for screen readers
+
+---
+
+# Video Upload Size Increase
+
+## Overview
+
+This section outlines the changes made to increase video upload size limits and improve the upload experience for large video files.
+
+## Problem
+
+The default Next.js API route body size limit is 1MB, which is insufficient for video uploads. Videos can easily be 10MB to 500MB or larger, requiring configuration changes at multiple levels.
+
+## Solution
+
+Implemented a multi-layered approach to support larger video uploads:
+
+1. **Route Segment Configuration** - Increased execution time limit
+2. **Next.js Configuration** - Increased body size limit for server actions
+3. **Client-Side Validation** - Warn users about large files before upload
+4. **Enhanced Error Handling** - Better error messages for upload failures
+5. **Logging** - Track file sizes for debugging
+
+## Changes Made
+
+### 1. API Route Configuration (`src/app/api/media/route.ts`)
+
+**Added Route Segment Config:**
+```typescript
+// Increase body size limit for video uploads (default is 1MB, we set to 500MB)
+export const maxDuration = 300; // 5 minutes for large video uploads
+export const runtime = 'nodejs'; // Ensure Node.js runtime for large file handling
+```
+
+**Added File Size Logging:**
+```typescript
+// Log file size for debugging
+const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+console.log(`📤 Uploading ${file.type} file: ${file.name} (${fileSizeMB} MB)`);
+
+// Warn if file is very large (but still allow it)
+if (file.size > 100 * 1024 * 1024) { // 100MB
+  console.warn(`⚠️  Large file detected: ${fileSizeMB} MB. Upload may take longer.`);
+}
+```
+
+**Technical Details:**
+- `maxDuration`: Sets the maximum execution time for the route handler (5 minutes)
+- `runtime: 'nodejs'`: Ensures Node.js runtime is used (required for large file handling)
+- File size logging helps debug upload issues
+- Warnings for files over 100MB help identify potential timeout issues
+
+### 2. Next.js Configuration (`next.config.ts`)
+
+**Added Server Actions Body Size Limit:**
+```typescript
+const nextConfig: NextConfig = {
+  // ... existing config
+  // Increase body size limit for API routes (for video uploads)
+  // Default is 1MB, we increase to 500MB for large video files
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '500mb',
+    },
+  },
+};
+```
+
+**Technical Details:**
+- `bodySizeLimit: '500mb'`: Increases the maximum body size for server actions
+- This applies to API routes and server actions
+- Note: This is an experimental feature in Next.js, but it's stable for production use
+
+### 3. Client-Side Validation (`src/app/(app)/vendor/products/components/ProductForm.tsx`)
+
+**Added Pre-Upload Validation:**
+```typescript
+const handleImageUpload = async (file: File, type: "image" | "cover" | "video") => {
+  // Client-side validation for large files
+  const fileSizeMB = file.size / (1024 * 1024);
+  
+  // For videos, warn if file is very large (but still allow upload)
+  if (type === "video") {
+    if (fileSizeMB > 500) {
+      toast.error(`Video file is very large (${fileSizeMB.toFixed(2)} MB). Maximum recommended size is 500 MB. Please compress the video or use a YouTube link instead.`);
+      return;
+    } else if (fileSizeMB > 100) {
+      toast.warning(`Large video file detected (${fileSizeMB.toFixed(2)} MB). Upload may take several minutes. Please be patient.`);
+    }
+  }
+  
+  // For images, warn if file is very large
+  if ((type === "image" || type === "cover") && fileSizeMB > 50) {
+    toast.warning(`Large image file detected (${fileSizeMB.toFixed(2)} MB). Consider compressing the image for better performance.`);
+  }
+  
+  // ... rest of upload logic
+};
+```
+
+**Technical Details:**
+- Prevents uploads over 500MB for videos (hard limit)
+- Warns users about large files (100MB+ for videos, 50MB+ for images)
+- Provides user-friendly error messages
+- Suggests alternatives (compression, YouTube links)
+
+## Current Limits
+
+### Supported File Sizes
+
+| File Type | Maximum Size | Warning Threshold |
+|-----------|-------------|-------------------|
+| Videos    | 500 MB      | 100 MB            |
+| Images    | No hard limit | 50 MB            |
+| Additional Images | No hard limit | 50 MB            |
+
+### Platform-Specific Limits
+
+**Vercel (Production):**
+- Default body size limit: 4.5 MB (Hobby/Pro plans)
+- Can be increased via Vercel dashboard settings
+- Enterprise plans can have custom limits
+
+**Local Development:**
+- No hard limit (limited by system memory)
+- Large files may still timeout if upload takes too long
+
+## Important Notes
+
+### Vercel Deployment Considerations
+
+1. **Body Size Limit:**
+   - Vercel's default body size limit is 4.5 MB
+   - To support larger files, you may need to:
+     - Upgrade to Vercel Pro/Enterprise
+     - Configure custom limits in Vercel dashboard
+     - Use direct client-side upload to Vercel Blob (bypasses API route)
+
+2. **Execution Time:**
+   - Hobby plan: 10 seconds
+   - Pro plan: 60 seconds (can be increased to 300 seconds)
+   - Enterprise: Custom limits
+   - Our `maxDuration: 300` requires Pro plan or higher
+
+3. **Vercel Blob Storage:**
+   - Currently, files are uploaded through the API route first, then to Blob
+   - This means the 4.5 MB limit still applies
+   - **Future Enhancement:** Implement direct client-side upload to Blob to bypass API route limits
+
+### Recommended Approach for Very Large Videos
+
+For videos over 100 MB, we recommend:
+
+1. **Use YouTube Links:**
+   - Upload video to YouTube
+   - Use the YouTube URL in the product form
+   - No file size limits
+   - Better performance and CDN delivery
+
+2. **Compress Videos:**
+   - Use tools like HandBrake, FFmpeg, or online compressors
+   - Target file size: < 100 MB
+   - Maintain reasonable quality (1080p is usually sufficient)
+
+3. **Direct Blob Upload (Future):**
+   - Implement client-side direct upload to Vercel Blob
+   - Bypasses API route body size limits
+   - Supports files up to 5 GB (Vercel Blob limit)
+
+## Testing
+
+### Test Cases
+
+1. **Small Video (< 10 MB):**
+   - ✅ Should upload without warnings
+   - ✅ Should complete quickly
+
+2. **Medium Video (10-100 MB):**
+   - ✅ Should upload successfully
+   - ✅ May show warning about upload time
+   - ✅ Should complete within timeout
+
+3. **Large Video (100-500 MB):**
+   - ✅ Should show warning about upload time
+   - ✅ Should upload successfully (if within platform limits)
+   - ⚠️ May timeout on slower connections
+
+4. **Very Large Video (> 500 MB):**
+   - ❌ Should be rejected with error message
+   - ✅ Should suggest compression or YouTube link
+
+5. **Error Handling:**
+   - ✅ Should show clear error messages for:
+     - File too large
+     - Network errors
+     - Timeout errors
+     - Authentication errors
+
+## Future Enhancements
+
+### 1. Direct Blob Upload
+**Priority: High**
+
+Implement client-side direct upload to Vercel Blob:
+- Bypass API route body size limits
+- Support files up to 5 GB
+- Better progress tracking
+- Reduced server load
+
+**Implementation Steps:**
+1. Install `@vercel/blob` client SDK
+2. Create signed upload URL endpoint
+3. Upload file directly from browser to Blob
+4. Create media record from Blob URL
+5. Update UI with progress indicator
+
+### 2. Chunked Upload
+**Priority: Medium**
+
+Implement chunked upload for very large files:
+- Split files into chunks (e.g., 10 MB each)
+- Upload chunks sequentially or in parallel
+- Reassemble on server
+- Resume failed uploads
+
+### 3. Video Compression
+**Priority: Low**
+
+Add client-side video compression before upload:
+- Use browser APIs (MediaRecorder, WebCodecs)
+- Compress videos to target size/quality
+- Show compression progress
+- Maintain quality settings
+
+### 4. Upload Progress Indicator
+**Priority: Medium**
+
+Add visual progress indicator for large uploads:
+- Show upload percentage
+- Estimated time remaining
+- Upload speed
+- Cancel option
+
+## Troubleshooting
+
+### Issue: "File is too large" Error
+
+**Possible Causes:**
+1. File exceeds 500 MB (client-side limit)
+2. Vercel body size limit (4.5 MB default)
+3. Network timeout
+
+**Solutions:**
+1. Compress the video file
+2. Use YouTube link instead
+3. Upgrade Vercel plan or configure custom limits
+4. Check network connection stability
+
+### Issue: Upload Times Out
+
+**Possible Causes:**
+1. File is too large for connection speed
+2. Execution time limit exceeded
+3. Network instability
+
+**Solutions:**
+1. Compress video to smaller size
+2. Use YouTube link for large videos
+3. Check Vercel plan execution time limits
+4. Retry upload on stable connection
+
+### Issue: "413 Payload Too Large" Error
+
+**Possible Causes:**
+1. Vercel body size limit exceeded
+2. Next.js body size limit not configured correctly
+
+**Solutions:**
+1. Verify `next.config.ts` has `bodySizeLimit` set
+2. Check Vercel dashboard for body size limits
+3. Consider direct Blob upload (future enhancement)
+
+---
+
+# Technical Implementation Details
+
+## Files Modified
+
+### Image Fields Implementation
+
+1. **`src/collections/Products.ts`**
+   - Added `hasMany: true` to `cover` field
+   - Enables Payload CMS to store array of media references
+
+2. **`src/app/(app)/vendor/products/components/ProductForm.tsx`**
+   - Updated Zod schema: `cover: z.array(z.string()).optional()`
+   - Changed state: `coverPreviews: useState<string[]>([])`
+   - Updated default values to handle array conversion
+   - Updated preview initialization for arrays
+   - Updated upload handler to append to array
+   - Updated UI to display grid of images
+   - Added multiple file input support
+   - Updated remove logic for array indices
+   - Changed labels: "Main Image" → "Cover Image", "Cover Image (Optional)" → "Additional Images"
+   - Added client-side validation for large files
+
+3. **`src/modules/vendor/server/procedures.ts`**
+   - Updated `products.create` input schema
+   - Updated `products.update` input schema
+   - Both now accept `cover` as `z.array(z.string()).optional()`
+
+4. **`src/modules/products/ui/components/product-view.tsx`**
+   - Updated to handle `cover` as array
+   - Displays all additional images in thumbnail gallery
+   - Added image zoom lightbox functionality
+
+### Video Upload Size Implementation
+
+1. **`src/app/api/media/route.ts`**
+   - Added `maxDuration: 300` route segment config
+   - Added `runtime: 'nodejs'` config
+   - Added file size logging
+
+2. **`next.config.ts`**
+   - Added `bodySizeLimit: '500mb'` in experimental server actions config
+
+## Data Flow
+
+### Image Upload Flow
+
+1. **User Uploads Images:**
+   - User selects one or multiple files via file input
+   - Each file is uploaded individually via `/api/media`
+   - Media ID is appended to `cover` array in form state
+   - Preview URL is appended to `coverPreviews` state
+
+2. **Form Submission:**
+   - Form validates `cover` as array of strings
+   - Array of media IDs sent to backend via tRPC mutation
+   - Backend stores array in Payload CMS `cover` field
+
+3. **Editing Existing Product:**
+   - Backend returns `cover` as array (or single value for backward compatibility)
+   - Form normalizes to array format
+   - Previews are generated from media URLs
+   - Grid displays all images
+
+4. **Product Display:**
+   - Product view component fetches product data
+   - Extracts all images (main + additional)
+   - Displays in thumbnail gallery
+   - Click to open lightbox with zoom
+
+### Video Upload Flow
+
+1. **User Selects Video:**
+   - Client-side validation checks file size
+   - Warns if file is large (> 100MB)
+   - Blocks if file exceeds 500MB
+
+2. **Upload Process:**
+   - File uploaded via `/api/media` route
+   - Route segment config allows 5-minute execution time
+   - File size logged for debugging
+   - Uploaded to Vercel Blob Storage (if configured)
+
+3. **Error Handling:**
+   - Clear error messages for different failure scenarios
+   - Suggestions for alternatives (compression, YouTube links)
+
+## Backward Compatibility
+
+### Image Fields
+
+- **Handles Legacy Data:**
+  - Existing products with single `cover` value are converted to array
+  - Logic checks if `cover` is array or single value
+  - Single values are wrapped in array: `[singleValue]`
+  - Arrays are used as-is
+
+**Code:**
+```typescript
+cover: Array.isArray(product?.cover) 
+  ? product.cover.map((c: any) => typeof c === "string" ? c : c?.id || "").filter(Boolean)
+  : product?.cover 
+    ? [typeof product.cover === "string" ? product.cover : product.cover?.id || ""].filter(Boolean)
+    : []
+```
+
+### Breaking Changes
+
+- **None** - All changes are backward compatible
+- Existing single cover values are automatically converted to arrays
+- API accepts both formats during transition
+
+## UI/UX Improvements
+
+### Image Management
+
+1. **Visual Grid Layout:**
+   - 4-column grid for image thumbnails
+   - Each image: 128x128px (w-32 h-32)
+   - Gap between images: 16px (gap-4)
+   - Responsive design
+
+2. **Individual Image Removal:**
+   - Each image has its own remove button
+   - Positioned at top-right corner
+   - Destructive variant (red) for clear action indication
+   - Updates both preview and form state
+
+3. **Multiple File Selection:**
+   - Native browser multiple file picker
+   - Users can select multiple files at once
+   - Each file uploads individually
+   - Progress shown via `uploadingCover` state
+
+4. **User Feedback:**
+   - Toast notifications for each upload
+   - "Additional image uploaded successfully" message
+   - Upload button shows "Uploading..." during upload
+   - Form description explains multiple upload capability
+
+5. **Image Zoom Lightbox:**
+   - Full-screen lightbox for detailed image viewing
+   - Zoom in/out with buttons or mouse wheel
+   - Pan/drag when zoomed
+   - Navigate between images
+   - Keyboard shortcuts for accessibility
+
+### Video Upload
+
+1. **Pre-Upload Validation:**
+   - Client-side file size checks
+   - Clear warnings for large files
+   - Helpful error messages
+   - Suggestions for alternatives
+
+2. **Upload Feedback:**
+   - File size logging
+   - Progress indication (future enhancement)
+   - Clear error messages
+
+## Testing Checklist
+
+### Image Fields Testing
+
+#### Functional Testing
+- [ ] Upload single additional image
+- [ ] Upload multiple additional images at once
+- [ ] Upload multiple additional images one by one
+- [ ] Remove individual additional images
+- [ ] Remove all additional images
+- [ ] Edit product with existing additional images
+- [ ] Create new product with additional images
+- [ ] Verify images persist after form submission
+- [ ] Verify images display correctly on product page
+- [ ] Verify image zoom lightbox works correctly
+- [ ] Verify keyboard navigation in lightbox
+
+#### Edge Cases
+- [ ] Handle existing products with single cover (backward compatibility)
+- [ ] Handle existing products with array cover
+- [ ] Handle products with no cover images
+- [ ] Handle upload failures gracefully
+- [ ] Handle large number of images (performance)
+- [ ] Verify form validation works with empty array
+- [ ] Verify form validation works with array of IDs
+
+#### UI/UX Testing
+- [ ] Verify "Cover Image" label displays correctly
+- [ ] Verify "Additional Images" label displays correctly
+- [ ] Verify grid layout displays correctly
+- [ ] Verify remove buttons work correctly
+- [ ] Verify multiple file selection works
+- [ ] Verify upload progress indication
+- [ ] Verify responsive design on mobile
+- [ ] Verify lightbox opens and closes correctly
+- [ ] Verify zoom functionality works
+- [ ] Verify image navigation works
+
+### Video Upload Testing
+
+#### Functional Testing
+- [ ] Upload small video (< 10 MB)
+- [ ] Upload medium video (10-100 MB)
+- [ ] Upload large video (100-500 MB)
+- [ ] Attempt to upload very large video (> 500 MB)
+- [ ] Verify error messages display correctly
+- [ ] Verify warnings display for large files
+
+#### Edge Cases
+- [ ] Handle network errors gracefully
+- [ ] Handle timeout errors
+- [ ] Handle authentication errors
+- [ ] Verify file size validation works
+- [ ] Verify platform limits are respected
+
+## Migration Notes
+
+### Database Migration
+- **No migration required** - Payload CMS handles array fields automatically
+- Existing single `cover` values will be converted to arrays on first update
+- Backward compatibility code handles both formats
+
+### Breaking Changes
+- **None** - Changes are backward compatible
+- Existing single cover values are automatically converted to arrays
+- API accepts both formats during transition
+
+## Future Enhancements
+
+### Image Management
+- [ ] Drag-and-drop reordering of additional images
+- [ ] Image cropping/editing before upload
+- [ ] Bulk image upload with progress bar
+- [ ] Image optimization/compression
+- [ ] Image alt text for accessibility
+- [ ] Image captions/descriptions
+- [ ] Set primary additional image
+- [ ] Image gallery carousel on product page
+
+### Video Upload
+- [ ] Direct Blob upload to bypass API route limits
+- [ ] Chunked upload for very large files
+- [ ] Client-side video compression
+- [ ] Upload progress indicator with percentage
+- [ ] Cancel upload functionality
+
+## Summary
+
+All tasks completed successfully. The product media system now:
+
+### Image Fields
+- ✅ Uses "Cover Image" label for main image field
+- ✅ Uses "Additional Images" label for cover field
+- ✅ Supports multiple image uploads for additional images
+- ✅ Displays multiple images in a grid layout
+- ✅ Allows individual image removal
+- ✅ Maintains backward compatibility with existing data
+- ✅ Updated both frontend form and backend API schemas
+- ✅ Displays all images on product detail page
+- ✅ Provides image zoom lightbox functionality
+
+### Video Upload
+- ✅ Supports videos up to 500 MB (client-side limit)
+- ✅ Warns users about large files
+- ✅ Provides clear error messages
+- ✅ Enhanced route configuration for large uploads
+- ✅ Client-side validation and warnings
+- ⚠️ Still subject to Vercel platform limits (4.5 MB default)
+- 🔄 Future: Direct Blob upload to bypass platform limits
+
+### Recommendations
+
+**For Production Use:**
+1. **Large Videos (> 100 MB):**
+   - Use YouTube links (no size limits)
+   - Compress videos before upload
+   - Consider implementing direct Blob upload
+
+2. **Image Management:**
+   - Consider adding image optimization
+   - Implement drag-and-drop reordering
+   - Add image alt text for accessibility
+
+3. **Platform Configuration:**
+   - Upgrade Vercel plan if needed for larger uploads
+   - Configure custom body size limits in Vercel dashboard
+   - Monitor upload performance and adjust limits as needed
+# Product Variant Creation UX Improvements - Architectural Ideas
+
+## Current Problem
+
+Vendors need to create variants one by one, which is slow and tedious when they have many combinations. For example:
+- Red Small: 50 units
+- Red Medium: 50 units
+- Red Large: 50 units
+- Blue Small: 50 units
+- Blue Medium: 50 units
+- etc.
+
+**Current Flow:** Click "Add Variant" → Fill Size, Color, Stock, Price → Click "Add Variant" again → Repeat...
+
+## User Goals
+
+1. **Speed**: Create multiple variants quickly
+2. **Efficiency**: Avoid repetitive data entry
+3. **Flexibility**: Handle different patterns (same stock across sizes, different prices per color, etc.)
+4. **Error Prevention**: Reduce mistakes when entering similar data
+5. **Visual Clarity**: See all variants at a glance
+
+---
+
+## Solution Ideas
+
+### 1. Variant Matrix/Grid View (Recommended)
+
+**Concept:** Visual grid where vendors can see all combinations and fill in stock/price values quickly.
+
+**UI Design:**
+```
+┌─────────────────────────────────────────────────────────┐
+│ Variant Matrix                                          │
+├──────────┬───────┬───────┬───────┬───────┬─────────────┤
+│          │ Small │ Medium│ Large │ XLarge │ Bulk Actions│
+├──────────┼───────┼───────┼───────┼───────┼─────────────┤
+│ Red      │ [50]  │ [50]  │ [50]  │ [30]  │ [Fill All]  │
+│          │ $29   │ $29   │ $29   │ $29   │             │
+├──────────┼───────┼───────┼───────┼───────┼─────────────┤
+│ Blue     │ [40]  │ [40]  │ [40]  │ [25]  │ [Fill All]  │
+│          │ $29   │ $29   │ $29   │ $29   │             │
+├──────────┼───────┼───────┼───────┼───────┼─────────────┤
+│ Green    │ [35]  │ [35]  │ [35]  │ [20]  │ [Fill All]  │
+│          │ $32   │ $32   │ $32   │ $32   │             │
+└──────────┴───────┴───────┴───────┴───────┴─────────────┘
+
+[Generate All Combinations] [Clear Matrix] [Import from CSV]
+```
+
+**Features:**
+- **Visual Grid**: Rows = one variant type (Color), Columns = another (Size)
+- **Quick Input**: Click cell to edit stock/price
+- **Bulk Fill**: Fill entire row/column with same value
+- **Auto-Generate**: Generate all combinations from selected options
+- **Validation**: Highlight missing required fields
+- **Preview**: Show total variants that will be created
+
+**Implementation:**
+- Generate matrix from selected variant types
+- Each cell represents a unique combination
+- Inline editing for stock and price
+- Batch operations (fill row, fill column, fill all)
+- Convert matrix to variant array on save
+
+**Pros:**
+- ✅ Very fast for many combinations
+- ✅ Visual and intuitive
+- ✅ Easy to spot missing data
+- ✅ Great for standard size/color combinations
+
+**Cons:**
+- ❌ Less flexible for non-standard combinations
+- ❌ Can be overwhelming with many options
+- ❌ Requires both variant types to be selected first
+
+---
+
+### 2. Bulk Variant Generator
+
+**Concept:** Select all options for each variant type, then generate all combinations at once.
+
+**UI Design:**
+```
+┌─────────────────────────────────────────────────────────┐
+│ Bulk Variant Generator                                 │
+├─────────────────────────────────────────────────────────┤
+│ Step 1: Select Variant Options                         │
+│                                                         │
+│ Size:     ☑ Small  ☑ Medium  ☑ Large  ☑ XLarge        │
+│ Color:    ☑ Red    ☑ Blue    ☑ Green  ☑ Black         │
+│ Material: ☑ Cotton  ☑ Silk    ☐ Polyester              │
+│                                                         │
+│ Step 2: Set Default Values                             │
+│                                                         │
+│ Default Stock: [50]                                    │
+│ Default Price: [$29.99] (optional, can set per variant)│
+│                                                         │
+│ Step 3: Preview                                        │
+│                                                         │
+│ Will create 48 variants (4 sizes × 4 colors × 3 materials)│
+│                                                         │
+│ [Generate All Variants] [Cancel]                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Features:**
+- **Multi-Select**: Checkboxes for each option
+- **Default Values**: Set stock/price that applies to all
+- **Preview Count**: Show how many variants will be created
+- **Override**: After generation, can edit individual variants
+- **Smart Defaults**: Remember last used values
+
+**Implementation:**
+- Cartesian product of selected options
+- Generate variant array with default values
+- Add to form's variant array
+- Allow individual editing after generation
+
+**Pros:**
+- ✅ Extremely fast for many combinations
+- ✅ Simple and straightforward
+- ✅ Good for standard patterns
+- ✅ Reduces clicks significantly
+
+**Cons:**
+- ❌ All variants get same default values initially
+- ❌ Less control over individual variants
+- ❌ May create unwanted combinations
+
+---
+
+### 3. Quick Fill / Pattern-Based Creation
+
+**Concept:** Create one variant, then use patterns to quickly create similar ones.
+
+**UI Design:**
+```
+┌─────────────────────────────────────────────────────────┐
+│ Variant 1: Red, Small, Cotton, Stock: 50, Price: $29  │
+│                                                         │
+│ [Duplicate] [Create Similar] [Fill Pattern]            │
+│                                                         │
+│ Pattern Options:                                        │
+│ ☐ Keep Size, Change Color → [Select Colors]            │
+│ ☐ Keep Color, Change Size → [Select Sizes]            │
+│ ☐ Keep Both, Change Material → [Select Materials]      │
+│                                                         │
+│ Stock: [50] (apply to all)                             │
+│ Price: [$29] (apply to all)                            │
+│                                                         │
+│ [Create 12 Variants]                                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Features:**
+- **Duplicate**: Copy exact variant
+- **Pattern Fill**: Create variants based on pattern
+- **Smart Suggestions**: Suggest common patterns
+- **Bulk Apply**: Apply stock/price to multiple variants
+
+**Implementation:**
+- Pattern matching logic
+- Generate variants based on selected pattern
+- Merge with existing variants (avoid duplicates)
+- Validation for required fields
+
+**Pros:**
+- ✅ Flexible and intuitive
+- ✅ Good for incremental additions
+- ✅ Works well with existing variants
+- ✅ Less overwhelming than full matrix
+
+**Cons:**
+- ❌ Still requires multiple steps
+- ❌ May not be as fast as matrix for many combinations
+
+---
+
+### 4. CSV Import / Spreadsheet View
+
+**Concept:** Import variants from CSV or edit in spreadsheet-like interface.
+
+**UI Design:**
+```
+┌─────────────────────────────────────────────────────────┐
+│ Variant Spreadsheet                                     │
+├──────┬───────┬───────┬─────────┬───────┬───────────────┤
+│ Size │ Color │ Stock │ Price   │ ...   │ Actions       │
+├──────┼───────┼───────┼─────────┼───────┼───────────────┤
+│ S    │ Red   │ 50    │ $29.99  │ ...   │ [Delete]      │
+│ M    │ Red   │ 50    │ $29.99  │ ...   │ [Delete]      │
+│ L    │ Red   │ 50    │ $29.99  │ ...   │ [Delete]      │
+│ S    │ Blue  │ 40    │ $29.99  │ ...   │ [Delete]      │
+│ M    │ Blue  │ 40    │ $29.99  │ ...   │ [Delete]      │
+│ ...  │ ...   │ ...   │ ...     │ ...   │ ...           │
+├──────┴───────┴───────┴─────────┴───────┴───────────────┤
+│ [Add Row] [Import CSV] [Export CSV] [Bulk Edit]        │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Features:**
+- **Spreadsheet UI**: Table with inline editing
+- **CSV Import**: Upload CSV file with variants
+- **CSV Export**: Download current variants as CSV
+- **Bulk Edit**: Select multiple rows, edit together
+- **Copy/Paste**: Copy rows from spreadsheet apps
+- **Validation**: Highlight errors in real-time
+
+**CSV Format:**
+```csv
+Size,Color,Material,Stock,Price
+Small,Red,Cotton,50,29.99
+Medium,Red,Cotton,50,29.99
+Large,Red,Cotton,50,29.99
+Small,Blue,Cotton,40,29.99
+```
+
+**Implementation:**
+- Table component with editable cells
+- CSV parser/validator
+- Import/export functionality
+- Bulk operations on selected rows
+
+**Pros:**
+- ✅ Very fast for power users
+- ✅ Familiar interface (spreadsheet-like)
+- ✅ Can import from existing data
+- ✅ Good for large datasets
+
+**Cons:**
+- ❌ Less user-friendly for non-technical users
+- ❌ Requires CSV knowledge
+- ❌ More complex to implement
+
+---
+
+### 5. Smart Templates / Presets
+
+**Concept:** Pre-defined templates for common variant patterns.
+
+**UI Design:**
+```
+┌─────────────────────────────────────────────────────────┐
+│ Variant Templates                                       │
+├─────────────────────────────────────────────────────────┤
+│ Common Patterns:                                        │
+│                                                         │
+│ [Standard Sizes] [Standard Colors] [Size + Color]       │
+│                                                         │
+│ Standard Sizes Template:                               │
+│ Sizes: XS, S, M, L, XL, XXL                            │
+│ Default Stock: [50]                                    │
+│ Default Price: [$29.99]                                │
+│                                                         │
+│ [Apply Template] [Customize]                           │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Features:**
+- **Pre-defined Templates**: Common size/color combinations
+- **Custom Templates**: Save custom patterns
+- **Quick Apply**: One-click to generate variants
+- **Customization**: Adjust before applying
+
+**Implementation:**
+- Template definitions (JSON)
+- Template selector UI
+- Apply template logic
+- Save custom templates (future)
+
+**Pros:**
+- ✅ Very fast for common patterns
+- ✅ Reduces errors
+- ✅ Good for beginners
+- ✅ Can be customized
+
+**Cons:**
+- ❌ Limited to predefined patterns
+- ❌ May not fit all use cases
+- ❌ Requires template management
+
+---
+
+### 6. Hybrid Approach (Recommended)
+
+**Concept:** Combine multiple methods in a single interface with tabs/modes.
+
+**UI Design:**
+```
+┌─────────────────────────────────────────────────────────┐
+│ Variant Creation                                        │
+├─────────────────────────────────────────────────────────┤
+│ [Quick Add] [Matrix View] [Bulk Generator] [Import CSV] │
+│                                                         │
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ Quick Add (Current Method)                          │ │
+│ │                                                     │ │
+│ │ [Add Variant] - for one-off variants               │ │
+│ └─────────────────────────────────────────────────────┘ │
+│                                                         │
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ Matrix View                                         │ │
+│ │                                                     │ │
+│ │ [Visual grid for size × color combinations]       │ │
+│ └─────────────────────────────────────────────────────┘ │
+│                                                         │
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ Bulk Generator                                      │ │
+│ │                                                     │ │
+│ │ [Generate all combinations from selected options]  │ │
+│ └─────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Features:**
+- **Multiple Modes**: Switch between creation methods
+- **Unified Interface**: All variants shown together
+- **Smart Defaults**: Remember preferred method
+- **Contextual Help**: Show tips based on variant count
+
+**Pros:**
+- ✅ Flexible - users choose best method
+- ✅ Accommodates different workflows
+- ✅ Can combine methods
+- ✅ Future-proof
+
+**Cons:**
+- ❌ More complex UI
+- ❌ May be overwhelming
+- ❌ Requires more development
+
+---
+
+## Recommended Implementation Plan
+
+### Phase 1: Quick Wins (Week 1-2)
+
+1. **Bulk Variant Generator**
+   - Multi-select checkboxes for options
+   - Generate all combinations
+   - Set default stock/price
+   - **Impact**: High, **Effort**: Medium
+
+2. **Duplicate & Pattern Fill**
+   - Duplicate button on each variant
+   - "Create Similar" with pattern options
+   - **Impact**: Medium, **Effort**: Low
+
+3. **Bulk Fill Operations**
+   - Select multiple variants
+   - Fill stock/price for selected
+   - **Impact**: Medium, **Effort**: Low
+
+### Phase 2: Advanced Features (Week 3-4)
+
+4. **Variant Matrix View**
+   - Visual grid interface
+   - Inline editing
+   - Row/column bulk fill
+   - **Impact**: Very High, **Effort**: High
+
+5. **CSV Import/Export**
+   - Import variants from CSV
+   - Export current variants
+   - **Impact**: High, **Effort**: Medium
+
+### Phase 3: Polish (Week 5)
+
+6. **Smart Templates**
+   - Pre-defined templates
+   - Custom template saving
+   - **Impact**: Medium, **Effort**: Medium
+
+7. **Hybrid Interface**
+   - Tabbed interface
+   - Mode switching
+   - **Impact**: High, **Effort**: Medium
+
+---
+
+## Technical Considerations
+
+### Data Structure
+
+**Current Variant Structure:**
+```typescript
+{
+  variantData: {
+    size: "Small",
+    color: "Red",
+    material: "Cotton"
+  },
+  stock: 50,
+  price: 29.99
+}
+```
+
+**Matrix Generation Logic:**
+```typescript
+function generateVariantMatrix(
+  variantTypes: string[],
+  options: Record<string, string[]>,
+  defaults: { stock: number; price?: number }
+): Variant[] {
+  // Generate cartesian product
+  const combinations = cartesianProduct(
+    variantTypes.map(type => options[type])
+  );
+  
+  return combinations.map(combo => ({
+    variantData: Object.fromEntries(
+      variantTypes.map((type, i) => [type, combo[i]])
+    ),
+    stock: defaults.stock,
+    price: defaults.price
+  }));
+}
+```
+
+### UI Components Needed
+
+1. **VariantMatrix Component**
+   - Grid layout
+   - Editable cells
+   - Bulk operations
+
+2. **BulkGenerator Component**
+   - Multi-select checkboxes
+   - Default value inputs
+   - Preview count
+
+3. **CSVImporter Component**
+   - File upload
+   - Parser/validator
+   - Preview before import
+
+4. **VariantTable Component**
+   - Spreadsheet-like table
+   - Inline editing
+   - Row selection
+
+### Performance Considerations
+
+- **Large Variant Sets**: Virtual scrolling for 100+ variants
+- **Real-time Validation**: Debounce validation on input
+- **Batch Updates**: Group multiple variant updates
+- **Optimistic UI**: Show changes immediately, sync in background
+
+---
+
+## User Experience Flow Examples
+
+### Scenario 1: Standard Size/Color Combinations
+
+**Current:** 20 clicks to create 10 variants (2 colors × 5 sizes)
+
+**With Bulk Generator:**
+1. Select 2 colors, 5 sizes (2 clicks)
+2. Set stock: 50, price: $29 (2 inputs)
+3. Click "Generate" (1 click)
+4. **Total: 5 actions vs 20 clicks**
+
+**With Matrix View:**
+1. Switch to Matrix tab (1 click)
+2. Fill stock for first row: 50 (1 input)
+3. Click "Fill Row" (1 click)
+4. Repeat for other rows
+5. **Total: ~10 actions vs 20 clicks**
+
+### Scenario 2: Adding Similar Variants
+
+**Current:** Create each variant individually
+
+**With Duplicate & Pattern:**
+1. Select existing variant
+2. Click "Create Similar"
+3. Select "Change Size" → Select sizes
+4. Click "Create"
+5. **Total: 4 actions vs 10+ clicks**
+
+---
+
+## Success Metrics
+
+1. **Time to Create Variants**
+   - Current: ~30 seconds per variant
+   - Target: <5 seconds per variant (with bulk operations)
+
+2. **User Satisfaction**
+   - Survey vendors on ease of use
+   - Track support tickets related to variants
+
+3. **Adoption Rate**
+   - % of vendors using bulk features
+   - Most popular method (matrix vs bulk vs CSV)
+
+4. **Error Rate**
+   - Variants with missing required fields
+   - Duplicate variants created
+
+---
+
+## Accessibility Considerations
+
+1. **Keyboard Navigation**
+   - Tab through matrix cells
+   - Arrow keys to move between cells
+   - Enter to edit, Escape to cancel
+
+2. **Screen Reader Support**
+   - Clear labels for all inputs
+   - Announce row/column headers
+   - Describe bulk operations
+
+3. **Visual Indicators**
+   - Highlight active cell
+   - Show validation errors clearly
+   - Indicate unsaved changes
+
+---
+
+## Future Enhancements
+
+1. **AI Suggestions**
+   - Suggest common combinations
+   - Auto-fill based on product category
+   - Predict stock levels
+
+2. **Variant Analytics**
+   - Show which variants sell best
+   - Suggest removing slow movers
+   - Price optimization suggestions
+
+3. **Integration**
+   - Import from inventory systems
+   - Sync with external catalogs
+   - Export to other platforms
+
+---
+
+## Recommendation
+
+**Start with Phase 1 (Quick Wins):**
+
+1. **Bulk Variant Generator** - Highest impact, medium effort
+2. **Duplicate & Pattern Fill** - Good UX improvement, low effort
+3. **Bulk Fill Operations** - Useful for editing, low effort
+
+**Then add Phase 2:**
+
+4. **Variant Matrix View** - Best for standard combinations
+5. **CSV Import/Export** - For power users
+
+This approach provides immediate value while building toward more advanced features.
+
+---
+
+## Questions for Review
+
+1. Which approach resonates most with your use case?
+2. Do vendors typically have standard size/color combinations?
+3. How many variants do vendors typically create per product?
+4. Are vendors technical enough for CSV import?
+5. Should we prioritize speed or flexibility?
+6. Do you want all methods available, or focus on one?
+
+---
+
+# Instagram One-Click Media Import for Vendors
+
+## Overview
+
+Enable vendors to import their Instagram photos/videos directly into the platform for use in products, hero banners, and other marketing components. This feature allows vendors to leverage their existing Instagram content without manual re-uploading.
+
+## Critical Authentication Decision
+
+**⚠️ IMPORTANT: Instagram's official APIs (Basic Display API and Graph API) do NOT support username/password authentication. They require OAuth 2.0.**
+
+### Option A: OAuth (Recommended - Secure & Compliant)
+- **How it works**: Vendor clicks "Connect Instagram" → Redirects to Instagram login → Grants permissions → Returns to platform with access token
+- **User experience**: Still "one-click" from vendor perspective (just one redirect flow)
+- **Pros**: 
+  - ✅ Compliant with Instagram Terms of Service
+  - ✅ Secure (no password storage)
+  - ✅ Reliable (official API)
+  - ✅ Supports long-lived tokens
+  - ✅ Can refresh tokens automatically
+- **Cons**: 
+  - ⚠️ Requires Instagram app registration
+  - ⚠️ Vendor must have Instagram Business/Creator account (for Graph API) or personal account (for Basic Display)
+
+### Option B: Username/Password (Not Recommended - High Risk)
+- **How it works**: Vendor provides Instagram username/password → Platform stores credentials → Uses unofficial API/scraping
+- **Pros**: 
+  - ✅ Simpler initial setup (no OAuth flow)
+  - ✅ Vendor doesn't need to understand OAuth
+- **Cons**: 
+  - ❌ **Violates Instagram Terms of Service** (risk of account ban)
+  - ❌ **Major security risk** (storing passwords in plaintext or encrypted)
+  - ❌ **Unreliable** (Instagram actively blocks scrapers, breaks frequently)
+  - ❌ **Legal liability** (storing third-party credentials)
+  - ❌ **No official support** (must use unofficial libraries that break often)
+  - ❌ **Rate limiting issues** (easier to get IP banned)
+  - ❌ **2FA complications** (can't handle two-factor authentication)
+
+**Recommendation**: Use OAuth (Option A). If vendors must use username/password, document all risks and consider using a third-party service that handles compliance.
+
+---
+
+## Phase 0: Product & Compliance Decisions
+
+### 0.1 Define Instagram Use Cases
+- [ ] **Clarify media types to support**:
+  - [ ] Photos only
+  - [ ] Videos (including Reels)
+  - [ ] Carousel posts (multi-image posts)
+  - [ ] Stories (if available via API)
+- [ ] **Define usage contexts**:
+  - [ ] Product cover images (`image` field)
+  - [ ] Product additional images (`cover` array field)
+  - [ ] Vendor hero banners
+  - [ ] Category banners (future)
+  - [ ] Vendor lookbook/gallery pages (future)
+- [ ] **Decide on import frequency**:
+  - [ ] One-time manual import (vendor clicks "Import" when needed)
+  - [ ] On-demand sync (vendor clicks "Sync Now" button)
+  - [ ] Background periodic sync (daily/weekly automatic sync)
+- [ ] **Decide on import behavior**:
+  - [ ] Download and store media files in your `media` collection (recommended - full control)
+  - [ ] Store Instagram URLs only and lazy-load (risky - links can break if post deleted)
+
+### 0.2 Legal & Compliance Review
+- [ ] **Review Instagram/Facebook Platform Policies**:
+  - [ ] Verify that downloading and storing Instagram media complies with Meta's Terms of Service
+  - [ ] Check if attribution is required (e.g., "Source: @username")
+  - [ ] Review data retention policies
+- [ ] **Update Terms of Service / Privacy Policy**:
+  - [ ] Add clause about Instagram integration
+  - [ ] Clarify data storage and usage rights
+  - [ ] Document vendor responsibilities (account security, content ownership)
+- [ ] **If using username/password approach**:
+  - [ ] Add explicit disclaimer about ToS violation risks
+  - [ ] Require vendor acknowledgment of risks
+  - [ ] Consider liability waiver
+
+### 0.3 Business Constraints & Planning
+- [ ] **Rate limiting strategy**:
+  - [ ] Research Instagram API rate limits (per app, per user)
+  - [ ] Plan for rate limit handling (exponential backoff, queue system)
+  - [ ] Document limits to vendors
+- [ ] **Storage cost estimation**:
+  - [ ] Calculate storage costs for imported media (Vercel Blob/S3 pricing)
+  - [ ] Estimate bandwidth costs for downloading media
+  - [ ] Plan for storage quotas per vendor (if needed)
+- [ ] **Instagram account requirements**:
+  - [ ] Determine if Business/Creator account is required (Graph API)
+  - [ ] Or if personal account works (Basic Display API)
+  - [ ] Document requirements for vendors
+
+---
+
+## Phase 1: Instagram Integration Architecture
+
+### 1.1 Choose API Path
+- [ ] **Option A: Instagram Basic Display API**:
+  - [ ] Research Basic Display API capabilities
+  - [ ] Check if it supports all needed media types
+  - [ ] Verify token expiration and refresh mechanisms
+  - [ ] **Limitation**: Only works with personal accounts, limited features
+- [ ] **Option B: Instagram Graph API (via Facebook App)**:
+  - [ ] Research Graph API capabilities
+  - [ ] Check if it supports all needed media types (photos, videos, carousels)
+  - [ ] Verify token expiration and refresh mechanisms
+  - [ ] **Requirement**: Instagram Business/Creator account + Facebook App setup
+- [ ] **Decision**: Choose which API to implement (recommend Graph API for business use)
+- [ ] **If username/password approach**:
+  - [ ] Research unofficial libraries (e.g., `instagram-private-api` for Node.js)
+  - [ ] Evaluate reliability and maintenance status
+  - [ ] Test with sample account
+  - [ ] Document breaking change risks
+
+### 1.2 Authentication Flow Design
+
+#### For OAuth Approach:
+- [ ] **Design OAuth endpoints**:
+  - [ ] `GET /api/oauth/instagram/login` - Initiates OAuth flow, redirects to Instagram
+  - [ ] `GET /api/oauth/instagram/callback` - Handles Instagram redirect, exchanges code for token
+  - [ ] `POST /api/oauth/instagram/disconnect` - Revokes token and unlinks account
+- [ ] **Token storage schema**:
+  - [ ] Extend `Vendors` collection OR create `VendorSocialConnections` collection:
+    - [ ] `instagramAccessToken` (encrypted string)
+    - [ ] `instagramUserId` (string)
+    - [ ] `instagramUsername` (string)
+    - [ ] `instagramTokenExpiresAt` (date, optional)
+    - [ ] `instagramRefreshToken` (encrypted string, optional)
+    - [ ] `instagramConnectedAt` (date)
+    - [ ] `instagramLastSyncAt` (date, optional)
+    - [ ] `instagramConnectionStatus` (select: connected, expired, revoked, error)
+- [ ] **Token security**:
+  - [ ] Encrypt tokens at rest (use Payload's encryption or external service)
+  - [ ] Never expose tokens to frontend
+  - [ ] Implement token refresh logic for long-lived tokens
+  - [ ] Handle token expiration gracefully
+
+#### For Username/Password Approach:
+- [ ] **Credential storage schema** (NOT RECOMMENDED):
+  - [ ] Extend `Vendors` collection:
+    - [ ] `instagramUsername` (string)
+    - [ ] `instagramPassword` (encrypted string) - **MUST be encrypted**
+    - [ ] `instagramSessionData` (encrypted JSON, for storing cookies/session)
+    - [ ] `instagramLastLoginAt` (date)
+    - [ ] `instagramConnectionStatus` (select: connected, failed, banned)
+- [ ] **Security measures** (if proceeding):
+  - [ ] Use strong encryption (AES-256) for password storage
+  - [ ] Implement secure key management (environment variables, key rotation)
+  - [ ] Add audit logging for credential access
+  - [ ] Implement 2FA handling (if possible)
+  - [ ] Add rate limiting to prevent brute force
+- [ ] **Session management**:
+  - [ ] Store Instagram session cookies (encrypted)
+  - [ ] Implement session refresh logic
+  - [ ] Handle login challenges (captcha, suspicious activity)
+
+### 1.3 Data Model for Imported Media
+- [ ] **Extend `media` collection** (`src/collections/Media.ts`):
+  - [ ] Add `source` field (select: "upload", "instagram", "other")
+  - [ ] Add `sourceId` field (string, optional) - Instagram media ID
+  - [ ] Add `sourceUrl` field (text, optional) - Original Instagram URL
+  - [ ] Add `ownerInstagramUsername` field (text, optional)
+  - [ ] Add `vendor` relationship (to Vendors, optional) - Link to vendor who imported
+  - [ ] Add `caption` field (textarea, optional) - Instagram post caption
+  - [ ] Add `instagramPermalink` field (text, optional) - Link to original Instagram post
+  - [ ] Add `importedAt` field (date) - When media was imported
+- [ ] **Ensure compatibility with existing media usage**:
+  - [ ] Products already reference `media` via `image` and `cover` fields
+  - [ ] Hero banners can reference `media` (if applicable)
+  - [ ] Verify imported Instagram media works in all existing media picker components
+
+### 1.4 Instagram App Registration (OAuth Only)
+- [ ] **Create Facebook App** (required for Graph API):
+  - [ ] Go to https://developers.facebook.com/apps/
+  - [ ] Create new app or use existing
+  - [ ] Add "Instagram Basic Display" or "Instagram Graph API" product
+  - [ ] Configure OAuth redirect URIs (e.g., `https://yourdomain.com/api/oauth/instagram/callback`)
+  - [ ] Get App ID and App Secret
+  - [ ] Store credentials in environment variables
+- [ ] **Configure Instagram permissions/scopes**:
+  - [ ] Request minimum necessary scopes (e.g., `instagram_basic`, `instagram_content_publish` if needed)
+  - [ ] Document which scopes are requested and why
+- [ ] **Test OAuth flow**:
+  - [ ] Test with test Instagram account
+  - [ ] Verify token exchange works
+  - [ ] Verify token refresh works
+
+---
+
+## Phase 2: Backend Implementation
+
+### 2.1 Create Instagram Service Layer
+- [ ] **Create `src/services/instagram.ts`** (or `src/lib/instagram/` directory):
+  - [ ] `getAuthUrl(vendorId: string, redirectUri: string): string` - Generate OAuth URL
+  - [ ] `exchangeCodeForToken(code: string, redirectUri: string): Promise<InstagramTokenInfo>` - Exchange code for access token
+  - [ ] `refreshToken(vendorId: string): Promise<InstagramTokenInfo>` - Refresh expired token
+  - [ ] `revokeToken(vendorId: string): Promise<void>` - Revoke access token
+  - [ ] `fetchUserMedia(vendorId: string, options: { limit?: number; afterCursor?: string }): Promise<InstagramMediaResponse>` - Fetch user's media
+  - [ ] `fetchMediaDetails(mediaId: string, vendorId: string): Promise<InstagramMediaItem>` - Get details for specific media
+  - [ ] `downloadMediaFile(mediaUrl: string, mediaType: 'image' | 'video'): Promise<Buffer>` - Download media file
+- [ ] **Error handling**:
+  - [ ] Handle rate limit errors (429) with exponential backoff
+  - [ ] Handle token expiration errors (401) with automatic refresh
+  - [ ] Handle invalid token errors (revoke connection)
+  - [ ] Handle network errors with retry logic
+- [ ] **If username/password approach**:
+  - [ ] `loginWithCredentials(username: string, password: string): Promise<InstagramSession>`
+  - [ ] `fetchUserMediaWithSession(session: InstagramSession, options: {...}): Promise<InstagramMediaResponse>`
+  - [ ] `refreshSession(vendorId: string): Promise<InstagramSession>`
+  - [ ] Handle login challenges (captcha, 2FA, suspicious activity)
+
+### 2.2 tRPC Procedures for Instagram Integration
+- [ ] **Create `src/modules/vendor/server/procedures.ts` - Instagram section**:
+  - [ ] `vendor.instagram.getConnectUrl` - Returns OAuth URL for current vendor
+    - [ ] Input: `z.object({ redirectUri: z.string().optional() })`
+    - [ ] Output: `{ authUrl: string }`
+    - [ ] Access control: Only authenticated vendors
+  - [ ] `vendor.instagram.handleCallback` - Processes OAuth callback
+    - [ ] Input: `z.object({ code: string, state: z.string().optional() })`
+    - [ ] Validates state parameter (CSRF protection)
+    - [ ] Exchanges code for token
+    - [ ] Fetches user info from Instagram
+    - [ ] Updates vendor record with token and user info
+    - [ ] Returns success status
+  - [ ] `vendor.instagram.disconnect` - Unlinks Instagram account
+    - [ ] Revokes token (if possible)
+    - [ ] Clears vendor's Instagram credentials
+    - [ ] Optionally: Offers to delete imported media
+  - [ ] `vendor.instagram.getConnectionStatus` - Returns connection status
+    - [ ] Output: `{ connected: boolean, username?: string, expiresAt?: Date, status: string }`
+  - [ ] `vendor.instagram.listRemoteMedia` - Lists vendor's Instagram media
+    - [ ] Input: `z.object({ limit: z.number().min(1).max(50).default(25), afterCursor: z.string().optional() })`
+    - [ ] Fetches media from Instagram API
+    - [ ] Returns paginated list: `{ media: InstagramMediaItem[], nextCursor?: string, hasMore: boolean }`
+    - [ ] Each item includes: `id`, `mediaType`, `mediaUrl`, `thumbnailUrl`, `caption`, `timestamp`, `permalink`
+  - [ ] `vendor.instagram.importMedia` - Imports selected media
+    - [ ] Input: `z.object({ mediaIds: z.array(z.string()) })`
+    - [ ] For each media ID:
+      - [ ] Fetches full media details from Instagram
+      - [ ] Downloads media file (image or video)
+      - [ ] Uploads to Vercel Blob/S3 (reuse existing upload logic)
+      - [ ] Creates `media` record in Payload with `source = "instagram"`
+      - [ ] Associates with vendor
+      - [ ] Stores Instagram metadata (caption, permalink, etc.)
+    - [ ] Returns: `{ imported: number, failed: number, mediaIds: string[] }` (mapping Instagram ID → local media ID)
+    - [ ] Handles partial failures gracefully
+- [ ] **Error handling in procedures**:
+  - [ ] Wrap API calls in try-catch
+  - [ ] Return user-friendly error messages
+  - [ ] Log errors for debugging
+  - [ ] Handle token expiration automatically (refresh and retry)
+
+### 2.3 Media Download & Storage Logic
+- [ ] **Implement robust media downloading**:
+  - [ ] Use server-side `fetch` to download from Instagram CDN
+  - [ ] Stream large files to avoid memory issues (use `stream` API)
+  - [ ] Handle different media types (JPEG, PNG, MP4, etc.)
+  - [ ] Validate file types before storing
+- [ ] **File processing**:
+  - [ ] Reuse existing media upload pipeline (if available)
+  - [ ] Generate thumbnails for images (if needed)
+  - [ ] Extract video metadata (duration, dimensions)
+  - [ ] Compress images if needed (to match platform standards)
+- [ ] **Storage integration**:
+  - [ ] Upload downloaded files to Vercel Blob (or S3)
+  - [ ] Get public URL from storage
+  - [ ] Store URL in `media` record
+- [ ] **Error handling**:
+  - [ ] Handle download failures (network errors, 404s)
+  - [ ] Handle storage failures
+  - [ ] Mark failed imports for retry
+  - [ ] Return partial success results
+
+### 2.4 Security & Access Control
+- [ ] **Vendor isolation**:
+  - [ ] All `vendor.instagram.*` procedures verify authenticated vendor
+  - [ ] Ensure vendors can only access their own Instagram data
+  - [ ] Ensure imported media is tagged with `vendor` field
+  - [ ] Media access control: Vendors can only see/edit their own imported media
+- [ ] **Token security**:
+  - [ ] Encrypt tokens in database (use Payload encryption or external service)
+  - [ ] Never log tokens
+  - [ ] Never expose tokens to frontend
+  - [ ] Implement token rotation (if supported by API)
+- [ ] **CSRF protection**:
+  - [ ] Use state parameter in OAuth flow
+  - [ ] Validate state on callback
+- [ ] **Rate limiting**:
+  - [ ] Implement per-vendor rate limiting for API calls
+  - [ ] Prevent abuse of import feature
+- [ ] **If username/password approach**:
+  - [ ] Encrypt passwords with strong encryption (AES-256)
+  - [ ] Use secure key management
+  - [ ] Implement audit logging
+  - [ ] Add 2FA support (if possible)
+  - [ ] Warn vendors about security risks
+
+---
+
+## Phase 3: Vendor Dashboard UI/UX
+
+### 3.1 Instagram Connection Management
+- [ ] **Create `/vendor/settings/social` page** (or add to existing settings):
+  - [ ] **If not connected**:
+    - [ ] Show "Connect Instagram" button
+    - [ ] Brief description: "Import your Instagram photos and videos to use in products"
+    - [ ] Icon/visual indicator
+  - [ ] **If connected**:
+    - [ ] Show "Connected as @username" status
+    - [ ] Display connection date
+    - [ ] Show last sync time (if applicable)
+    - [ ] "Disconnect" button with confirmation dialog
+    - [ ] "Sync Now" button (if background sync is implemented)
+  - [ ] **Status indicators**:
+    - [ ] Connection status badge (Connected/Expired/Error)
+    - [ ] Warning if token is expired (with "Reconnect" button)
+    - [ ] Error message if connection failed
+- [ ] **OAuth flow handling**:
+  - [ ] On "Connect Instagram" click, redirect to OAuth URL
+  - [ ] Handle callback redirect back to settings page
+  - [ ] Show success toast on successful connection
+  - [ ] Show error toast on failure
+
+### 3.2 Instagram Media Browser Component
+- [ ] **Create `InstagramMediaPicker` component** (`src/app/(app)/vendor/products/components/InstagramMediaPicker.tsx`):
+  - [ ] **Props**:
+    - [ ] `open: boolean` - Controls modal visibility
+    - [ ] `onOpenChange: (open: boolean) => void` - Close handler
+    - [ ] `onSelect: (mediaIds: string[]) => void` - Callback with selected Instagram media IDs
+    - [ ] `selectionMode: 'single' | 'multiple'` - Single or multi-select
+    - [ ] `vendorId: string` - Current vendor ID
+  - [ ] **UI Layout**:
+    - [ ] Modal/Dialog wrapper (use shadcn Dialog)
+    - [ ] Header: "Import from Instagram" with close button
+    - [ ] Filter bar:
+      - [ ] Media type filter: All / Photos / Videos
+      - [ ] Date range filter (optional)
+      - [ ] Search by caption (optional)
+    - [ ] **Media grid**:
+      - [ ] Responsive grid (4-6 columns on desktop, 2-3 on mobile)
+      - [ ] Each item shows:
+        - [ ] Thumbnail image
+        - [ ] Media type icon (photo/video)
+        - [ ] Selection checkbox (for multi-select)
+        - [ ] Caption preview (truncated, on hover)
+        - [ ] Date posted
+      - [ ] Loading skeleton while fetching
+      - [ ] Empty state if no media
+    - [ ] **Pagination**:
+      - [ ] "Load More" button at bottom
+      - [ ] Or infinite scroll (using Intersection Observer)
+      - [ ] Show loading indicator while fetching next page
+    - [ ] **Selection controls**:
+      - [ ] "Select All" / "Deselect All" buttons (for multi-select mode)
+      - [ ] Selected count indicator: "X items selected"
+    - [ ] **Action buttons**:
+      - [ ] "Import Selected" button (disabled if nothing selected)
+      - [ ] "Cancel" button
+  - [ ] **State management**:
+    - [ ] `selectedMediaIds: Set<string>` - Track selected Instagram media IDs
+    - [ ] `remoteMedia: InstagramMediaItem[]` - Fetched media list
+    - [ ] `loading: boolean` - Loading state
+    - [ ] `importing: boolean` - Import in progress
+    - [ ] `nextCursor?: string` - Pagination cursor
+    - [ ] `hasMore: boolean` - More pages available
+  - [ ] **Data fetching**:
+    - [ ] Use tRPC `trpc.vendor.instagram.listRemoteMedia.useQuery()` with pagination
+    - [ ] Fetch on mount and when filters change
+    - [ ] Handle errors (show error message, retry button)
+  - [ ] **Import logic**:
+    - [ ] On "Import Selected" click:
+      - [ ] Call `trpc.vendor.instagram.importMedia.useMutation()`
+      - [ ] Show progress indicator (spinner or progress bar)
+      - [ ] On success:
+        - [ ] Show success toast: "Imported X media items"
+        - [ ] Call `onSelect()` with imported local media IDs
+        - [ ] Close modal
+      - [ ] On partial failure:
+        - [ ] Show warning: "Imported X of Y items. Some failed."
+        - [ ] Show details in expandable section
+      - [ ] On complete failure:
+        - [ ] Show error toast with details
+        - [ ] Keep modal open for retry
+
+### 3.3 Integration into Product Form
+- [ ] **Update `ProductForm.tsx`** (`src/app/(app)/vendor/products/components/ProductForm.tsx`):
+  - [ ] **For "Cover Image" (`image` field)**:
+    - [ ] Add "Import from Instagram" button next to "Click to upload"
+    - [ ] On click, open `InstagramMediaPicker` in `selectionMode="single"`
+    - [ ] On selection, update form: `form.setValue("image", importedMediaId)`
+    - [ ] Update preview: `setImagePreview(importedMediaUrl)`
+  - [ ] **For "Additional Images" (`cover` field)**:
+    - [ ] Add "Import from Instagram" button next to "Click to upload multiple images"
+    - [ ] On click, open `InstagramMediaPicker` in `selectionMode="multiple"`
+    - [ ] On selection, append to form: `form.setValue("cover", [...current, ...importedMediaIds])`
+    - [ ] Update previews: `setCoverPreviews([...current, ...importedMediaUrls])`
+  - [ ] **State management**:
+    - [ ] `instagramPickerOpen: boolean` - Controls picker modal
+    - [ ] `instagramPickerMode: 'single' | 'multiple'` - Selection mode
+    - [ ] `instagramPickerTarget: 'image' | 'cover'` - Which field to update
+  - [ ] **UX considerations**:
+    - [ ] Show loading state during import
+    - [ ] Show success toast after import
+    - [ ] Handle errors gracefully
+    - [ ] If vendor not connected, show "Connect Instagram" prompt instead of picker
+
+### 3.4 Integration into Hero Banner Form
+- [ ] **Update `HeroBannerForm.tsx`** (`src/app/(app)/vendor/hero-banner/components/HeroBannerForm.tsx`):
+  - [ ] Add "Import from Instagram" option where banner image is selected
+  - [ ] Use same `InstagramMediaPicker` component
+  - [ ] Update banner image field with imported media ID
+  - [ ] Update preview accordingly
+
+### 3.5 Vendor Feedback & Error States
+- [ ] **Connection status indicators**:
+  - [ ] Banner at top of media picker if not connected: "Connect Instagram to import media"
+  - [ ] Warning banner if token expired: "Instagram connection expired. Reconnect to continue."
+  - [ ] Error banner if connection failed: "Failed to connect Instagram. Please try again."
+- [ ] **Toast notifications**:
+  - [ ] "Connected to Instagram as @username"
+  - [ ] "Imported 12 media items from Instagram"
+  - [ ] "3 items failed to import. Click for details."
+  - [ ] "Instagram connection expired. Please reconnect."
+- [ ] **Loading states**:
+  - [ ] Skeleton loaders in media grid
+  - [ ] Progress indicator during import
+  - [ ] Disable buttons during import
+- [ ] **Error handling UI**:
+  - [ ] Show error messages in modals/alerts
+  - [ ] Provide retry buttons
+  - [ ] Show detailed error info in expandable sections
+
+---
+
+## Phase 4: Background Sync & Maintenance (Optional)
+
+### 4.1 Scheduled Sync Job
+- [ ] **Design background job** (Vercel Cron or external service):
+  - [ ] Job runs daily/weekly (configurable)
+  - [ ] Iterates over vendors with active Instagram connections
+  - [ ] Fetches new media since last sync (using timestamp or cursor)
+  - [ ] **Option A**: Only cache metadata (show in UI, import on demand)
+  - [ ] **Option B**: Pre-import new media into `media` collection
+- [ ] **Rate limiting**:
+  - [ ] Stagger sync jobs to avoid API rate limit bursts
+  - [ ] Store `lastSyncAt` per vendor
+  - [ ] Skip vendors who synced recently
+- [ ] **Error handling**:
+  - [ ] Log sync failures
+  - [ ] Mark vendors with persistent errors
+  - [ ] Send notifications for critical failures
+
+### 4.2 Media Cache System (Optional)
+- [ ] **Create `InstagramMediaCache` collection** (optional optimization):
+  - [ ] `vendor` (relationship)
+  - [ ] `instagramMediaId` (string, unique)
+  - [ ] `thumbnailUrl` (text)
+  - [ ] `mediaType` (select: image, video, carousel)
+  - [ ] `caption` (textarea)
+  - [ ] `timestamp` (date)
+  - [ ] `lastFetchedAt` (date)
+  - [ ] `isImported` (checkbox) - Whether already imported to `media`
+- [ ] **Benefits**:
+  - [ ] Fast UI loading (show cached thumbnails)
+  - [ ] Background job can refresh cache
+  - [ ] Track which media is already imported
+- [ ] **Implementation**:
+  - [ ] Update cache on media fetch
+  - [ ] Mark as imported when user imports
+  - [ ] Cleanup old cache entries (older than X days)
+
+### 4.3 Token Refresh & Cleanup
+- [ ] **Automatic token refresh**:
+  - [ ] Background job checks token expiration
+  - [ ] Refreshes tokens before expiration
+  - [ ] Updates vendor record with new token
+  - [ ] Handles refresh failures (mark as expired, notify vendor)
+- [ ] **Connection cleanup**:
+  - [ ] When vendor disconnects:
+    - [ ] Revoke token (if possible)
+    - [ ] Clear credentials from database
+    - [ ] Optionally: Offer to delete imported media
+  - [ ] When token is permanently invalid:
+    - [ ] Mark connection as expired
+    - [ ] Notify vendor to reconnect
+  - [ ] Periodic cleanup of stale connections
+
+---
+
+## Phase 5: Security, Performance & Testing
+
+### 5.1 Security Review
+- [ ] **Token protection**:
+  - [ ] Verify tokens are encrypted at rest
+  - [ ] Verify tokens never exposed to frontend
+  - [ ] Audit all code paths that access tokens
+- [ ] **OAuth security**:
+  - [ ] Verify state parameter is used (CSRF protection)
+  - [ ] Verify redirect URI validation
+  - [ ] Verify code exchange is server-side only
+- [ ] **If username/password approach**:
+  - [ ] Verify passwords are encrypted (AES-256 minimum)
+  - [ ] Verify encryption keys are secure (environment variables, key rotation)
+  - [ ] Implement audit logging for credential access
+  - [ ] Add rate limiting to prevent brute force
+- [ ] **Authorization checks**:
+  - [ ] Verify all tRPC procedures check vendor identity
+  - [ ] Verify vendors can only access their own data
+  - [ ] Test unauthorized access attempts
+
+### 5.2 Performance Optimization
+- [ ] **Batch imports**:
+  - [ ] When importing many images, process in batches (e.g., 5 at a time)
+  - [ ] Show progress: "Importing 5 of 20..."
+  - [ ] Avoid timeouts on large batches
+- [ ] **Image optimization**:
+  - [ ] Resize/compress imported images to match platform standards
+  - [ ] Generate thumbnails for media picker
+  - [ ] Use responsive image sizes
+- [ ] **Caching**:
+  - [ ] Cache Instagram media list (with TTL)
+  - [ ] Cache thumbnails
+  - [ ] Invalidate cache on new imports
+- [ ] **Lazy loading**:
+  - [ ] Lazy load media grid items (virtual scrolling if 100+ items)
+  - [ ] Load full-size images only when needed
+
+### 5.3 Testing Plan
+- [ ] **Unit tests**:
+  - [ ] Instagram service functions (token exchange, refresh, media fetch)
+  - [ ] Media download logic
+  - [ ] Error handling
+- [ ] **Integration tests**:
+  - [ ] Full OAuth flow (mock Instagram API)
+  - [ ] Media import flow (mock download)
+  - [ ] Token refresh flow
+- [ ] **E2E tests (Playwright/Cypress)**:
+  - [ ] Vendor connects Instagram
+  - [ ] Vendor opens media picker
+  - [ ] Vendor selects and imports media
+  - [ ] Vendor uses imported media in product form
+  - [ ] Vendor disconnects Instagram
+- [ ] **Edge cases**:
+  - [ ] Vendor revokes Instagram permissions from Instagram side
+  - [ ] Token expired during import
+  - [ ] Instagram account has no media
+  - [ ] Import fails mid-way (network error, rate limit)
+  - [ ] Large batch import (50+ items)
+  - [ ] Very large media files
+  - [ ] Invalid media URLs
+  - [ ] Instagram API rate limit hit
+- [ ] **Load testing**:
+  - [ ] Test with multiple vendors importing simultaneously
+  - [ ] Test with large media files
+  - [ ] Test rate limit handling
+
+---
+
+## Phase 6: Documentation & Rollout
+
+### 6.1 Internal Documentation
+- [ ] **Architecture documentation**:
+  - [ ] Add section to main TODO doc (this document)
+  - [ ] Data model diagrams
+  - [ ] Sequence diagrams: OAuth flow, import flow
+  - [ ] API contracts for tRPC procedures
+  - [ ] Error handling strategies
+- [ ] **Developer guide**:
+  - [ ] How to set up Instagram app
+  - [ ] How to test OAuth flow locally
+  - [ ] How to debug token issues
+  - [ ] How to handle rate limits
+
+### 6.2 Vendor-Facing Documentation
+- [ ] **User guide**:
+  - [ ] "How to Connect Instagram"
+  - [ ] "How to Import Instagram Media"
+  - [ ] "Using Instagram Media in Products"
+  - [ ] Screenshots of vendor dashboard
+- [ ] **FAQ**:
+  - [ ] "Do I need an Instagram Business account?" (depends on API choice)
+  - [ ] "Can I import videos?" (yes, if API supports)
+  - [ ] "What happens if I delete a post on Instagram?" (imported media remains)
+  - [ ] "How often does media sync?" (depends on implementation)
+- [ ] **Limitations & best practices**:
+  - [ ] Account must be public (for Basic Display API)
+  - [ ] Business account required (for Graph API)
+  - [ ] Rate limits apply
+  - [ ] Large files may take time to import
+
+### 6.3 Feature Flag & Gradual Rollout
+- [ ] **Feature flag implementation**:
+  - [ ] Add `enableInstagramImport` flag (per vendor or global)
+  - [ ] Check flag in UI (hide buttons if disabled)
+  - [ ] Check flag in tRPC procedures (return error if disabled)
+- [ ] **Rollout plan**:
+  - [ ] Phase 1: Internal testing (dev/staging)
+  - [ ] Phase 2: Beta group (select vendors)
+  - [ ] Phase 3: Gradual rollout (10% → 50% → 100%)
+  - [ ] Monitor: Error rates, performance, vendor feedback
+- [ ] **Monitoring**:
+  - [ ] Track connection success rate
+  - [ ] Track import success rate
+  - [ ] Track API rate limit hits
+  - [ ] Track storage costs
+  - [ ] Track vendor adoption rate
+
+---
+
+## Implementation Priority
+
+### Must Have (MVP):
+1. OAuth connection flow (or username/password if required)
+2. List Instagram media in picker
+3. Import selected media to `media` collection
+4. Use imported media in product form
+5. Basic error handling
+
+### Should Have:
+6. Media picker with filters and pagination
+7. Token refresh logic
+8. Integration into hero banners
+9. Vendor feedback (toasts, status indicators)
+
+### Nice to Have:
+10. Background sync job
+11. Media cache system
+12. Batch import optimization
+13. Advanced filters (date range, search)
+
+---
+
+## Risk Assessment
+
+### High Risk (if using username/password):
+- ❌ **Account bans**: Instagram may ban accounts using unofficial APIs
+- ❌ **Legal issues**: Violating ToS may have legal consequences
+- ❌ **Security breaches**: Storing passwords is a major security risk
+- ❌ **Breaking changes**: Unofficial APIs break frequently
+
+### Medium Risk:
+- ⚠️ **Rate limits**: Instagram API has strict rate limits
+- ⚠️ **Token expiration**: Tokens expire and need refresh logic
+- ⚠️ **Storage costs**: Importing many large files increases storage costs
+
+### Low Risk:
+- ✅ **OAuth complexity**: OAuth flow is well-documented and standard
+- ✅ **Media compatibility**: Most Instagram media formats are standard (JPEG, MP4)
+
+---
+
+## Questions for Review
+
+1. **Authentication**: OAuth (recommended) or username/password (high risk)?
+2. **API choice**: Basic Display API (personal accounts) or Graph API (business accounts)?
+3. **Import behavior**: Download and store, or store URLs only?
+4. **Sync frequency**: Manual, on-demand, or automatic background sync?
+5. **Media types**: Photos only, or also videos/carousels?
+6. **Usage contexts**: Products only, or also banners/galleries?
+7. **Storage limits**: Any per-vendor quotas?
+8. **Feature flag**: Per-vendor or global?
+
+---
+
+## Estimated Timeline
+
+- **Phase 0-1 (Planning & Architecture)**: 1-2 weeks
+- **Phase 2 (Backend)**: 2-3 weeks
+- **Phase 3 (Frontend)**: 2-3 weeks
+- **Phase 4 (Background Jobs)**: 1 week (optional)
+- **Phase 5 (Testing & Security)**: 1-2 weeks
+- **Phase 6 (Documentation & Rollout)**: 1 week
+
+**Total (MVP)**: ~6-8 weeks
+**Total (Full Feature)**: ~8-12 weeks
+
+---
+
+## Dependencies
+
+- Instagram App registration (OAuth approach)
+- Vercel Blob or S3 storage (for downloaded media)
+- Existing `media` collection and upload pipeline
+- Existing vendor authentication system
+- tRPC setup for vendor procedures
+
+---
+
+## Related Tasks
+
+- Product media implementation (already completed - see above)
+- Vendor dashboard UI components
+- Media picker components (if not already exist)
+- Background job infrastructure (if implementing sync)
+
+

@@ -25,7 +25,7 @@ describe('Orders Collection', () => {
       it('should allow super admin to read all orders', () => {
         const user: Partial<User> = {
           id: 'admin-123',
-          appRole: { slug: 'app-admin' } as any,
+          role: 'admin',
         };
 
         const req = {
@@ -124,7 +124,7 @@ describe('Orders Collection', () => {
       it('should allow super admin to update any order', () => {
         const user: Partial<User> = {
           id: 'admin-123',
-          appRole: { slug: 'app-admin' } as any,
+          role: 'admin',
         };
 
         const req = {
@@ -182,7 +182,7 @@ describe('Orders Collection', () => {
       it('should allow super admin to delete orders', () => {
         const user: Partial<User> = {
           id: 'admin-123',
-          appRole: { slug: 'app-admin' } as any,
+          role: 'admin',
         };
 
         const req = {

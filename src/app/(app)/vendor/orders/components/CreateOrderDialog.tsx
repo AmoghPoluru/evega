@@ -56,14 +56,32 @@ const createOrderSchema = z.object({
 
 type CreateOrderFormValues = z.infer<typeof createOrderSchema>;
 
+interface VendorOption {
+  id: string;
+  name: string;
+}
+
 interface CreateOrderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  context?: 'vendor' | 'staff';
 }
 
-export function CreateOrderDialog({ open, onOpenChange, onSuccess }: CreateOrderDialogProps) {
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+export function CreateOrderDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+  context = 'vendor',
+}: CreateOrderDialogProps) {
+  const isStaffContext = context === 'staff';
+  const [filterVendorId, setFilterVendorId] = useState<string>('');
+  const [selectedProduct, setSelectedProduct] = useState<{
+    id: string;
+    name: string;
+    price: number;
+    variants?: { variantData?: Record<string, unknown> }[];
+  } | null>(null);
   
   const form = useForm<CreateOrderFormValues>({
     resolver: zodResolver(createOrderSchema) as any,
@@ -77,41 +95,81 @@ export function CreateOrderDialog({ open, onOpenChange, onSuccess }: CreateOrder
     },
   });
 
-  // Fetch vendor's products
-  const { data: productsData } = trpc.vendor.products.list.useQuery({
-    status: 'all',
-    limit: 100,
+  const { data: vendorsData } = trpc.admin.vendors.listOptions.useQuery(undefined, {
+    enabled: isStaffContext && open,
   });
 
+  const { data: vendorProductsData } = trpc.vendor.products.list.useQuery(
+    { status: 'all', limit: 100 },
+    { enabled: !isStaffContext && open },
+  );
 
-  const createOrder = trpc.vendor.orders.create.useMutation({
-    onSuccess: () => {
-      toast.success('Order created successfully');
-      form.reset();
-      setSelectedProduct(null);
-      onSuccess?.();
+  const { data: staffProductsData } = trpc.admin.orders.productsForCreate.useQuery(
+    {
+      vendorId: filterVendorId || undefined,
+      limit: 200,
     },
+    { enabled: isStaffContext && open },
+  );
+
+  const productsData = isStaffContext ? staffProductsData : vendorProductsData;
+
+  const utils = trpc.useUtils();
+
+  const onCreateSuccess = () => {
+    toast.success('Order created successfully');
+    form.reset();
+    setSelectedProduct(null);
+    setFilterVendorId('');
+    if (isStaffContext) {
+      void utils.admin.orders.list.invalidate();
+    } else {
+      void utils.vendor.orders.list.invalidate();
+    }
+    onSuccess?.();
+  };
+
+  const createVendorOrder = trpc.vendor.orders.create.useMutation({
+    onSuccess: onCreateSuccess,
     onError: (error) => {
       toast.error(error.message || 'Failed to create order');
     },
   });
+
+  const createStaffOrder = trpc.admin.orders.create.useMutation({
+    onSuccess: onCreateSuccess,
+    onError: (error) => {
+      toast.error(error.message || 'Failed to create order');
+    },
+  });
+
+  const createOrder = isStaffContext ? createStaffOrder : createVendorOrder;
 
   const productId = form.watch('productId');
   const quantity = form.watch('quantity') || 1;
 
   // Update selected product when productId changes
   useEffect(() => {
-    if (productId && productsData?.docs) {
-      const product = productsData.docs.find((p: any) => p.id === productId);
-      if (product) {
-        setSelectedProduct(product);
-        // Set default price from product
-        if (!form.getValues('price') || form.getValues('price') === 0) {
-          form.setValue('price', product.price || 0);
-        }
+    if (!open) return;
+    if (!productId || !productsData?.docs) {
+      setSelectedProduct(null);
+      return;
+    }
+    const product = productsData.docs.find((p: { id: string }) => p.id === productId);
+    if (product) {
+      setSelectedProduct(product);
+      if (!form.getValues('price') || form.getValues('price') === 0) {
+        form.setValue('price', product.price || 0);
       }
     }
-  }, [productId, productsData]);
+  }, [productId, productsData, open, form]);
+
+  useEffect(() => {
+    if (isStaffContext && filterVendorId) {
+      form.setValue('productId', '');
+      setSelectedProduct(null);
+    }
+  }, [filterVendorId, isStaffContext, form]);
 
   // Calculate total when quantity or price changes
   const price = form.watch('price') || 0;
@@ -146,12 +204,36 @@ export function CreateOrderDialog({ open, onOpenChange, onSuccess }: CreateOrder
         <DialogHeader>
           <DialogTitle>Create Manual Order</DialogTitle>
           <DialogDescription>
-            Create a new order manually for a customer
+            {isStaffContext
+              ? 'Create an order for any vendor — stock will decrement like vendor manual orders'
+              : 'Create a new order manually for a customer'}
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            {isStaffContext && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-900">Filter by vendor</label>
+                <Select
+                  value={filterVendorId || 'all'}
+                  onValueChange={(v) => setFilterVendorId(v === 'all' ? '' : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All vendors" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All vendors</SelectItem>
+                    {(vendorsData ?? []).map((v: VendorOption) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -217,7 +299,7 @@ export function CreateOrderDialog({ open, onOpenChange, onSuccess }: CreateOrder
 
             {selectedProduct && (
               <>
-                {selectedProduct.variants && selectedProduct.variants.length > 0 && (
+                {(selectedProduct.variants?.length ?? 0) > 0 && (
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -234,7 +316,7 @@ export function CreateOrderDialog({ open, onOpenChange, onSuccess }: CreateOrder
                             <SelectContent>
                               {Array.from(
                                 new Set(
-                                  selectedProduct.variants
+                                  (selectedProduct.variants ?? [])
                                     .map((v: any) => v.variantData?.size)
                                     .filter(Boolean)
                                 ) as Set<string>
@@ -265,7 +347,7 @@ export function CreateOrderDialog({ open, onOpenChange, onSuccess }: CreateOrder
                             <SelectContent>
                               {Array.from(
                                 new Set(
-                                  selectedProduct.variants
+                                  (selectedProduct.variants ?? [])
                                     .map((v: any) => v.variantData?.color)
                                     .filter(Boolean)
                                 ) as Set<string>

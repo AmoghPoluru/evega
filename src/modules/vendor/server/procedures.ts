@@ -15,6 +15,8 @@ import {
   syncVendorStripeDetails,
 } from "@/lib/stripe-connect";
 import { extractYouTubeVideoId, timeToSeconds } from "@/lib/youtube-utils";
+import { createManualOrder } from "@/modules/orders/create-manual-order";
+import { manualOrderCreateInputSchema } from "@/modules/orders/manual-order-schema";
 
 const vendorRegistrationSchema = z.object({
   businessName: z.string().min(2, "Business name is required"),
@@ -159,6 +161,7 @@ export const vendorRouter = createTRPCRouter({
         id: userId,
         data: {
           vendor: vendor.id,
+          role: "vendor",
         },
       });
 
@@ -515,7 +518,7 @@ export const vendorRouter = createTRPCRouter({
           category: z.string().min(1, "Category is required"),
           subcategory: z.string().optional(),
           image: z.string().optional(),
-          cover: z.string().optional(),
+          cover: z.array(z.string()).optional(),
           videoSource: z.enum(["upload", "youtube"]).optional(),
           video: z.string().optional(),
           youtubeUrl: z.string().url().optional(),
@@ -792,7 +795,7 @@ export const vendorRouter = createTRPCRouter({
           category: z.string().optional(),
           subcategory: z.string().optional(),
           image: z.string().optional(),
-          cover: z.string().optional(),
+          cover: z.array(z.string()).optional(),
           videoSource: z.enum(["upload", "youtube"]).optional(),
           video: z.string().optional(),
           youtubeUrl: z.string().url().optional(),
@@ -1282,41 +1285,42 @@ export const vendorRouter = createTRPCRouter({
               };
             }
 
-            // Build variants array from all rows
+            // Build variants array from all rows (variantData matches product schema)
             const variants: Array<{
-              size?: string | null;
-              color?: string | null;
+              variantData: Record<string, string>;
               stock: number;
-              price?: number | null;
+              price?: number;
             }> = [];
 
             for (const { rowData } of rows) {
-              // Check if this row has variant data
               const hasSize = rowData.size && rowData.size.trim() !== '';
               const hasColor = rowData.color && rowData.color.trim() !== '';
               const hasVariantStock = rowData.variant_stock && rowData.variant_stock.trim() !== '';
-              
-              // If any variant field is present, create a variant
+
               if (hasSize || hasColor || hasVariantStock) {
-                const variantStock = hasVariantStock 
-                  ? parseInt(rowData.variant_stock, 10) 
+                const variantStock = hasVariantStock
+                  ? parseInt(rowData.variant_stock, 10)
                   : 0;
-                
+
                 if (isNaN(variantStock) || variantStock < 0) {
                   throw new Error(`Invalid variant_stock: ${rowData.variant_stock}`);
                 }
 
-                const variantPrice = rowData.variant_price && rowData.variant_price.trim() !== ''
-                  ? parseFloat(rowData.variant_price)
-                  : null;
+                const variantPrice =
+                  rowData.variant_price && rowData.variant_price.trim() !== ''
+                    ? parseFloat(rowData.variant_price)
+                    : null;
 
                 if (variantPrice !== null && (isNaN(variantPrice) || variantPrice <= 0)) {
                   throw new Error(`Invalid variant_price: ${rowData.variant_price}`);
                 }
 
+                const variantData: Record<string, string> = {};
+                if (hasSize) variantData.size = rowData.size.trim();
+                if (hasColor) variantData.color = rowData.color.trim();
+
                 variants.push({
-                  size: hasSize ? (rowData.size.trim() as any) : null,
-                  color: hasColor ? rowData.color.trim() : null,
+                  variantData,
                   stock: variantStock,
                   price: variantPrice !== null ? variantPrice : undefined,
                 });
@@ -1490,255 +1494,18 @@ export const vendorRouter = createTRPCRouter({
 
     // Create manual order
     create: vendorProcedure
-      .input(
-        z.object({
-          customerEmail: z.string().email(),
-          customerName: z.string().optional(),
-          productId: z.string(),
-          quantity: z.number().min(1),
-          size: z.string().optional(),
-          color: z.string().optional(),
-          price: z.number().min(0.01),
-          status: z.enum(["pending", "payment_done", "processing", "complete"]).default("pending"),
-          paymentMethod: z.enum(["stripe", "offline"]).default("offline"),
-          shippingAddress: z.object({
-            fullName: z.string().min(1),
-            street: z.string().min(1),
-            city: z.string().min(1),
-            state: z.string().min(1),
-            zipcode: z.string().min(1),
-            country: z.string().optional().default("United States"),
-            phone: z.string().optional(),
-          }),
-        })
-      )
+      .input(manualOrderCreateInputSchema)
       .mutation(async ({ ctx, input }) => {
-        const vendorId = typeof ctx.session.vendor === "string" 
-          ? ctx.session.vendor 
-          : ctx.session.vendor.id;
+        const vendorId =
+          typeof ctx.session.vendor === 'string' ? ctx.session.vendor : ctx.session.vendor.id;
 
-        // Verify product belongs to vendor
-        const product = await ctx.db.findByID({
-          collection: "products",
-          id: input.productId,
-          depth: 0,
-        });
-
-        const productVendorId = typeof product.vendor === "string" 
-          ? product.vendor 
-          : product.vendor?.id;
-
-        if (productVendorId !== vendorId) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Product does not belong to your vendor account",
-          });
+        try {
+          return await createManualOrder(ctx.db, input, { expectedVendorId: vendorId });
+        } catch (error: unknown) {
+          if (error instanceof TRPCError) throw error;
+          const message = error instanceof Error ? error.message : 'Failed to create order';
+          throw new TRPCError({ code: 'BAD_REQUEST', message });
         }
-
-        // Find matching variant for stock decrement
-        let variant = null;
-        if (product.variants && Array.isArray(product.variants)) {
-          variant = product.variants.find((v: any) => {
-            const variantData = v.variantData || {};
-            // Match by variantData (preferred) or direct properties
-            const sizeMatch = !input.size || 
-              variantData.size === input.size || 
-              variantData.blouseSize === input.size ||
-              v.size === input.size ||
-              v.blouseSize === input.size;
-            const colorMatch = !input.color || 
-              variantData.color === input.color ||
-              v.color === input.color;
-            return sizeMatch && colorMatch;
-          });
-        }
-
-        // Decrement stock if variant exists
-        if (variant) {
-          // Validate stock before decrementing
-          if (variant.stock < input.quantity) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: `Insufficient stock. Only ${variant.stock} units available for this variant.`,
-            });
-          }
-
-          const newStock = Math.max(0, variant.stock - input.quantity);
-          
-          // Update the variant in the product's variants array
-          const updatedVariants = (product.variants || []).map((v: any) => {
-            const variantData = v.variantData || {};
-            // Match by variantData (preferred) or direct properties
-            const sizeMatch = !input.size || 
-              variantData.size === input.size || 
-              variantData.blouseSize === input.size ||
-              v.size === input.size ||
-              v.blouseSize === input.size;
-            const colorMatch = !input.color || 
-              variantData.color === input.color ||
-              v.color === input.color;
-            
-            if (sizeMatch && colorMatch) {
-              return {
-                ...v,
-                stock: newStock,
-              };
-            }
-            return v;
-          });
-
-          // Update product with new variant stock
-          await ctx.db.update({
-            collection: "products",
-            id: input.productId,
-            data: {
-              variants: updatedVariants,
-            },
-          });
-
-          console.log(
-            `[Manual Order] Updated stock for ${product.name}${input.size ? ` (${input.size})` : ''}${input.color ? ` - ${input.color}` : ''}: ${variant.stock} → ${newStock}`
-          );
-
-          // Re-fetch product to verify update and check total stock
-          const updatedProduct = await ctx.db.findByID({
-            collection: "products",
-            id: input.productId,
-            depth: 0,
-          });
-
-          // Verify the stock was actually updated
-          const updatedVariant = updatedProduct.variants?.find((v: any) => {
-            const variantData = v.variantData || {};
-            const sizeMatch = !input.size || variantData.size === input.size || variantData.blouseSize === input.size;
-            const colorMatch = !input.color || variantData.color === input.color;
-            return sizeMatch && colorMatch;
-          });
-
-          if (updatedVariant) {
-            console.log(`[Manual Order] Verified stock update: variant stock is now ${updatedVariant.stock}`);
-          }
-
-          // Check if product stock is now 0 and auto-draft if needed
-          let totalStock = 0;
-          if (updatedProduct.variants && Array.isArray(updatedProduct.variants)) {
-            totalStock = updatedProduct.variants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
-          }
-          
-          if (totalStock === 0 && updatedProduct.isPrivate === false) {
-            await ctx.db.update({
-              collection: "products",
-              id: input.productId,
-              data: {
-                isPrivate: true,
-              },
-            });
-            console.log(`[Manual Order] Auto-drafted product ${input.productId} due to zero inventory after stock update`);
-          }
-        } else if (product.variants && product.variants.length > 0) {
-          // Variant not found but product has variants
-          console.warn(
-            `[Manual Order] Variant not found for ${product.name}${input.size ? ` (${input.size})` : ''}${input.color ? ` - ${input.color}` : ''}, skipping stock update`
-          );
-        } else if (!product.variants || product.variants.length === 0) {
-          // Product has no variants, check base stock
-          if (product.stock !== undefined && product.stock !== null) {
-            if (product.stock < input.quantity) {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message: `Insufficient stock. Only ${product.stock} units available.`,
-              });
-            }
-            const newStock = Math.max(0, product.stock - input.quantity);
-            await ctx.db.update({
-              collection: "products",
-              id: input.productId,
-              data: { stock: newStock },
-            });
-            console.log(
-              `[Manual Order] Updated base stock for ${product.name}: ${product.stock} → ${newStock}`
-            );
-
-            // Check if product stock is now 0 and auto-draft if needed
-            if (newStock === 0 && product.isPrivate === false) {
-              await ctx.db.update({
-                collection: "products",
-                id: input.productId,
-                data: {
-                  isPrivate: true,
-                },
-              });
-              console.log(`[Manual Order] Auto-drafted product ${input.productId} due to zero inventory after stock update`);
-            }
-          }
-        }
-
-        // Find or create user by email
-        let user;
-        const existingUsers = await ctx.db.find({
-          collection: "users",
-          where: {
-            email: { equals: input.customerEmail },
-          },
-          limit: 1,
-        });
-
-        if (existingUsers.docs.length > 0) {
-          user = existingUsers.docs[0];
-        } else {
-          // Create a new user account for this customer
-          // Generate a random password (user can reset it later if needed)
-          const randomPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12) + "A1!";
-          
-          user = await ctx.db.create({
-            collection: "users",
-            data: {
-              email: input.customerEmail,
-              name: input.customerName || input.customerEmail.split("@")[0],
-              password: randomPassword, // Will be hashed by Payload
-            },
-          });
-        }
-
-        // Calculate total
-        const total = input.price * input.quantity;
-
-        // Generate order name
-        const orderName = input.size || input.color
-          ? `Order for ${product.name}${input.size ? ` (${input.size})` : ''}${input.color ? ` - ${input.color}` : ''}`
-          : `Order for ${product.name}`;
-
-        // Create order
-        const order = await ctx.db.create({
-          collection: "orders",
-          data: {
-            name: orderName,
-            user: user.id,
-            vendor: vendorId,
-            product: input.productId,
-            quantity: input.quantity,
-            size: input.size || undefined,
-            color: input.color || undefined,
-            total,
-            status: input.status,
-            paymentMethod: input.paymentMethod,
-            shippingAddress: {
-              fullName: input.shippingAddress.fullName,
-              street: input.shippingAddress.street,
-              city: input.shippingAddress.city,
-              state: input.shippingAddress.state,
-              zipcode: input.shippingAddress.zipcode,
-              country: input.shippingAddress.country || "United States",
-              phone: input.shippingAddress.phone || undefined,
-            },
-            // Order number will be auto-generated by beforeChange hook
-          },
-        });
-
-        return {
-          id: order.id,
-          orderNumber: (order as any).orderNumber,
-        };
       }),
 
     // Task 4.17: Update order status - verify vendor ownership, update status and statusHistory
@@ -3102,16 +2869,27 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
           backgroundImage: z.string().optional(),
           products: z.array(z.string()).min(1),
           isActive: z.boolean().default(true),
-          order: z.number().default(0),
+          order: z.number().optional(),
         })
       )
       .mutation(async ({ ctx, input }) => {
-        const vendorId = typeof ctx.session.vendor === "string"
-          ? ctx.session.vendor
-          : ctx.session.vendor.id;
+        try {
+          const vendorId = typeof ctx.session.vendor === "string"
+            ? ctx.session.vendor
+            : ctx.session.vendor.id;
 
-        // Validate that selected products belong to the vendor
-        if (input.products && input.products.length > 0) {
+          console.log("[vendor.heroBanners.create] Input:", JSON.stringify(input, null, 2));
+          console.log("[vendor.heroBanners.create] Vendor ID:", vendorId);
+
+          // Validate that products array is not empty
+          if (!input.products || input.products.length === 0) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "At least one product is required",
+            });
+          }
+
+          // Validate that selected products belong to the vendor and exist
           const vendorProducts = await ctx.db.find({
             collection: "products",
             where: {
@@ -3121,28 +2899,71 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
             limit: input.products.length,
           });
 
+          console.log("[vendor.heroBanners.create] Vendor products found:", vendorProducts.docs.length, "of", input.products.length);
+
+          // Check if all products were found
           if (vendorProducts.docs.length !== input.products.length) {
+            const foundIds = vendorProducts.docs.map((p: any) => p.id);
+            const missingIds = input.products.filter((id: string) => !foundIds.includes(id));
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "Some selected products do not belong to your vendor account",
+              message: `Some selected products do not exist or do not belong to your vendor account. Missing IDs: ${missingIds.join(", ")}`,
             });
           }
-        }
 
-        const banner = await ctx.db.create({
-          collection: "vendor-hero-banners",
-          data: {
+          // Extract product IDs from validated products (they're already confirmed to exist and belong to vendor)
+          const productIds = vendorProducts.docs.map((p: any) => p.id);
+
+          // Build banner data - keep it simple like the seed script
+          const bannerData: any = {
             vendor: vendorId,
             title: input.title,
-            subtitle: input.subtitle,
-            backgroundImage: input.backgroundImage,
-            products: input.products,
-            isActive: input.isActive,
-            order: input.order,
-          },
-        });
+            products: productIds, // Direct array of product IDs (validated above)
+            isActive: input.isActive ?? true,
+          };
 
-        return banner;
+          // Only include order if provided
+          if (input.order !== undefined && input.order !== null) {
+            bannerData.order = input.order;
+          }
+
+          // Only include optional fields if they have values
+          if (input.subtitle && input.subtitle.trim() !== "") {
+            bannerData.subtitle = input.subtitle;
+          }
+
+          if (input.backgroundImage && input.backgroundImage.trim() !== "") {
+            bannerData.backgroundImage = input.backgroundImage;
+          }
+
+          console.log("[vendor.heroBanners.create] Banner data to create:", JSON.stringify(bannerData, null, 2));
+          console.log("[vendor.heroBanners.create] Products array:", bannerData.products);
+          console.log("[vendor.heroBanners.create] Products count:", bannerData.products.length);
+
+          const banner = await ctx.db.create({
+            collection: "vendor-hero-banners",
+            data: bannerData,
+          });
+
+          console.log("[vendor.heroBanners.create] Banner created successfully:", banner.id);
+          return banner;
+        } catch (error: any) {
+          console.error("[vendor.heroBanners.create] Error:", error);
+          console.error("[vendor.heroBanners.create] Error message:", error.message);
+          console.error("[vendor.heroBanners.create] Error stack:", error.stack);
+          
+          // If it's already a TRPCError, re-throw it
+          if (error instanceof TRPCError) {
+            throw error;
+          }
+          
+          // Otherwise, wrap it in a TRPCError
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error.message || "Failed to create hero banner",
+            cause: error,
+          });
+        }
       }),
 
     update: vendorProcedure
@@ -3197,10 +3018,25 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
         }
 
         const { id, ...updateData } = input;
+        
+        // Build update data, only including fields that are provided
+        const dataToUpdate: any = {};
+        
+        if (updateData.title !== undefined) dataToUpdate.title = updateData.title;
+        if (updateData.subtitle !== undefined) dataToUpdate.subtitle = updateData.subtitle;
+        if (updateData.backgroundImage !== undefined) dataToUpdate.backgroundImage = updateData.backgroundImage;
+        if (updateData.products !== undefined) dataToUpdate.products = updateData.products;
+        if (updateData.isActive !== undefined) dataToUpdate.isActive = updateData.isActive;
+        
+        // Only include order if it's explicitly provided (not undefined)
+        if (updateData.order !== undefined && updateData.order !== null) {
+          dataToUpdate.order = updateData.order;
+        }
+        
         const updatedBanner = await ctx.db.update({
           collection: "vendor-hero-banners",
           id: id,
-          data: updateData,
+          data: dataToUpdate,
         });
 
         return updatedBanner;

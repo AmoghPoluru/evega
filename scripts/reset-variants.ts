@@ -16,7 +16,8 @@ const COLOR_OPTIONS = [
   "Red", "Maroon", "Pink", "Blue", "Green", "Yellow", "Orange", "Purple",
   "Black", "White", "Navy", "Gold", "Silver", "Rose Gold", "Champagne",
   "Midnight Blue", "Emerald", "Ruby Red", "Sapphire Blue", "Ivory",
-  "Beige", "Tan", "Cream", "Brown", "Bronze"
+  "Beige", "Tan", "Cream", "Brown", "Bronze",
+  "Ivory Cream & Pink", "Olive Gold", "Lilac Purple", "Coral Orange", "Sunshine Yellow"
 ];
 const MATERIAL_OPTIONS = [
   "Silk", "Cotton", "Georgette", "Chiffon", "Linen", "Net", "Organza", 
@@ -48,7 +49,12 @@ const COLOR_HEX_CODES: Record<string, string> = {
   "Tan": "#D2B48C",
   "Cream": "#FFFDD0",
   "Brown": "#A52A2A",
-  "Bronze": "#CD7F32"
+  "Bronze": "#CD7F32",
+  "Ivory Cream & Pink": "#F5E1DA",
+  "Olive Gold": "#B5AD4D",
+  "Lilac Purple": "#C8A2E0",
+  "Coral Orange": "#FF6F61",
+  "Sunshine Yellow": "#FFEB3B"
 };
 
 async function resetVariants() {

@@ -5,6 +5,16 @@ import { trpc } from "@/trpc/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus, Edit, Trash2, Eye, EyeOff } from "lucide-react";
 import { HeroBannerForm } from "./components/HeroBannerForm";
 import { toast } from "sonner";
@@ -14,6 +24,7 @@ import Link from "next/link";
 export default function VendorHeroBannerPage() {
   const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [deletingBannerId, setDeletingBannerId] = useState<string | null>(null);
 
   const utils = trpc.useUtils();
   const { data: banners, isLoading } = trpc.vendor.heroBanners.list.useQuery();
@@ -22,16 +33,27 @@ export default function VendorHeroBannerPage() {
     onSuccess: () => {
       toast.success("Banner deleted successfully");
       utils.vendor.heroBanners.list.invalidate();
+      setDeletingBannerId(null);
     },
     onError: (error) => {
+      console.error("[VendorHeroBannerPage] Delete error:", error);
       toast.error(error.message || "Failed to delete banner");
+      setDeletingBannerId(null);
     },
   });
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this banner?")) {
-      deleteMutation.mutate({ id });
+  const handleDeleteClick = (id: string) => {
+    setDeletingBannerId(id);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deletingBannerId) {
+      deleteMutation.mutate({ id: deletingBannerId });
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeletingBannerId(null);
   };
 
   const handleEdit = (id: string) => {
@@ -190,7 +212,7 @@ export default function VendorHeroBannerPage() {
                             variant="destructive"
                             size="sm"
                             className="flex-1"
-                            onClick={() => handleDelete(banner.id)}
+                            onClick={() => handleDeleteClick(banner.id)}
                             disabled={deleteMutation.isPending}
                           >
                             <Trash2 className="h-4 w-4 mr-1" />
@@ -206,6 +228,39 @@ export default function VendorHeroBannerPage() {
           )}
         </>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deletingBannerId !== null} onOpenChange={(open) => {
+        if (!open) {
+          handleDeleteCancel();
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Hero Banner</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this hero banner? This action cannot be undone.
+              {deletingBannerId && banners && (
+                <span className="block mt-2 font-medium">
+                  Banner: {banners.find((b: any) => b.id === deletingBannerId)?.title || "Unknown"}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDeleteCancel} disabled={deleteMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

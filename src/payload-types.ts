@@ -156,33 +156,23 @@ export interface User {
   id: string;
   username?: string | null;
   name?: string | null;
+  role: 'user' | 'vendor' | 'admin' | 'bdo';
   /**
-   * ⚠️ DEPRECATED: Use appRole and vendorRole instead. Kept for backward compatibility.
+   * Authentication method used by this user
    */
-  roles?: ('super-admin' | 'user')[] | null;
+  oauthProvider?: ('email' | 'google' | 'facebook') | null;
   /**
-   * The vendor/shop this user belongs to. Required for all users except App Admins.
+   * OAuth provider user ID
+   */
+  oauthId?: string | null;
+  /**
+   * User avatar URL (from OAuth or uploaded)
+   */
+  avatar?: string | null;
+  /**
+   * The vendor/shop this user belongs to. Not used for admin or BDO accounts.
    */
   vendor?: (string | null) | Vendor;
-  /**
-   * Role within the vendor organization (e.g., Vendor Owner, Vendor Manager, Vendor Staff)
-   */
-  vendorRole?: (string | null) | Role;
-  /**
-   * Application-level role (e.g., App Admin, App Support, Customer). App Admin does not require a vendor.
-   */
-  appRole?: (string | null) | Role;
-  oauthProviders?: {
-    google?: {
-      id?: string | null;
-      email?: string | null;
-    };
-    facebook?: {
-      id?: string | null;
-      email?: string | null;
-    };
-  };
-  profilePicture?: string | null;
   /**
    * Manage multiple shipping addresses. Set one as default for faster checkout.
    */
@@ -549,7 +539,7 @@ export interface Product {
    */
   subcategory?: (string | null) | Category;
   image?: (string | null) | Media;
-  cover?: (string | null) | Media;
+  cover?: (string | Media)[] | null;
   /**
    * Choose how to add product video: upload a file or use a YouTube link
    */
@@ -838,49 +828,6 @@ export interface VendorTemplate {
     | number
     | boolean
     | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Application and vendor-level roles for user permissions
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "roles".
- */
-export interface Role {
-  id: string;
-  /**
-   * Role name (e.g., 'Vendor Owner', 'App Admin')
-   */
-  name: string;
-  /**
-   * URL-friendly identifier (auto-generated from name)
-   */
-  slug: string;
-  /**
-   * Role type: Application roles are for app-level access, Vendor roles are for vendor organization access
-   */
-  type: 'app' | 'vendor';
-  /**
-   * Description of what this role allows
-   */
-  description?: string | null;
-  /**
-   * List of permissions granted by this role
-   */
-  permissions?:
-    | {
-        /**
-         * Permission name (e.g., 'manage-products', 'view-orders')
-         */
-        permission: string;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Active roles can be assigned to users
-   */
-  isActive?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1186,6 +1133,49 @@ export interface Order {
   createdAt: string;
 }
 /**
+ * Application and vendor-level roles for user permissions
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "roles".
+ */
+export interface Role {
+  id: string;
+  /**
+   * Role name (e.g., 'Vendor Owner', 'App Admin')
+   */
+  name: string;
+  /**
+   * URL-friendly identifier (auto-generated from name)
+   */
+  slug: string;
+  /**
+   * Role type: Application roles are for app-level access, Vendor roles are for vendor organization access
+   */
+  type: 'app' | 'vendor';
+  /**
+   * Description of what this role allows
+   */
+  description?: string | null;
+  /**
+   * List of permissions granted by this role
+   */
+  permissions?:
+    | {
+        /**
+         * Permission name (e.g., 'manage-products', 'view-orders')
+         */
+        permission: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Active roles can be assigned to users
+   */
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "customers".
  */
@@ -1431,7 +1421,7 @@ export interface VendorHeroBanner {
    */
   isActive?: boolean | null;
   /**
-   * Display order (lower numbers appear first)
+   * Display order (lower numbers appear first). Leave empty for default ordering.
    */
   order?: number | null;
   updatedAt: string;
@@ -1574,27 +1564,11 @@ export interface PayloadMigration {
 export interface UsersSelect<T extends boolean = true> {
   username?: T;
   name?: T;
-  roles?: T;
+  role?: T;
+  oauthProvider?: T;
+  oauthId?: T;
+  avatar?: T;
   vendor?: T;
-  vendorRole?: T;
-  appRole?: T;
-  oauthProviders?:
-    | T
-    | {
-        google?:
-          | T
-          | {
-              id?: T;
-              email?: T;
-            };
-        facebook?:
-          | T
-          | {
-              id?: T;
-              email?: T;
-            };
-      };
-  profilePicture?: T;
   shippingAddresses?:
     | T
     | {

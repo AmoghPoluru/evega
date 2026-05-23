@@ -3,6 +3,8 @@ import { getPayload } from 'payload';
 import config from "@payload-config";
 import superjson from "superjson";
 import { headers as getHeaders } from 'next/headers';
+import { isAppStaff } from '@/lib/access';
+import type { User } from '@/payload-types';
 
 import { cache } from 'react';
 export const createTRPCContext = cache(async () => {
@@ -129,4 +131,18 @@ export const vendorProcedure = protectedProcedure.use(async ({ ctx, next }) => {
       },
     },
   });
+});
+
+/** Platform staff (admin + BDO) — app admin console at /staff/* */
+export const staffProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  const user = ctx.session.user as User;
+
+  if (!isAppStaff(user)) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Staff access required',
+    });
+  }
+
+  return next({ ctx });
 });

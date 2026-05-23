@@ -76,7 +76,7 @@ describe('Vendors Collection', () => {
       it('should allow super admin to update any vendor', () => {
         const user: Partial<User> = {
           id: 'admin-123',
-          appRole: { slug: 'app-admin' } as any,
+          role: 'admin',
         };
 
         const req = {
@@ -182,7 +182,7 @@ describe('Vendors Collection', () => {
       it('should allow super admin to delete vendors', () => {
         const user: Partial<User> = {
           id: 'admin-123',
-          appRole: { slug: 'app-admin' } as any,
+          role: 'admin',
         };
 
         const req = {

@@ -32,10 +32,16 @@ export async function createTestUser(
   const user = await payload.create({
     collection: 'users',
     data: {
-      email: overrides?.email || `test-${Date.now()}@example.com`,
-      password: overrides?.password || 'test-password-123',
-      name: overrides?.name || 'Test User',
-      ...overrides,
+      email: overrides?.email ?? `test-${Date.now()}@example.com`,
+      password: overrides?.password ?? 'test-password-123',
+      name: overrides?.name ?? 'Test User',
+      role: overrides?.role ?? 'user',
+      ...(overrides?.username ? { username: overrides.username } : {}),
+      ...(overrides?.vendor
+        ? { vendor: typeof overrides.vendor === 'string' ? overrides.vendor : overrides.vendor.id }
+        : {}),
+      ...(overrides?.oauthProvider ? { oauthProvider: overrides.oauthProvider } : {}),
+      ...(overrides?.oauthId ? { oauthId: overrides.oauthId } : {}),
     },
   });
 

@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckIcon, LinkIcon, ChevronDown } from "lucide-react";
+import { CheckIcon, LinkIcon, ChevronDown, ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 import { RichText } from "@payloadcms/richtext-lexical/react";
 
 import { trpc } from "@/trpc/client";
@@ -15,6 +15,7 @@ import { formatCurrency } from "@/lib/utils";
 import { useCart } from "@/modules/checkout/hooks/use-cart";
 import { ShippingAddressDisplay } from "./shipping-address-display";
 import { YouTubeEmbed } from "./youtube-embed";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 const CartButton = dynamic(
   () => import("./cart-button").then(
@@ -70,28 +71,166 @@ export const ProductView = ({ productId }: ProductViewProps) => {
     return null;
   };
 
-  // Get the image URLs (main image and cover image)
+  // Get the image URLs (main image and cover images)
   const imageUrl = data?.image ? getImageUrl(data.image) : null;
-  const coverUrl = data?.cover ? getImageUrl(data.cover) : null;
   
-  // Create array of available images (main image + cover if available and different)
+  // Handle cover as array (multiple additional images) or single value (backward compatibility)
+  const coverImages: string[] = [];
+  if (data?.cover) {
+    if (Array.isArray(data.cover)) {
+      // cover is an array - get URLs for all cover images
+      data.cover.forEach((coverItem: any) => {
+        const url = getImageUrl(coverItem);
+        if (url) coverImages.push(url);
+      });
+    } else {
+      // cover is a single value (backward compatibility)
+      const url = getImageUrl(data.cover);
+      if (url) coverImages.push(url);
+    }
+  }
+  
+  // Create array of available images (main image + all cover images, avoiding duplicates)
   const availableImages: string[] = [];
   if (imageUrl) availableImages.push(imageUrl);
-  if (coverUrl && coverUrl !== imageUrl) availableImages.push(coverUrl);
+  // Add all cover images that are different from the main image
+  coverImages.forEach((coverUrl) => {
+    if (coverUrl && coverUrl !== imageUrl && !availableImages.includes(coverUrl)) {
+      availableImages.push(coverUrl);
+    }
+  });
   
   // State for selected image index
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const displayedImageUrl = availableImages[selectedImageIndex] || imageUrl;
+  
+  // State for image zoom lightbox
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxImageIndex, setLightboxImageIndex] = useState(0);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const imageRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Lightbox zoom and navigation handlers
+  const handleOpenLightbox = (index: number) => {
+    setLightboxImageIndex(index);
+    setZoomLevel(1);
+    setImagePosition({ x: 0, y: 0 });
+    setIsLightboxOpen(true);
+  };
+
+  const handleCloseLightbox = () => {
+    setIsLightboxOpen(false);
+    setZoomLevel(1);
+    setImagePosition({ x: 0, y: 0 });
+  };
+
+  const handleZoomIn = () => {
+    setZoomLevel((prev) => Math.min(prev + 0.25, 3));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(1);
+    setImagePosition({ x: 0, y: 0 });
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoomLevel((prev) => Math.max(0.5, Math.min(3, prev + delta)));
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoomLevel > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - imagePosition.x, y: e.clientY - imagePosition.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging && zoomLevel > 1) {
+      setImagePosition({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y,
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleNextImage = () => {
+    if (availableImages.length > 0) {
+      setLightboxImageIndex((prev) => (prev + 1) % availableImages.length);
+      setZoomLevel(1);
+      setImagePosition({ x: 0, y: 0 });
+    }
+  };
+
+  const handlePrevImage = () => {
+    if (availableImages.length > 0) {
+      setLightboxImageIndex((prev) => (prev - 1 + availableImages.length) % availableImages.length);
+      setZoomLevel(1);
+      setImagePosition({ x: 0, y: 0 });
+    }
+  };
+
+  // Keyboard navigation for lightbox
+  useEffect(() => {
+    if (!isLightboxOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsLightboxOpen(false);
+        setZoomLevel(1);
+        setImagePosition({ x: 0, y: 0 });
+      } else if (e.key === "ArrowLeft") {
+        if (availableImages.length > 0) {
+          setLightboxImageIndex((prev) => (prev - 1 + availableImages.length) % availableImages.length);
+          setZoomLevel(1);
+          setImagePosition({ x: 0, y: 0 });
+        }
+      } else if (e.key === "ArrowRight") {
+        if (availableImages.length > 0) {
+          setLightboxImageIndex((prev) => (prev + 1) % availableImages.length);
+          setZoomLevel(1);
+          setImagePosition({ x: 0, y: 0 });
+        }
+      } else if (e.key === "+" || e.key === "=") {
+        setZoomLevel((prev) => Math.min(prev + 0.25, 3));
+      } else if (e.key === "-") {
+        setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
+      } else if (e.key === "0") {
+        setZoomLevel(1);
+        setImagePosition({ x: 0, y: 0 });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isLightboxOpen, availableImages.length]);
   
   // Debug: Log image data in development
   if (process.env.NODE_ENV === 'development' && data?.image) {
     console.log("[ProductView] Image data:", {
       image: data.image,
       extractedUrl: imageUrl,
-      coverUrl: coverUrl,
+      cover: data.cover,
+      coverImages: coverImages,
       availableImages: availableImages,
       selectedImageIndex: selectedImageIndex,
       imageType: typeof data.image,
+      coverIsArray: Array.isArray(data.cover),
       hasUrl: !!(data.image as any)?.url,
       urlValue: (data.image as any)?.url,
     });
@@ -234,19 +373,27 @@ export const ProductView = ({ productId }: ProductViewProps) => {
           <div className="lg:col-span-5">
             <div className="sticky top-6">
               {/* Main Image */}
-              <div className="border border-gray-300 rounded-lg overflow-hidden bg-white mb-4">
-                <div className="relative aspect-square">
+              <div className="border border-gray-300 rounded-lg overflow-hidden bg-white mb-4 relative group">
+                <div className="relative aspect-square cursor-zoom-in" onClick={() => handleOpenLightbox(selectedImageIndex)}>
                   {displayedImageUrl ? (
-                    <Image
-                      src={displayedImageUrl}
-                      alt={data.name}
-                      fill
-                      className="object-contain p-8"
-                      onError={(e) => {
-                        console.error("[ProductView] Image failed to load:", displayedImageUrl);
-                        (e.target as HTMLImageElement).src = "/placeholder.png";
-                      }}
-                    />
+                    <>
+                      <Image
+                        src={displayedImageUrl}
+                        alt={data.name}
+                        fill
+                        className="object-contain p-8"
+                        onError={(e) => {
+                          console.error("[ProductView] Image failed to load:", displayedImageUrl);
+                          (e.target as HTMLImageElement).src = "/placeholder.png";
+                        }}
+                      />
+                      {/* Zoom indicator overlay */}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <div className="bg-white/90 rounded-full p-3 shadow-lg">
+                          <Maximize2 className="h-6 w-6 text-gray-700" />
+                        </div>
+                      </div>
+                    </>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gray-100">
                       <span className="text-gray-400">No Image</span>
@@ -700,6 +847,123 @@ export const ProductView = ({ productId }: ProductViewProps) => {
           </div>
         </div>
       </div>
+
+      {/* Image Zoom Lightbox */}
+      <Dialog open={isLightboxOpen} onOpenChange={(open) => {
+        if (!open) {
+          handleCloseLightbox();
+        } else {
+          setIsLightboxOpen(true);
+        }
+      }}>
+        <DialogContent 
+          className="max-w-[95vw] max-h-[95vh] w-full h-full p-0 bg-black/95 border-none"
+          showCloseButton={true}
+        >
+          {/* Visually hidden title for accessibility */}
+          <DialogTitle className="sr-only">
+            {data?.name ? `Product image gallery - ${data.name}` : "Product image gallery"}
+          </DialogTitle>
+          <div 
+            ref={containerRef}
+            className="relative w-full h-full flex items-center justify-center overflow-hidden"
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
+            {/* Navigation Buttons */}
+            {availableImages.length > 1 && (
+              <>
+                <button
+                  onClick={handlePrevImage}
+                  className="absolute left-4 z-10 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full p-3 text-white transition-all"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+                <button
+                  onClick={handleNextImage}
+                  className="absolute right-4 z-10 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full p-3 text-white transition-all"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+              </>
+            )}
+
+            {/* Zoom Controls */}
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 flex gap-2 bg-white/20 backdrop-blur-sm rounded-lg p-2">
+              <button
+                onClick={handleZoomOut}
+                disabled={zoomLevel <= 0.5}
+                className="p-2 text-white hover:bg-white/30 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                aria-label="Zoom out"
+              >
+                <ZoomOut className="h-5 w-5" />
+              </button>
+              <span className="px-3 py-2 text-white text-sm font-medium min-w-[60px] text-center">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+              <button
+                onClick={handleZoomIn}
+                disabled={zoomLevel >= 3}
+                className="p-2 text-white hover:bg-white/30 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                aria-label="Zoom in"
+              >
+                <ZoomIn className="h-5 w-5" />
+              </button>
+              <button
+                onClick={handleResetZoom}
+                className="px-3 py-2 text-white hover:bg-white/30 rounded text-sm transition-all"
+                aria-label="Reset zoom"
+              >
+                Reset
+              </button>
+            </div>
+
+            {/* Image Counter */}
+            {availableImages.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2 text-white text-sm">
+                {lightboxImageIndex + 1} / {availableImages.length}
+              </div>
+            )}
+
+            {/* Zoomed Image */}
+            {availableImages[lightboxImageIndex] && (
+              <div
+                className="relative w-full h-full flex items-center justify-center"
+                style={{
+                  cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                }}
+              >
+                <img
+                  ref={imageRef}
+                  src={availableImages[lightboxImageIndex]}
+                  alt={`${data.name} - Image ${lightboxImageIndex + 1}`}
+                  className="max-w-full max-h-full object-contain select-none"
+                  style={{
+                    transform: `scale(${zoomLevel}) translate(${imagePosition.x / zoomLevel}px, ${imagePosition.y / zoomLevel}px)`,
+                    transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                  }}
+                  draggable={false}
+                  onError={(e) => {
+                    console.error("[ProductView] Lightbox image failed to load:", availableImages[lightboxImageIndex]);
+                    (e.target as HTMLImageElement).src = "/placeholder.png";
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Instructions */}
+            <div className="absolute bottom-4 right-4 z-10 bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2 text-white text-xs">
+              <div>Use mouse wheel + Ctrl/Cmd to zoom</div>
+              <div>Arrow keys to navigate • ESC to close</div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

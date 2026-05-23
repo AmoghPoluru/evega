@@ -1,7 +1,7 @@
 import z from "zod";
 
 import { createTRPCRouter, baseProcedure } from "@/trpc/init";
-import { isSuperAdmin, getVendorId, isVendor } from "@/lib/access";
+import { isAppStaff, getVendorId, isVendor } from "@/lib/access";
 
 export const vendorTasksRouter = createTRPCRouter({
   listForVendor: baseProcedure
@@ -16,13 +16,13 @@ export const vendorTasksRouter = createTRPCRouter({
       const { db } = ctx;
       const { user } = await db.auth({ headers: ctx.headers });
 
-      if (!isVendor(user) && !isSuperAdmin(user)) {
+      if (!isVendor(user) && !isAppStaff(user)) {
         return { docs: [], totalDocs: 0 };
       }
 
       const where: any = {};
 
-      if (isVendor(user) && !isSuperAdmin(user)) {
+      if (isVendor(user) && !isAppStaff(user)) {
         const vendorId = getVendorId(user);
         if (!vendorId) {
           return { docs: [], totalDocs: 0 };
@@ -74,7 +74,7 @@ export const vendorTasksRouter = createTRPCRouter({
       if (!task) return null;
 
       // Vendors can only see their own tasks
-      if (!isSuperAdmin(user) && isVendor(user)) {
+      if (!isAppStaff(user) && isVendor(user)) {
         const vendorId = getVendorId(user);
         const taskVendorId =
           typeof task.vendor === "string" ? task.vendor : task.vendor?.id;
@@ -106,7 +106,7 @@ export const vendorTasksRouter = createTRPCRouter({
         throw new Error("Unauthorized");
       }
 
-      const isAdmin = isSuperAdmin(user);
+      const isAdmin = isAppStaff(user);
       const vendorId = getVendorId(user);
 
       if (!isAdmin && !vendorId) {
@@ -172,7 +172,7 @@ export const vendorTasksRouter = createTRPCRouter({
         throw new Error("Task not found");
       }
 
-      if (!isSuperAdmin(user) && isVendor(user)) {
+      if (!isAppStaff(user) && isVendor(user)) {
         const vendorId = getVendorId(user);
         const taskVendorId =
           typeof task.vendor === "string" ? task.vendor : task.vendor?.id;
@@ -221,7 +221,7 @@ export const vendorTasksRouter = createTRPCRouter({
         throw new Error("Task not found");
       }
 
-      const isAdmin = isSuperAdmin(user);
+      const isAdmin = isAppStaff(user);
       const vendorId = getVendorId(user);
 
       if (!isAdmin && !vendorId) {
@@ -312,7 +312,7 @@ export const vendorTasksRouter = createTRPCRouter({
         throw new Error("Task not found");
       }
 
-      const isAdmin = isSuperAdmin(user);
+      const isAdmin = isAppStaff(user);
       const vendorId = getVendorId(user);
 
       if (!isAdmin && !vendorId) {

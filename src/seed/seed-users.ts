@@ -35,7 +35,8 @@ const seedUsers = async () => {
         email: "admin@example.com",
         password: "admin123",
         username: "admin",
-        roles: ["super-admin"],
+        role: "admin",
+        oauthProvider: "email",
         shippingAddresses: [
           {
             label: "Home",

@@ -1,36 +1,40 @@
-import type { CollectionConfig } from 'payload';
+import type { CollectionConfig } from "payload";
+import type { User } from "@/payload-types";
+import { isAppAdmin } from "@/lib/access";
 
 export const Users: CollectionConfig = {
-  slug: 'users',
+  slug: "users",
   admin: {
-    useAsTitle: 'email',
+    useAsTitle: "email",
   },
   auth: true,
+  /** Only app admins may use Payload at `/admin` (includes legacy super-admin / app-admin). */
+  access: {
+    admin: ({ req: { user } }) => isAppAdmin(user as User | undefined),
+  },
   hooks: {
     beforeValidate: [
-      async ({ data, operation, req }) => {
-        // Validation: If user has vendor, they should have vendorRole
-        // Validation: If user doesn't have app-admin role, they must have vendor
-        
-        // For now, we'll do basic validation
-        // More complex validation can be added when we have the role data loaded
-        return data;
-      },
-    ],
-    beforeChange: [
-      async ({ data, operation, req }) => {
-        // After role relationships are loaded, we can validate
-        // This will be handled in tRPC procedures or after data is saved
+      ({ data, operation }) => {
+        if (data && data.email && operation === "create") {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(data.email as string)) {
+            throw new Error("Invalid email format");
+          }
+        }
+        if (data && data.oauthProvider && data.oauthProvider !== "email") {
+          if (!data.password) {
+            data.password = undefined;
+          }
+        }
         return data;
       },
     ],
   },
   fields: [
-    // Email added by default
     {
       name: "username",
       type: "text",
-      required: false, // OAuth users may not have username initially
+      required: false,
       unique: true,
     },
     {
@@ -40,14 +44,43 @@ export const Users: CollectionConfig = {
       required: false,
     },
     {
-      name: "roles",
+      name: "role",
       type: "select",
-      defaultValue: ["user"],
-      hasMany: true,
-      options: ["super-admin", "user"],
+      options: [
+        { label: "User", value: "user" },
+        { label: "Vendor", value: "vendor" },
+        { label: "Admin", value: "admin" },
+        { label: "BDO", value: "bdo" },
+      ],
+      defaultValue: "user",
+      required: true,
+    },
+    {
+      name: "oauthProvider",
+      type: "select",
+      options: [
+        { label: "Email", value: "email" },
+        { label: "Google", value: "google" },
+        { label: "Facebook", value: "facebook" },
+      ],
+      defaultValue: "email",
       admin: {
-        position: "sidebar",
-        description: "⚠️ DEPRECATED: Use appRole and vendorRole instead. Kept for backward compatibility.",
+        description: "Authentication method used by this user",
+      },
+    },
+    {
+      name: "oauthId",
+      type: "text",
+      admin: {
+        description: "OAuth provider user ID",
+        condition: (data) => data.oauthProvider !== "email",
+      },
+    },
+    {
+      name: "avatar",
+      type: "text",
+      admin: {
+        description: "User avatar URL (from OAuth or uploaded)",
       },
     },
     {
@@ -56,93 +89,14 @@ export const Users: CollectionConfig = {
       relationTo: "vendors",
       required: false,
       admin: {
-        description: "The vendor/shop this user belongs to. Required for all users except App Admins.",
+        description:
+          "The vendor/shop this user belongs to. Not used for admin or BDO accounts.",
         condition: (data) => {
-          // Hide vendor field if user has app-admin role
-          const appRole = data?.appRole;
-          if (typeof appRole === "object" && appRole !== null) {
-            const roleSlug = (appRole as any)?.slug;
-            if (roleSlug === "app-admin") return false;
-          }
-          return true;
+          const r = data?.role;
+          return r !== "admin" && r !== "bdo";
         },
       },
     },
-    {
-      name: "vendorRole",
-      type: "relationship",
-      relationTo: "roles",
-      required: false,
-      filterOptions: {
-        type: { equals: "vendor" },
-        isActive: { equals: true },
-      },
-      admin: {
-        description: "Role within the vendor organization (e.g., Vendor Owner, Vendor Manager, Vendor Staff)",
-        condition: (data) => {
-          // Only show if user has a vendor
-          return Boolean(data?.vendor);
-        },
-      },
-    },
-    {
-      name: "appRole",
-      type: "relationship",
-      relationTo: "roles",
-      required: false,
-      filterOptions: {
-        type: { equals: "app" },
-        isActive: { equals: true },
-      },
-      admin: {
-        description: "Application-level role (e.g., App Admin, App Support, Customer). App Admin does not require a vendor.",
-      },
-    },
-    // OAuth provider fields
-    {
-      name: "oauthProviders",
-      type: "group",
-      fields: [
-        {
-          name: "google",
-          type: "group",
-          fields: [
-            {
-              name: "id",
-              type: "text",
-              label: "Google ID",
-            },
-            {
-              name: "email",
-              type: "email",
-              label: "Google Email",
-            },
-          ],
-        },
-        {
-          name: "facebook",
-          type: "group",
-          fields: [
-            {
-              name: "id",
-              type: "text",
-              label: "Facebook ID",
-            },
-            {
-              name: "email",
-              type: "email",
-              label: "Facebook Email",
-            },
-          ],
-        },
-      ],
-    },
-    {
-      name: "profilePicture",
-      type: "text",
-      label: "Profile Picture URL",
-    },
-    // Shipping addresses (multiple addresses per user)
     {
       name: "shippingAddresses",
       type: "array",
@@ -273,6 +227,5 @@ export const Users: CollectionConfig = {
         },
       ],
     },
-    // Add more fields as needed
   ],
-}
+};

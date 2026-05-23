@@ -1,5 +1,5 @@
 import type { CollectionConfig } from "payload";
-import { isSuperAdmin, getVendorId, isVendor } from "@/lib/access";
+import { isAppStaff, getVendorId, isVendor } from "@/lib/access";
 
 export const VendorTaskMessages: CollectionConfig = {
   slug: "vendor-task-messages",
@@ -11,7 +11,7 @@ export const VendorTaskMessages: CollectionConfig = {
   access: {
     read: ({ req }) => {
       const user = req.user;
-      if (isSuperAdmin(user)) return true;
+      if (isAppStaff(user)) return true;
 
       // Vendors can read messages for their own tasks only (enforced via where on task.vendor)
       if (isVendor(user)) {
@@ -33,17 +33,17 @@ export const VendorTaskMessages: CollectionConfig = {
     },
     create: ({ req }) => {
       const user = req.user;
-      if (isSuperAdmin(user)) return true;
+      if (isAppStaff(user)) return true;
       return isVendor(user);
     },
     update: ({ req }) => {
       const user = req.user;
       // Only super admins can update messages (e.g. edit internal notes)
-      return isSuperAdmin(user);
+      return isAppStaff(user);
     },
     delete: ({ req }) => {
       // Only super admins can delete messages
-      return isSuperAdmin(req.user);
+      return isAppStaff(req.user);
     },
   },
   fields: [

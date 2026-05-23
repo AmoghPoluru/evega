@@ -9,6 +9,7 @@ import { tagsRouter } from '@/modules/tags/server/procedures';
 import { ordersRouter } from '@/modules/orders/server/procedures';
 import { addressesRouter } from '@/modules/addresses/server/procedures';
 import { vendorTasksRouter } from '@/modules/vendor-tasks/server/procedures';
+import { adminRouter } from '@/modules/admin/server/procedures';
 
 export const appRouter = createTRPCRouter({
   hello: baseProcedure
@@ -23,6 +24,7 @@ export const appRouter = createTRPCRouter({
       };
     }),
   auth: authRouter,
+  admin: adminRouter,
   vendor: vendorRouter,
   categories: baseProcedure
     .query(async ({ ctx }) => {

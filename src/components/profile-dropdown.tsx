@@ -1,6 +1,8 @@
 "use client";
 
-import { Store, MapPin, LogOut, Settings, Package } from "lucide-react";
+import { Store, MapPin, LogOut, Settings, Package, Shield } from "lucide-react";
+import { isAppStaff } from "@/lib/access";
+import type { User } from "@/payload-types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -49,6 +51,10 @@ export function ProfileDropdown() {
     session?.user &&
     isApprovedVendor &&
     !isLoadingVendorStatus
+  );
+
+  const showAdminConsole = Boolean(
+    session?.user && isAppStaff(session.user as User),
   );
 
   const logout = trpc.auth.logout.useMutation({
@@ -150,6 +156,14 @@ export function ProfileDropdown() {
             <Link href="/become-vendor" className="flex items-center cursor-pointer">
               <Store className="mr-2 h-4 w-4" />
               Become Vendor
+            </Link>
+          </DropdownMenuItem>
+        )}
+        {showAdminConsole && (
+          <DropdownMenuItem asChild>
+            <Link href="/staff/tasks" className="flex items-center cursor-pointer">
+              <Shield className="mr-2 h-4 w-4" />
+              Admin Console
             </Link>
           </DropdownMenuItem>
         )}

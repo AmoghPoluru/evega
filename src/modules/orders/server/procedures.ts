@@ -1,5 +1,6 @@
 import z from "zod";
 import { TRPCError } from "@trpc/server";
+import { isAppAdmin } from "@/lib/access";
 
 import { Order, Product, User } from "@/payload-types";
 import { baseProcedure, createTRPCRouter, protectedProcedure } from "@/trpc/init";
@@ -252,9 +253,7 @@ export const ordersRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       // Check if user is super admin
       const user = ctx.session.user;
-      const isAdmin = user.roles?.includes("super-admin");
-
-      if (!isAdmin) {
+      if (!isAppAdmin(user)) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Only admins can update order status",
@@ -301,9 +300,7 @@ export const ordersRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       // Check if user is super admin
       const user = ctx.session.user;
-      const isAdmin = user.roles?.includes("super-admin");
-
-      if (!isAdmin) {
+      if (!isAppAdmin(user)) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Only admins can update tracking information",
