@@ -25,6 +25,7 @@ if (process.env.FACEBOOK_CLIENT_ID && process.env.FACEBOOK_CLIENT_SECRET) {
 
 export const authConfig = {
   providers: providers.length > 0 ? providers : [],
+  trustHost: true,
   pages: {
     signIn: "/sign-in",
     error: "/sign-in",

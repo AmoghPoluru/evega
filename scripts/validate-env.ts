@@ -70,7 +70,7 @@ const optionalEnvVars = {
   NEXT_PUBLIC_SENTRY_DSN: 'Sentry DSN for error tracking',
   SENTRY_ENVIRONMENT: 'Sentry environment name',
   OPENAI_API_KEY: 'OpenAI API key (for AI features)',
-  NEXT_PUBLIC_ROOT_DOMAIN: 'Root domain for cookies',
+  NEXT_PUBLIC_ROOT_DOMAIN: 'Cookie domain for auth (e.g. zvastra.com) — use with www + apex',
 };
 
 function validateEnvironment() {
