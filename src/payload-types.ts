@@ -886,6 +886,10 @@ export interface Order {
    */
   status: 'pending' | 'payment_done' | 'processing' | 'complete' | 'canceled' | 'refunded';
   /**
+   * Whether product stock was deducted on place or restored on cancel/refund
+   */
+  inventoryAdjusted?: ('none' | 'deducted' | 'restored') | null;
+  /**
    * History of status changes
    */
   statusHistory?:
@@ -1715,6 +1719,7 @@ export interface OrdersSelect<T extends boolean = true> {
   vendor?: T;
   product?: T;
   status?: T;
+  inventoryAdjusted?: T;
   statusHistory?:
     | T
     | {

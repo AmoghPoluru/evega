@@ -5,6 +5,11 @@ import { TRPCError } from "@trpc/server";
 
 import { stripe } from "@/lib/stripe";
 import { createCheckoutSessionWithConnect, isStripeAccountReady } from "@/lib/stripe-connect";
+import {
+  decrementStockForOrder,
+  findMatchingVariant,
+} from "@/lib/inventory/adjust-product-stock";
+import type { ProductInventoryDoc } from "@/lib/inventory/types";
 import { generateOrderNumber } from "@/lib/order-number";
 import { Media } from "@/payload-types";
 import { baseProcedure, createTRPCRouter, protectedProcedure } from "@/trpc/init";
@@ -293,20 +298,30 @@ export const checkoutRouter = createTRPCRouter({
             throw new TRPCError({ code: "NOT_FOUND", message: `Product ${cartItem.productId} not found` });
           }
 
-          // Find matching variant
-          let variant = null;
-          if (cartItem.size || cartItem.color) {
-            variant = product.variants?.find((v: any) => {
-              const sizeMatch = !cartItem.size || v.size === cartItem.size;
-              const colorMatch = !cartItem.color || v.color === cartItem.color;
-              return sizeMatch && colorMatch;
+          const hasVariants =
+            Array.isArray(product.variants) && product.variants.length > 0;
+          const variant = hasVariants
+            ? findMatchingVariant(
+                product as ProductInventoryDoc,
+                cartItem.size,
+                cartItem.color,
+              )
+            : null;
+
+          if (hasVariants && !variant) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Variant not found for ${product.name}. Please select a valid size and color.`,
             });
           }
 
           // Calculate final price
-          const finalPrice = (variant && cartItem.color && (variant as any)?.price !== undefined && (variant as any).price !== null)
-            ? (variant as any).price
-            : (cartItem.variantPrice ?? product.price);
+          const finalPrice =
+            variant &&
+            (variant as { price?: number | null }).price !== undefined &&
+            (variant as { price?: number | null }).price !== null
+              ? (variant as { price: number }).price
+              : (cartItem.variantPrice ?? product.price);
 
           const itemTotal = finalPrice * cartItem.quantity;
 
@@ -322,25 +337,13 @@ export const checkoutRouter = createTRPCRouter({
           const itemCommission = (itemTotal * commissionRate) / 100;
           const itemVendorPayout = itemTotal - itemCommission;
 
-          // Update variant stock if variant exists
-          if (variant) {
-            const newStock = Math.max(0, variant.stock - cartItem.quantity);
-            const updatedVariants = (product.variants || []).map((v: any) => {
-              if (
-                (!cartItem.size || v.size === cartItem.size) &&
-                (!cartItem.color || v.color === cartItem.color)
-              ) {
-                return { ...v, stock: newStock };
-              }
-              return v;
-            });
-
-            await ctx.db.update({
-              collection: "products",
-              id: cartItem.productId,
-              data: { variants: updatedVariants },
-            });
-          }
+          await decrementStockForOrder(ctx.db, {
+            productId: cartItem.productId,
+            quantity: cartItem.quantity || 1,
+            size: cartItem.size,
+            color: cartItem.color,
+            overrideAccess: true,
+          });
 
           // Create order for this product
           const order = await ctx.db.create({
@@ -365,6 +368,7 @@ export const checkoutRouter = createTRPCRouter({
               status: "pending",
               paymentMethod: "offline",
               paymentStatus: "pending",
+              inventoryAdjusted: "deducted",
               offlinePaymentContact: {
                 phone: vendor.contactPhone || null,
                 email: vendor.contactEmail || null,

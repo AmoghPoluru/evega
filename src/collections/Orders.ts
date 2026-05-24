@@ -169,6 +169,45 @@ export const Orders: CollectionConfig = {
           }
         }
 
+        // Restore inventory when order is canceled or refunded
+        if (
+          operation === "update" &&
+          previousDoc &&
+          doc.status !== previousDoc.status &&
+          (doc.status === "canceled" || doc.status === "refunded") &&
+          previousDoc.inventoryAdjusted === "deducted" &&
+          doc.product
+        ) {
+          try {
+            const { restoreStockForOrder } = await import("@/lib/inventory/adjust-product-stock");
+            const productId =
+              typeof doc.product === "string" ? doc.product : doc.product.id;
+
+            const restored = await restoreStockForOrder(
+              req.payload,
+              {
+                productId,
+                quantity: doc.quantity ?? 1,
+                size: doc.size ?? null,
+                color: doc.color ?? null,
+                inventoryAdjusted: previousDoc.inventoryAdjusted as string | null,
+              },
+              { orderId: doc.id, overrideAccess: true },
+            );
+
+            if (restored) {
+              await req.payload.update({
+                collection: "orders",
+                id: doc.id,
+                data: { inventoryAdjusted: "restored" },
+                overrideAccess: true,
+              });
+            }
+          } catch (error) {
+            console.error(`[Orders Hook] Failed to restore inventory for order ${doc.id}:`, error);
+          }
+        }
+
         // Task 1009: Check product stock after order creation and auto-draft if needed
         if (operation === "create" && doc.product) {
           try {
@@ -259,6 +298,20 @@ export const Orders: CollectionConfig = {
       required: true,
       admin: {
         description: "Order status workflow: Pending → Payment Done → Processing → Complete",
+      },
+    },
+    {
+      name: "inventoryAdjusted",
+      type: "select",
+      options: [
+        { label: "None", value: "none" },
+        { label: "Deducted", value: "deducted" },
+        { label: "Restored", value: "restored" },
+      ],
+      defaultValue: "none",
+      admin: {
+        readOnly: true,
+        description: "Whether product stock was deducted on place or restored on cancel/refund",
       },
     },
     {
