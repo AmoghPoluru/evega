@@ -17,8 +17,14 @@ type SocialChannelsStored = SocialChannelsInput & {
   socialWhatsAppGroupLastPostedAt?: string | null;
 };
 
+type MarketingChannelPlatform =
+  | "facebook-group"
+  | "instagram-page"
+  | "whatsapp-group"
+  | "other";
+
 type MarketingChannelInput = {
-  platform: string;
+  platform: MarketingChannelPlatform;
   name: string;
   url: string;
   region?: string | null;

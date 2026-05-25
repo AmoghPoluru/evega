@@ -1,6 +1,8 @@
 "use client";
 
+import type { inferRouterOutputs } from "@trpc/server";
 import { trpc } from "@/trpc/client";
+import type { AppRouter } from "@/trpc/routers/_app";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -10,6 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+
+type VendorListOption =
+  inferRouterOutputs<AppRouter>["admin"]["vendors"]["listOptions"][number];
 
 interface StaffVendorSelectProps {
   value?: string;
@@ -36,7 +41,7 @@ export function StaffVendorSelect({ value, onValueChange }: StaffVendorSelectPro
     );
   }
 
-  const options = vendors ?? [];
+  const options: VendorListOption[] = vendors ?? [];
 
   return (
     <div className="space-y-2 max-w-md">

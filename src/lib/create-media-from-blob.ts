@@ -1,5 +1,5 @@
 import type { BasePayload } from "payload";
-import type { User } from "@/payload-types";
+import type { Media, User } from "@/payload-types";
 import { payloadReqFromUser } from "@/lib/payload-req";
 
 export type CreateMediaFromBlobInput = {
@@ -25,18 +25,14 @@ export async function createMediaFromBlobUrl(
     input.url.split("/").pop() ||
     "uploaded-file";
 
-  const data: Record<string, unknown> = {
+  const data = {
     alt,
     filename: input.filename,
     url: input.url,
-  };
-
-  if (input.mimeType) {
-    data.mimeType = input.mimeType;
-  }
-  if (input.filesize && input.filesize > 0) {
-    data.filesize = input.filesize;
-  }
+    ...(input.mimeType ? { mimeType: input.mimeType } : {}),
+    ...(input.filesize && input.filesize > 0 ? { filesize: input.filesize } : {}),
+  } satisfies Pick<Media, "alt" | "filename" | "url"> &
+    Partial<Pick<Media, "mimeType" | "filesize">>;
 
   return payload.create({
     collection: "media",

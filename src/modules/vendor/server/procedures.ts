@@ -22,6 +22,8 @@ import {
   buildSocialChannelsUpdate,
 } from "@/lib/vendor-marketing-profile";
 import { payloadReqFromUser } from "@/lib/payload-req";
+import { toMarketingProfileResponse } from "@/modules/marketing/marketing-profile-trpc";
+import type { Vendor } from "@/payload-types";
 
 /** Treat empty strings as undefined so optional URL fields don't fail Zod in production. */
 const optionalUrl = z.preprocess(
@@ -2068,38 +2070,7 @@ export const vendorRouter = createTRPCRouter({
         depth: 1,
       });
 
-      const logo = vendor.logo;
-      const logoId = typeof logo === "string" ? logo : logo?.id ?? null;
-      const logoUrl =
-        typeof logo === "object" && logo !== null && "url" in logo && logo.url
-          ? logo.url
-          : null;
-
-      return {
-        logoId,
-        logoUrl,
-        socialChannels: {
-          socialInstagram: vendor.socialChannels?.socialInstagram ?? "",
-          socialFacebook: vendor.socialChannels?.socialFacebook ?? "",
-          socialWhatsAppGroup: vendor.socialChannels?.socialWhatsAppGroup ?? "",
-          socialNotes: vendor.socialChannels?.socialNotes ?? "",
-          socialInstagramLastPostedAt:
-            vendor.socialChannels?.socialInstagramLastPostedAt ?? null,
-          socialFacebookLastPostedAt:
-            vendor.socialChannels?.socialFacebookLastPostedAt ?? null,
-          socialWhatsAppGroupLastPostedAt:
-            vendor.socialChannels?.socialWhatsAppGroupLastPostedAt ?? null,
-        },
-        marketingChannels: (vendor.marketingChannels ?? []).map((ch) => ({
-          platform: ch.platform,
-          name: ch.name,
-          url: ch.url,
-          region: ch.region ?? "",
-          audienceNotes: ch.audienceNotes ?? "",
-          isActive: ch.isActive ?? true,
-          lastPostedAt: ch.lastPostedAt ?? null,
-        })),
-      };
+      return toMarketingProfileResponse(vendor as Vendor);
     }),
 
     updateMarketingProfile: vendorProcedure
