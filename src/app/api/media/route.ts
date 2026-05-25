@@ -4,7 +4,7 @@ import config from "@payload-config";
 import { uploadToBlob, deleteFromBlob } from "@/lib/vercel-blob-storage";
 import { createMediaFromBlobUrl } from "@/lib/create-media-from-blob";
 import { payloadReqFromUser } from "@/lib/payload-req";
-import { getPayloadAuthHeaders } from "@/lib/payload-auth-headers";
+import { getPayloadSessionFromRequest } from "@/lib/payload-auth-headers";
 
 // Increase body size limit for video uploads (default is 1MB, we set to 500MB)
 export const maxDuration = 300; // 5 minutes for large video uploads
@@ -14,7 +14,7 @@ export const runtime = 'nodejs'; // Ensure Node.js runtime for large file handli
 export async function DELETE(req: NextRequest) {
   try {
     const payload = await getPayload({ config });
-    const session = await payload.auth({ headers: getPayloadAuthHeaders(req) });
+    const session = await getPayloadSessionFromRequest(req, payload);
 
     if (!session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -136,13 +136,13 @@ export async function DELETE(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const payload = await getPayload({ config });
-    const session = await payload.auth({ headers: getPayloadAuthHeaders(req) });
+    const session = await getPayloadSessionFromRequest(req, payload);
 
     if (!session.user) {
       return NextResponse.json(
         {
           error:
-            "Unauthorized. Log in on this exact site URL (same www/non-www), then try again.",
+            "Unauthorized. Log out, log in again at https://www.zvastra.com/sign-in, then retry. If it persists, check PAYLOAD_SECRET on Vercel matches after redeploy.",
         },
         { status: 401 },
       );

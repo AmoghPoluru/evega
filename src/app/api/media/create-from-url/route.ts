@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPayload } from "payload";
 import config from "@payload-config";
 import { createMediaFromBlobUrl } from "@/lib/create-media-from-blob";
-import { getPayloadAuthHeaders } from "@/lib/payload-auth-headers";
+import { getPayloadSessionFromRequest } from "@/lib/payload-auth-headers";
 
 /**
  * POST /api/media/create-from-url
@@ -16,7 +16,7 @@ import { getPayloadAuthHeaders } from "@/lib/payload-auth-headers";
 export async function POST(req: NextRequest) {
   try {
     const payload = await getPayload({ config });
-    const session = await payload.auth({ headers: getPayloadAuthHeaders(req) });
+    const session = await getPayloadSessionFromRequest(req, payload);
 
     if (!session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
