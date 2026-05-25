@@ -385,9 +385,13 @@ export function ProductForm({
         
         // Provide more specific error messages
         if (response.status === 401) {
-          errorMessage = "Please log in to upload files";
+          errorMessage =
+            "Please log in on this site (use the same URL every time, e.g. always www or always non-www), then try the upload again.";
         } else if (response.status === 413) {
           errorMessage = "File is too large. Please choose a smaller file.";
+        } else if (response.status === 500 && errorMessage.includes("BLOB_READ_WRITE_TOKEN")) {
+          errorMessage =
+            "Image uploads are not configured on this server. Contact support to enable Vercel Blob storage.";
         } else if (response.status === 400) {
           errorMessage = "Invalid file. Please check the file format.";
         }

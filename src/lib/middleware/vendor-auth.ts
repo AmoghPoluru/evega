@@ -16,7 +16,9 @@ export async function requireVendor() {
   const session = await payload.auth({ headers: headersList });
 
   if (!session.user) {
-    redirect("/sign-in?redirect=/vendor/dashboard");
+    const returnTo =
+      headersList.get("x-pathname")?.trim() || "/vendor/dashboard";
+    redirect(`/sign-in?redirect=${encodeURIComponent(returnTo)}`);
   }
 
   // Check if user has a vendor

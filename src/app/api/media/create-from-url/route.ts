@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPayload } from "payload";
 import config from "@payload-config";
-import { headers } from "next/headers";
+import { createMediaFromBlobUrl } from "@/lib/create-media-from-blob";
+import { getPayloadAuthHeaders } from "@/lib/payload-auth-headers";
 
 /**
  * POST /api/media/create-from-url
@@ -15,8 +16,7 @@ import { headers } from "next/headers";
 export async function POST(req: NextRequest) {
   try {
     const payload = await getPayload({ config });
-    const headersList = await headers();
-    const session = await payload.auth({ headers: headersList });
+    const session = await payload.auth({ headers: getPayloadAuthHeaders(req) });
 
     if (!session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -59,23 +59,12 @@ export async function POST(req: NextRequest) {
         ? filename
         : url.split("/").pop() || "uploaded-file";
 
-    const mediaDocData: any = {
-      alt: alt && typeof alt === "string" && alt.trim().length > 0 ? alt : safeFilename,
-      filename: safeFilename,
+    const media = await createMediaFromBlobUrl(payload, session.user, {
       url,
-    };
-
-    if (mimeType && typeof mimeType === "string") {
-      mediaDocData.mimeType = mimeType;
-    }
-
-    if (typeof filesize === "number" && filesize > 0) {
-      mediaDocData.filesize = filesize;
-    }
-
-    const media = await payload.create({
-      collection: "media",
-      data: mediaDocData,
+      filename: safeFilename,
+      mimeType: typeof mimeType === "string" ? mimeType : undefined,
+      filesize: typeof filesize === "number" ? filesize : undefined,
+      alt: alt && typeof alt === "string" ? alt : safeFilename,
     });
 
     return NextResponse.json({ doc: media });

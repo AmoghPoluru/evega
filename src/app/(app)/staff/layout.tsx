@@ -7,7 +7,7 @@ interface Props {
 }
 
 export default async function StaffAdminLayout({ children }: Props) {
-  const { user } = await requireAppAdmin("/staff/tasks");
+  const { user } = await requireAppAdmin();
 
   return (
     <div className="flex h-screen overflow-hidden">

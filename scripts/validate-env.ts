@@ -71,6 +71,7 @@ const optionalEnvVars = {
   SENTRY_ENVIRONMENT: 'Sentry environment name',
   OPENAI_API_KEY: 'OpenAI API key (for AI features)',
   NEXT_PUBLIC_ROOT_DOMAIN: 'Cookie domain for auth (e.g. zvastra.com) — use with www + apex',
+  BLOB_READ_WRITE_TOKEN: 'Vercel Blob token (required for vendor product image uploads in production)',
 };
 
 function validateEnvironment() {
@@ -120,6 +121,12 @@ function validateEnvironment() {
     
     if (process.env.DATABASE_URL?.includes('localhost')) {
       warnings.push('⚠️  Using localhost database in production environment');
+    }
+
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      warnings.push(
+        '⚠️  BLOB_READ_WRITE_TOKEN is not set — vendor product image uploads will fail on production (localhost still works with local disk)',
+      );
     }
   }
   

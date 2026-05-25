@@ -263,7 +263,26 @@ export const adminRouter = createTRPCRouter({
 
         return product;
       } catch (error: unknown) {
-        const err = error as { errors?: { path?: string; message?: string }[]; message?: string };
+        const err = error as {
+          errors?: { path?: string; message?: string }[];
+          message?: string;
+          name?: string;
+          status?: number;
+        };
+        console.error("[admin.products.create]", {
+          message: err?.message,
+          name: err?.name,
+        });
+        if (
+          err?.message?.includes("not allowed") ||
+          err?.name === "Forbidden" ||
+          err?.status === 403
+        ) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Not allowed to create products. Check staff account permissions.",
+          });
+        }
         if (err?.errors && Array.isArray(err.errors)) {
           const messages = err.errors.map((e) => e.message || e.path || 'Validation error');
           throw new TRPCError({

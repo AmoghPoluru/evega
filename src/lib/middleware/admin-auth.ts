@@ -9,13 +9,15 @@ import { isAppStaff } from "@/lib/access";
  * - Redirects to sign-in if not authenticated
  * - Redirects to home if not admin
  */
-export async function requireAppAdmin(redirectTo: string = "/staff/tasks") {
+export async function requireAppAdmin(fallbackPath: string = "/staff/products") {
   const headersList = await headers();
   const payload = await getPayload({ config });
   const session = await payload.auth({ headers: headersList });
 
   if (!session.user) {
-    redirect(`/sign-in?redirect=${encodeURIComponent(redirectTo)}`);
+    const returnTo =
+      headersList.get("x-pathname")?.trim() || fallbackPath;
+    redirect(`/sign-in?redirect=${encodeURIComponent(returnTo)}`);
   }
 
   if (!isAppStaff(session.user)) {

@@ -21,6 +21,13 @@ import {
   buildMarketingChannelsUpdate,
   buildSocialChannelsUpdate,
 } from "@/lib/vendor-marketing-profile";
+import { payloadReqFromUser } from "@/lib/payload-req";
+
+/** Treat empty strings as undefined so optional URL fields don't fail Zod in production. */
+const optionalUrl = z.preprocess(
+  (val) => (val === "" || val === null ? undefined : val),
+  z.string().url().optional(),
+);
 
 const vendorRegistrationSchema = z.object({
   businessName: z.string().min(2, "Business name is required"),
@@ -525,7 +532,7 @@ export const vendorRouter = createTRPCRouter({
           cover: z.array(z.string()).optional(),
           videoSource: z.enum(["upload", "youtube"]).optional(),
           video: z.string().optional(),
-          youtubeUrl: z.string().url().optional(),
+          youtubeUrl: optionalUrl,
           youtubeStartTime: z.string().optional(), // MM:SS format
           refundPolicy: z.enum(["30-day", "14-day", "7-day", "3-day", "1-day", "no-refunds"]).optional(),
           tags: z.array(z.string()).optional(),
@@ -594,10 +601,28 @@ export const vendorRouter = createTRPCRouter({
               vendor: vendorId,
               isArchived: false,
             } as any, // Type assertion needed because Payload types don't include YouTube fields yet
+            req: payloadReqFromUser(ctx.session.user),
           });
 
           return product;
         } catch (error: any) {
+          console.error("[Product Create Error]", {
+            message: error?.message,
+            name: error?.name,
+          });
+
+          if (
+            error?.message?.includes("not allowed") ||
+            error?.name === "Forbidden" ||
+            error?.status === 403
+          ) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message:
+                "You do not have permission to create products. Ensure your vendor account is approved and active.",
+            });
+          }
+
           // Log error structure for debugging (only in development)
           if (process.env.NODE_ENV === 'development') {
             console.error('[Product Create Error]', {
@@ -802,7 +827,7 @@ export const vendorRouter = createTRPCRouter({
           cover: z.array(z.string()).optional(),
           videoSource: z.enum(["upload", "youtube"]).optional(),
           video: z.string().optional(),
-          youtubeUrl: z.string().url().optional(),
+          youtubeUrl: optionalUrl,
           youtubeStartTime: z.string().optional(), // MM:SS format
           refundPolicy: z.enum(["30-day", "14-day", "7-day", "3-day", "1-day", "no-refunds"]).optional(),
           tags: z.array(z.string()).optional(),
@@ -893,10 +918,28 @@ export const vendorRouter = createTRPCRouter({
             collection: "products",
             id: productId,
             data: safeUpdateData,
+            req: payloadReqFromUser(ctx.session.user),
           });
 
           return product;
         } catch (error: any) {
+          console.error("[Product Update Error]", {
+            message: error?.message,
+            name: error?.name,
+          });
+
+          if (
+            error?.message?.includes("not allowed") ||
+            error?.name === "Forbidden" ||
+            error?.status === 403
+          ) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message:
+                "You do not have permission to update this product. Ensure your vendor account is approved and active.",
+            });
+          }
+
           // Log error structure for debugging (only in development)
           if (process.env.NODE_ENV === 'development') {
             console.error('[Product Update Error]', {

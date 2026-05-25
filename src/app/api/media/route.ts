@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPayload } from "payload";
 import config from "@payload-config";
-import { headers } from "next/headers";
 import { uploadToBlob, deleteFromBlob } from "@/lib/vercel-blob-storage";
+import { createMediaFromBlobUrl } from "@/lib/create-media-from-blob";
+import { payloadReqFromUser } from "@/lib/payload-req";
+import { getPayloadAuthHeaders } from "@/lib/payload-auth-headers";
 
 // Increase body size limit for video uploads (default is 1MB, we set to 500MB)
 export const maxDuration = 300; // 5 minutes for large video uploads
@@ -12,8 +14,7 @@ export const runtime = 'nodejs'; // Ensure Node.js runtime for large file handli
 export async function DELETE(req: NextRequest) {
   try {
     const payload = await getPayload({ config });
-    const headersList = await headers();
-    const session = await payload.auth({ headers: headersList });
+    const session = await payload.auth({ headers: getPayloadAuthHeaders(req) });
 
     if (!session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -135,11 +136,16 @@ export async function DELETE(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const payload = await getPayload({ config });
-    const headersList = await headers();
-    const session = await payload.auth({ headers: headersList });
+    const session = await payload.auth({ headers: getPayloadAuthHeaders(req) });
 
     if (!session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized. Log in on this exact site URL (same www/non-www), then try again.",
+        },
+        { status: 401 },
+      );
     }
 
     const formData = await req.formData();
@@ -186,54 +192,30 @@ export async function POST(req: NextRequest) {
     // On Vercel, we can't write to local disk in serverless functions
     let media;
     if (blobUrl) {
-      // Since Media collection has upload: true, Payload expects a file parameter
-      // But on Vercel we can't write files locally. So we'll use the database adapter directly
-      const db = payload.db;
-      
-      // Extract filename from Blob URL
-      const blobPathname = blobUrl.split('/').pop() || file.name;
-      
-      // Create media document using Payload's database adapter
-      // This ensures proper field handling and validation
-      const mediaDoc = {
-        alt: file.name,
+      const blobPathname = blobUrl.split("/").pop() || file.name;
+      media = await createMediaFromBlobUrl(payload, session.user, {
+        url: blobUrl,
         filename: blobPathname,
         mimeType: file.type,
         filesize: file.size,
-        url: blobUrl,
-      };
-      
-      // Use Payload's database adapter to create the document
-      // This properly handles ObjectId conversion and field validation
-      const result = await db.create({
-        collection: 'media',
-        data: mediaDoc,
+        alt: file.name,
       });
-      
-      // The result should have an id field (string)
-      if (!result || !result.id) {
-        throw new Error("Failed to create media document: No ID returned from database");
-      }
-      
-      // Fetch the created document using Payload (to get proper typing and hooks)
-      media = await payload.findByID({
-        collection: "media",
-        id: result.id,
-      });
-      
       console.log(`✅ Created media record with Blob URL: ${blobUrl}`);
     } else {
       // If Blob token is not set, we can't upload on Vercel (no local disk access)
       // On localhost, fallback to Payload's default file upload
-      if (process.env.NODE_ENV === 'production') {
+      if (process.env.NODE_ENV === "production") {
+        const hasToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
         return NextResponse.json(
-          { 
-            error: "BLOB_READ_WRITE_TOKEN is required for file uploads in production. Please configure it in Vercel environment variables." 
+          {
+            error: hasToken
+              ? "File upload to storage failed. Verify BLOB_READ_WRITE_TOKEN is valid in Vercel and redeploy."
+              : "BLOB_READ_WRITE_TOKEN is required for file uploads in production (vendor and staff product forms). Add it in Vercel → Storage → Blob → token.",
           },
-          { status: 500 }
+          { status: 500 },
         );
       }
-      
+
       // Local development fallback
       media = await payload.create({
         collection: "media",
@@ -246,6 +228,7 @@ export async function POST(req: NextRequest) {
           name: file.name,
           size: file.size,
         },
+        req: payloadReqFromUser(session.user),
       });
       console.log(`✅ Saved locally (development only): ${media.filename || file.name}`);
     }
