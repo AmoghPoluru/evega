@@ -1,6 +1,5 @@
 import type { BasePayload } from "payload";
 import type { Media, User } from "@/payload-types";
-import { payloadReqFromUser } from "@/lib/payload-req";
 
 export type CreateMediaFromBlobInput = {
   url: string;
@@ -12,11 +11,11 @@ export type CreateMediaFromBlobInput = {
 
 /**
  * Create a `media` document from an existing Blob URL (server-side upload path).
- * Uses overrideAccess so staff and vendors can upload in production.
+ * Uses the DB adapter directly so Payload does not mkdir/write local files (required on Vercel).
  */
 export async function createMediaFromBlobUrl(
   payload: BasePayload,
-  user: User,
+  _user: User,
   input: CreateMediaFromBlobInput,
 ) {
   const alt =
@@ -34,10 +33,20 @@ export async function createMediaFromBlobUrl(
   } satisfies Pick<Media, "alt" | "filename" | "url"> &
     Partial<Pick<Media, "mimeType" | "filesize">>;
 
-  return payload.create({
+  const result = await payload.db.create({
     collection: "media",
     data,
-    overrideAccess: true,
-    req: payloadReqFromUser(user),
   });
+
+  if (!result?.id) {
+    throw new Error("Failed to create media document: No ID returned from database");
+  }
+
+  const media = await payload.findByID({
+    collection: "media",
+    id: result.id,
+    overrideAccess: true,
+  });
+
+  return media;
 }
