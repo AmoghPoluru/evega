@@ -1,0 +1,668 @@
+"use client";
+
+import { useEffect } from "react";
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { format } from "date-fns";
+import { Loader2, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { trpc } from "@/trpc/client";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  datetimeLocalToIso,
+  isoToDatetimeLocalValue,
+} from "@/lib/vendor-marketing-profile";
+import type { Control } from "react-hook-form";
+
+const marketingChannelSchema = z.object({
+  platform: z.enum([
+    "facebook-group",
+    "instagram-page",
+    "whatsapp-group",
+    "other",
+  ]),
+  name: z.string().min(1, "Name is required"),
+  url: z.string().min(1, "URL is required"),
+  region: z.string().optional(),
+  audienceNotes: z.string().optional(),
+  isActive: z.boolean().optional(),
+  lastPostedAt: z.string().nullable().optional(),
+});
+
+const marketingProfileSchema = z.object({
+  socialChannels: z.object({
+    socialInstagram: z.string().optional(),
+    socialFacebook: z.string().optional(),
+    socialWhatsAppGroup: z.string().optional(),
+    socialNotes: z.string().optional(),
+    socialInstagramLastPostedAt: z.string().nullable().optional(),
+    socialFacebookLastPostedAt: z.string().nullable().optional(),
+    socialWhatsAppGroupLastPostedAt: z.string().nullable().optional(),
+  }),
+  marketingChannels: z.array(marketingChannelSchema),
+});
+
+type MarketingProfileFormValues = z.infer<typeof marketingProfileSchema>;
+
+type MarketingChannelFromApi = {
+  platform: MarketingProfileFormValues["marketingChannels"][number]["platform"];
+  name: string;
+  url: string;
+  region?: string | null;
+  audienceNotes?: string | null;
+  isActive?: boolean | null;
+  lastPostedAt?: string | null;
+};
+
+const PLATFORM_LABELS: Record<
+  MarketingProfileFormValues["marketingChannels"][number]["platform"],
+  string
+> = {
+  "facebook-group": "Facebook group",
+  "instagram-page": "Instagram page",
+  "whatsapp-group": "WhatsApp group",
+  other: "Other",
+};
+
+function formatTimestamp(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  try {
+    return format(new Date(iso), "MMM d, yyyy 'at' h:mm a");
+  } catch {
+    return null;
+  }
+}
+
+function SocialLastPostedField({
+  control,
+  name,
+  label,
+}: {
+  control: Control<MarketingProfileFormValues>;
+  name:
+    | "socialChannels.socialInstagramLastPostedAt"
+    | "socialChannels.socialFacebookLastPostedAt"
+    | "socialChannels.socialWhatsAppGroupLastPostedAt";
+  label: string;
+}) {
+  return (
+    <FormField
+      control={control}
+      name={name}
+      render={({ field }) => {
+        const display = formatTimestamp(
+          typeof field.value === "string" ? field.value : null
+        );
+        return (
+          <FormItem>
+            <FormLabel className="text-xs text-gray-600">{label}</FormLabel>
+            <div className="flex flex-wrap items-center gap-2">
+              <FormControl>
+                <Input
+                  type="datetime-local"
+                  className="max-w-[220px]"
+                  value={isoToDatetimeLocalValue(
+                    typeof field.value === "string" ? field.value : null
+                  )}
+                  onChange={(e) => field.onChange(datetimeLocalToIso(e.target.value))}
+                />
+              </FormControl>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => field.onChange(new Date().toISOString())}
+              >
+                Posted today
+              </Button>
+            </div>
+            <FormDescription>
+              {display ? (
+                <>Last posted: {display}</>
+              ) : (
+                <>No post logged yet — set when you last promoted on this channel</>
+              )}
+            </FormDescription>
+          </FormItem>
+        );
+      }}
+    />
+  );
+}
+
+const emptyChannel = (): MarketingProfileFormValues["marketingChannels"][number] => ({
+  platform: "facebook-group",
+  name: "",
+  url: "",
+  region: "",
+  audienceNotes: "",
+  isActive: true,
+  lastPostedAt: null,
+});
+
+type DigitalMarketingFormProps = {
+  mode?: "vendor" | "staff";
+  vendorId?: string;
+  vendorName?: string;
+};
+
+export function DigitalMarketingForm({
+  mode = "vendor",
+  vendorId,
+  vendorName,
+}: DigitalMarketingFormProps) {
+  const isStaff = mode === "staff";
+  const utils = trpc.useUtils();
+
+  const vendorProfileQuery = trpc.vendor.dashboard.getMarketingProfile.useQuery(undefined, {
+    enabled: !isStaff,
+  });
+
+  const staffProfileQuery = trpc.admin.marketing.getProfile.useQuery(
+    { vendorId: vendorId! },
+    { enabled: isStaff && Boolean(vendorId) }
+  );
+
+  const data = isStaff ? staffProfileQuery.data : vendorProfileQuery.data;
+  const isLoading = isStaff ? staffProfileQuery.isLoading : vendorProfileQuery.isLoading;
+  const queryError = isStaff ? staffProfileQuery.error : vendorProfileQuery.error;
+
+  const vendorUpdateMutation = trpc.vendor.dashboard.updateMarketingProfile.useMutation({
+    onSuccess: () => {
+      toast.success("Marketing channels saved");
+      void utils.vendor.dashboard.getMarketingProfile.invalidate();
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to save marketing channels");
+    },
+  });
+
+  const staffUpdateMutation = trpc.admin.marketing.updateProfile.useMutation({
+    onSuccess: () => {
+      toast.success("Marketing channels saved");
+      if (vendorId) {
+        void utils.admin.marketing.getProfile.invalidate({ vendorId });
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to save marketing channels");
+    },
+  });
+
+  const form = useForm<MarketingProfileFormValues>({
+    resolver: zodResolver(marketingProfileSchema),
+    defaultValues: {
+      socialChannels: {
+        socialInstagram: "",
+        socialFacebook: "",
+        socialWhatsAppGroup: "",
+        socialNotes: "",
+        socialInstagramLastPostedAt: null,
+        socialFacebookLastPostedAt: null,
+        socialWhatsAppGroupLastPostedAt: null,
+      },
+      marketingChannels: [],
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "marketingChannels",
+  });
+
+  useEffect(() => {
+    if (!data || isStaff) return;
+    form.reset({
+      socialChannels: {
+        socialInstagram: data.socialChannels.socialInstagram ?? "",
+        socialFacebook: data.socialChannels.socialFacebook ?? "",
+        socialWhatsAppGroup: data.socialChannels.socialWhatsAppGroup ?? "",
+        socialNotes: data.socialChannels.socialNotes ?? "",
+        socialInstagramLastPostedAt:
+          data.socialChannels.socialInstagramLastPostedAt ?? null,
+        socialFacebookLastPostedAt: data.socialChannels.socialFacebookLastPostedAt ?? null,
+        socialWhatsAppGroupLastPostedAt:
+          data.socialChannels.socialWhatsAppGroupLastPostedAt ?? null,
+      },
+      marketingChannels: (data.marketingChannels ?? []).map((ch: MarketingChannelFromApi) => ({
+        platform: ch.platform,
+        name: ch.name,
+        url: ch.url,
+        region: ch.region ?? "",
+        audienceNotes: ch.audienceNotes ?? "",
+        isActive: ch.isActive ?? true,
+        lastPostedAt: ch.lastPostedAt ?? null,
+      })),
+    });
+  }, [data, form, isStaff]);
+
+  useEffect(() => {
+    if (!isStaff || !data || !vendorId) return;
+    form.reset({
+      socialChannels: {
+        socialInstagram: data.socialChannels.socialInstagram ?? "",
+        socialFacebook: data.socialChannels.socialFacebook ?? "",
+        socialWhatsAppGroup: data.socialChannels.socialWhatsAppGroup ?? "",
+        socialNotes: data.socialChannels.socialNotes ?? "",
+        socialInstagramLastPostedAt:
+          data.socialChannels.socialInstagramLastPostedAt ?? null,
+        socialFacebookLastPostedAt: data.socialChannels.socialFacebookLastPostedAt ?? null,
+        socialWhatsAppGroupLastPostedAt:
+          data.socialChannels.socialWhatsAppGroupLastPostedAt ?? null,
+      },
+      marketingChannels: (data.marketingChannels ?? []).map((ch: MarketingChannelFromApi) => ({
+        platform: ch.platform,
+        name: ch.name,
+        url: ch.url,
+        region: ch.region ?? "",
+        audienceNotes: ch.audienceNotes ?? "",
+        isActive: ch.isActive ?? true,
+        lastPostedAt: ch.lastPostedAt ?? null,
+      })),
+    });
+  }, [data, form, isStaff, vendorId]);
+
+  const onSubmit = (values: MarketingProfileFormValues) => {
+    if (isStaff) {
+      if (!vendorId) return;
+      staffUpdateMutation.mutate({ vendorId, ...values });
+      return;
+    }
+    vendorUpdateMutation.mutate(values);
+  };
+
+  if (isStaff && !vendorId) {
+    return null;
+  }
+
+  if (queryError) {
+    return (
+      <Card>
+        <CardContent className="py-6 text-sm text-red-600">
+          Failed to load marketing profile: {queryError.message}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-full max-w-md" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Digital marketing</CardTitle>
+        <CardDescription>
+          {isStaff && vendorName ? (
+            <>
+              Social accounts and community channels for{" "}
+              <span className="font-medium text-gray-800">{vendorName}</span>.
+            </>
+          ) : (
+            <>
+              Your store&apos;s social accounts and community groups or pages where you promote
+              products.
+            </>
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900">
+                Your accounts (Instagram, Facebook, WhatsApp)
+              </h3>
+              <p className="text-xs text-gray-500">
+                Account links are your profiles; use &quot;Last posted&quot; to log when you
+                last promoted products on each channel.
+              </p>
+              <FormField
+                control={form.control}
+                name="socialChannels.socialInstagram"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Instagram</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="https://instagram.com/yourstore"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <SocialLastPostedField
+                control={form.control}
+                name="socialChannels.socialInstagramLastPostedAt"
+                label="Instagram — last posted"
+              />
+              <FormField
+                control={form.control}
+                name="socialChannels.socialFacebook"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Facebook page</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="https://facebook.com/yourpage"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <SocialLastPostedField
+                control={form.control}
+                name="socialChannels.socialFacebookLastPostedAt"
+                label="Facebook — last posted"
+              />
+              <FormField
+                control={form.control}
+                name="socialChannels.socialWhatsAppGroup"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>WhatsApp group</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="https://chat.whatsapp.com/…"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Invite link for your customer WhatsApp group.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <SocialLastPostedField
+                control={form.control}
+                name="socialChannels.socialWhatsAppGroupLastPostedAt"
+                label="WhatsApp — last posted"
+              />
+              <FormField
+                control={form.control}
+                name="socialChannels.socialNotes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes (optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Posting preferences, handles, best times…"
+                        rows={2}
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="space-y-4 border-t border-gray-200 pt-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Community channels
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Facebook groups, Instagram pages, or other places you promote your store.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => append(emptyChannel())}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add channel
+                </Button>
+              </div>
+
+              {fields.length === 0 ? (
+                <p className="text-sm text-gray-500 rounded-md border border-dashed border-gray-300 p-4 text-center">
+                  No community channels yet. Add a Facebook group or Instagram page you post in.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {fields.map((field, index) => (
+                    <div
+                      key={field.id}
+                      className="rounded-lg border border-gray-200 p-4 space-y-3 bg-gray-50/50"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-gray-500">
+                          Channel {index + 1}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 h-8"
+                          onClick={() => remove(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name={`marketingChannels.${index}.platform`}
+                        render={({ field: platformField }) => (
+                          <FormItem>
+                            <FormLabel>Platform</FormLabel>
+                            <Select
+                              value={platformField.value}
+                              onValueChange={platformField.onChange}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {Object.entries(PLATFORM_LABELS).map(([value, label]) => (
+                                  <SelectItem key={value} value={value}>
+                                    {label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`marketingChannels.${index}.name`}
+                        render={({ field: nameField }) => (
+                          <FormItem>
+                            <FormLabel>Name</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="e.g. Desi Fashion Deals"
+                                {...nameField}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`marketingChannels.${index}.url`}
+                        render={({ field: urlField }) => (
+                          <FormItem>
+                            <FormLabel>URL</FormLabel>
+                            <FormControl>
+                              <Input placeholder="https://…" {...urlField} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <FormField
+                          control={form.control}
+                          name={`marketingChannels.${index}.region`}
+                          render={({ field: regionField }) => (
+                            <FormItem>
+                              <FormLabel>Region</FormLabel>
+                              <FormControl>
+                                <Input placeholder="State or metro" {...regionField} value={regionField.value ?? ""} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`marketingChannels.${index}.isActive`}
+                          render={({ field: activeField }) => (
+                            <FormItem className="flex flex-row items-end gap-2 pb-2">
+                              <FormControl>
+                                <Checkbox
+                                  checked={activeField.value ?? true}
+                                  onCheckedChange={activeField.onChange}
+                                />
+                              </FormControl>
+                              <FormLabel className="mt-0 font-normal">Active</FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name={`marketingChannels.${index}.audienceNotes`}
+                        render={({ field: notesField }) => (
+                          <FormItem>
+                            <FormLabel>Audience & posting rules (optional)</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                rows={2}
+                                placeholder="Who is in this group and any posting rules"
+                                {...notesField}
+                                value={notesField.value ?? ""}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`marketingChannels.${index}.lastPostedAt`}
+                        render={({ field: postedField }) => {
+                          const display = formatTimestamp(
+                            typeof postedField.value === "string" ? postedField.value : null
+                          );
+                          return (
+                            <FormItem>
+                              <FormLabel>Last posted</FormLabel>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <FormControl>
+                                  <Input
+                                    type="datetime-local"
+                                    className="max-w-[220px]"
+                                    value={isoToDatetimeLocalValue(
+                                      typeof postedField.value === "string"
+                                        ? postedField.value
+                                        : null
+                                    )}
+                                    onChange={(e) =>
+                                      postedField.onChange(datetimeLocalToIso(e.target.value))
+                                    }
+                                  />
+                                </FormControl>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    postedField.onChange(new Date().toISOString())
+                                  }
+                                >
+                                  Posted today
+                                </Button>
+                              </div>
+                              <FormDescription>
+                                {display ? (
+                                  <>Last posted: {display}</>
+                                ) : (
+                                  <>Log when you last promoted in this group or page</>
+                                )}
+                              </FormDescription>
+                            </FormItem>
+                          );
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <Button
+              type="submit"
+              disabled={vendorUpdateMutation.isPending || staffUpdateMutation.isPending}
+            >
+              {(vendorUpdateMutation.isPending || staffUpdateMutation.isPending) && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Save marketing channels
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+}

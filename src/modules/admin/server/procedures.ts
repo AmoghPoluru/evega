@@ -9,6 +9,18 @@ import {
 } from '@/modules/products/product-create-input';
 import { createManualOrder } from '@/modules/orders/create-manual-order';
 import { manualOrderCreateInputSchema } from '@/modules/orders/manual-order-schema';
+import {
+  marketingProfileUpdateBodySchema,
+  toMarketingProfileResponse,
+  updateVendorMarketingProfile,
+} from '@/modules/marketing/marketing-profile-trpc';
+import {
+  assertRegionUnique,
+  buildPotentialVendorRegionData,
+  formatPotentialVendorRegion,
+  listPotentialVendorRegions,
+  potentialVendorRegionInputSchema,
+} from '@/modules/marketing/potential-vendors-trpc';
 
 const productStatusSchema = z.enum(['all', 'published', 'draft', 'archived']);
 
@@ -83,6 +95,91 @@ export const adminRouter = createTRPCRouter({
         status: v.status,
       }));
     }),
+  }),
+
+  potentialVendors: createTRPCRouter({
+    list: staffProcedure.query(async ({ ctx }) => {
+      return listPotentialVendorRegions(ctx.db);
+    }),
+
+    create: staffProcedure
+      .input(potentialVendorRegionInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const data = buildPotentialVendorRegionData(input);
+        await assertRegionUnique(ctx.db, data.region);
+
+        const doc = await ctx.db.create({
+          collection: 'potential-vendor-regions',
+          data,
+          overrideAccess: true,
+        });
+
+        return formatPotentialVendorRegion(
+          doc as Parameters<typeof formatPotentialVendorRegion>[0]
+        );
+      }),
+
+    update: staffProcedure
+      .input(
+        potentialVendorRegionInputSchema.extend({
+          id: z.string().min(1),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { id, ...body } = input;
+        const data = buildPotentialVendorRegionData(body);
+        await assertRegionUnique(ctx.db, data.region, id);
+
+        const doc = await ctx.db.update({
+          collection: 'potential-vendor-regions',
+          id,
+          data,
+          overrideAccess: true,
+        });
+
+        return formatPotentialVendorRegion(
+          doc as Parameters<typeof formatPotentialVendorRegion>[0]
+        );
+      }),
+
+    delete: staffProcedure
+      .input(z.object({ id: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        await ctx.db.delete({
+          collection: 'potential-vendor-regions',
+          id: input.id,
+          overrideAccess: true,
+        });
+        return { success: true };
+      }),
+  }),
+
+  marketing: createTRPCRouter({
+    getProfile: staffProcedure
+      .input(z.object({ vendorId: z.string().min(1) }))
+      .query(async ({ ctx, input }) => {
+        const vendor = await ctx.db.findByID({
+          collection: 'vendors',
+          id: input.vendorId,
+          depth: 1,
+          overrideAccess: true,
+        });
+
+        return toMarketingProfileResponse(vendor);
+      }),
+
+    updateProfile: staffProcedure
+      .input(
+        marketingProfileUpdateBodySchema.extend({
+          vendorId: z.string().min(1),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { vendorId, ...body } = input;
+        return updateVendorMarketingProfile(ctx.db, vendorId, body, {
+          overrideAccess: true,
+        });
+      }),
   }),
 
   products: createTRPCRouter({

@@ -83,6 +83,7 @@ export interface Config {
     'vendor-task-messages': VendorTaskMessage;
     'vendor-hero-banners': VendorHeroBanner;
     'vendor-templates': VendorTemplate;
+    'potential-vendor-regions': PotentialVendorRegion;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -110,6 +111,7 @@ export interface Config {
     'vendor-task-messages': VendorTaskMessagesSelect<false> | VendorTaskMessagesSelect<true>;
     'vendor-hero-banners': VendorHeroBannersSelect<false> | VendorHeroBannersSelect<true>;
     'vendor-templates': VendorTemplatesSelect<false> | VendorTemplatesSelect<true>;
+    'potential-vendor-regions': PotentialVendorRegionsSelect<false> | PotentialVendorRegionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -359,6 +361,69 @@ export interface Vendor {
    * Business website URL
    */
   website?: string | null;
+  /**
+   * Your Instagram, Facebook page, and WhatsApp group. Vendors and Evega staff can update these for digital marketing.
+   */
+  socialChannels?: {
+    /**
+     * Instagram profile or page URL (e.g. https://instagram.com/yourstore)
+     */
+    socialInstagram?: string | null;
+    /**
+     * Last promotional post on this Instagram account (not profile URL edits)
+     */
+    socialInstagramLastPostedAt?: string | null;
+    /**
+     * Facebook page URL
+     */
+    socialFacebook?: string | null;
+    /**
+     * Last promotional post on this Facebook page
+     */
+    socialFacebookLastPostedAt?: string | null;
+    /**
+     * WhatsApp group invite link (https://chat.whatsapp.com/…)
+     */
+    socialWhatsAppGroup?: string | null;
+    /**
+     * Last promotional post in this WhatsApp group
+     */
+    socialWhatsAppGroupLastPostedAt?: string | null;
+    /**
+     * Posting preferences, handles, or other notes for marketing
+     */
+    socialNotes?: string | null;
+  };
+  /**
+   * Facebook groups, Instagram pages, and other channels where you or Evega promote this store. Vendors and staff can add or update entries.
+   */
+  marketingChannels?:
+    | {
+        platform: 'facebook-group' | 'instagram-page' | 'whatsapp-group' | 'other';
+        /**
+         * e.g. "Desi Fashion Deals", "Charlotte Saree Lovers"
+         */
+        name: string;
+        /**
+         * Link to the group or page
+         */
+        url: string;
+        /**
+         * State or metro area (optional)
+         */
+        region?: string | null;
+        /**
+         * Who is in this channel and any rules for posting
+         */
+        audienceNotes?: string | null;
+        isActive?: boolean | null;
+        /**
+         * Last promotional post to this group or page
+         */
+        lastPostedAt?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   address?: {
     street?: string | null;
     city?: string | null;
@@ -1432,6 +1497,35 @@ export interface VendorHeroBanner {
   createdAt: string;
 }
 /**
+ * Regions and prospect vendor names for outreach (staff only).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "potential-vendor-regions".
+ */
+export interface PotentialVendorRegion {
+  id: string;
+  /**
+   * e.g. "Charlotte", "Raleigh", "Triad"
+   */
+  region: string;
+  /**
+   * Prospect business or vendor names in this region
+   */
+  potentialVendors?:
+    | {
+        name: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Lower numbers appear first in the staff list
+   */
+  order?: number | null;
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -1518,6 +1612,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'vendor-templates';
         value: string | VendorTemplate;
+      } | null)
+    | ({
+        relationTo: 'potential-vendor-regions';
+        value: string | PotentialVendorRegion;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1813,6 +1911,29 @@ export interface VendorsSelect<T extends boolean = true> {
   email?: T;
   phone?: T;
   website?: T;
+  socialChannels?:
+    | T
+    | {
+        socialInstagram?: T;
+        socialInstagramLastPostedAt?: T;
+        socialFacebook?: T;
+        socialFacebookLastPostedAt?: T;
+        socialWhatsAppGroup?: T;
+        socialWhatsAppGroupLastPostedAt?: T;
+        socialNotes?: T;
+      };
+  marketingChannels?:
+    | T
+    | {
+        platform?: T;
+        name?: T;
+        url?: T;
+        region?: T;
+        audienceNotes?: T;
+        isActive?: T;
+        lastPostedAt?: T;
+        id?: T;
+      };
   address?:
     | T
     | {
@@ -2007,6 +2128,23 @@ export interface VendorTemplatesSelect<T extends boolean = true> {
   templateConfig?: T;
   cssVariables?: T;
   componentMapping?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "potential-vendor-regions_select".
+ */
+export interface PotentialVendorRegionsSelect<T extends boolean = true> {
+  region?: T;
+  potentialVendors?:
+    | T
+    | {
+        name?: T;
+        id?: T;
+      };
+  order?: T;
+  isActive?: T;
   updatedAt?: T;
   createdAt?: T;
 }

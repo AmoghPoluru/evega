@@ -4,16 +4,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
-  MessageCircle,
   Package,
   ShoppingCart,
   Users,
   Shield,
   ExternalLink,
+  Megaphone,
+  UserPlus,
 } from "lucide-react";
 
+function isNavItemActive(href: string, pathname: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 const navItems = [
-  { href: "/staff/tasks", label: "Vendor Tasks", icon: MessageCircle },
+  { href: "/staff/digital-marketing", label: "Digital Marketing", icon: Megaphone },
+  { href: "/staff/potential-vendors", label: "Potential Vendors", icon: UserPlus },
   { href: "/staff/products", label: "Products", icon: Package },
   { href: "/staff/orders", label: "Orders", icon: ShoppingCart },
   { href: "/staff/customers", label: "Customers", icon: Users },
@@ -25,7 +31,7 @@ export function AdminSidebar() {
   return (
     <aside className="flex h-screen w-64 flex-col border-r border-gray-700 bg-gray-900 text-gray-100">
       <div className="border-b border-gray-700 p-4">
-        <Link href="/staff/tasks" className="flex items-center gap-2">
+        <Link href="/staff/digital-marketing" className="flex items-center gap-2">
           <Shield className="h-6 w-6 text-emerald-400" />
           <span className="font-semibold text-white">Admin Console</span>
         </Link>
@@ -34,8 +40,7 @@ export function AdminSidebar() {
       <nav className="flex-1 space-y-1 overflow-y-auto p-2">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive =
-            pathname === item.href || pathname?.startsWith(`${item.href}/`);
+          const isActive = pathname ? isNavItemActive(item.href, pathname) : false;
 
           return (
             <Link

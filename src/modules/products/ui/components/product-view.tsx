@@ -809,39 +809,6 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                     </>
                   )}
                 </Button>
-
-                <hr className="border-gray-200" />
-
-                {/* Additional Info */}
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Shipper / Seller</span>
-                    <Link href="#" className="text-blue-600 hover:text-orange-600 hover:underline">
-                      Evega Store
-                    </Link>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Returns</span>
-                    <Link href="#" className="text-blue-600 hover:text-orange-600 hover:underline">
-                      {data.refundPolicy === "no-refunds"
-                        ? "No refunds"
-                        : `FREE 15-day refund/replacement`
-                      }
-                    </Link>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Support</span>
-                    <Link href="#" className="text-blue-600 hover:text-orange-600 hover:underline">
-                      Product support included
-                    </Link>
-                  </div>
-                </div>
-
-                {/* See More */}
-                <button className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
-                  <ChevronDown className="w-4 h-4" />
-                  <span>See more</span>
-                </button>
               </div>
             </div>
           </div>

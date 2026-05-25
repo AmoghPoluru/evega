@@ -261,6 +261,146 @@ export const Vendors: CollectionConfig = {
       },
     },
     {
+      name: "socialChannels",
+      type: "group",
+      label: "Social & WhatsApp (vendor-owned)",
+      admin: {
+        description:
+          "Your Instagram, Facebook page, and WhatsApp group. Vendors and Evega staff can update these for digital marketing.",
+      },
+      fields: [
+        {
+          name: "socialInstagram",
+          type: "text",
+          label: "Instagram",
+          admin: {
+            description: "Instagram profile or page URL (e.g. https://instagram.com/yourstore)",
+          },
+        },
+        {
+          name: "socialInstagramLastPostedAt",
+          type: "date",
+          label: "Instagram last posted",
+          admin: {
+            description: "Last promotional post on this Instagram account (not profile URL edits)",
+            date: { pickerAppearance: "dayAndTime" },
+          },
+        },
+        {
+          name: "socialFacebook",
+          type: "text",
+          label: "Facebook",
+          admin: {
+            description: "Facebook page URL",
+          },
+        },
+        {
+          name: "socialFacebookLastPostedAt",
+          type: "date",
+          label: "Facebook last posted",
+          admin: {
+            description: "Last promotional post on this Facebook page",
+            date: { pickerAppearance: "dayAndTime" },
+          },
+        },
+        {
+          name: "socialWhatsAppGroup",
+          type: "text",
+          label: "WhatsApp group",
+          admin: {
+            description: "WhatsApp group invite link (https://chat.whatsapp.com/…)",
+          },
+        },
+        {
+          name: "socialWhatsAppGroupLastPostedAt",
+          type: "date",
+          label: "WhatsApp last posted",
+          admin: {
+            description: "Last promotional post in this WhatsApp group",
+            date: { pickerAppearance: "dayAndTime" },
+          },
+        },
+        {
+          name: "socialNotes",
+          type: "textarea",
+          label: "Notes",
+          admin: {
+            description: "Posting preferences, handles, or other notes for marketing",
+          },
+        },
+      ],
+    },
+    {
+      name: "marketingChannels",
+      type: "array",
+      label: "Community marketing channels",
+      admin: {
+        description:
+          "Facebook groups, Instagram pages, and other channels where you or Evega promote this store. Vendors and staff can add or update entries.",
+      },
+      fields: [
+        {
+          name: "platform",
+          type: "select",
+          required: true,
+          options: [
+            { label: "Facebook group", value: "facebook-group" },
+            { label: "Instagram page", value: "instagram-page" },
+            { label: "WhatsApp group", value: "whatsapp-group" },
+            { label: "Other", value: "other" },
+          ],
+        },
+        {
+          name: "name",
+          type: "text",
+          required: true,
+          admin: {
+            description: 'e.g. "Desi Fashion Deals", "Charlotte Saree Lovers"',
+          },
+        },
+        {
+          name: "url",
+          type: "text",
+          required: true,
+          admin: {
+            description: "Link to the group or page",
+          },
+        },
+        {
+          name: "region",
+          type: "text",
+          admin: {
+            description: "State or metro area (optional)",
+          },
+        },
+        {
+          name: "audienceNotes",
+          type: "textarea",
+          label: "Audience & posting rules",
+          admin: {
+            description: "Who is in this channel and any rules for posting",
+          },
+        },
+        {
+          name: "isActive",
+          type: "checkbox",
+          label: "Active",
+          defaultValue: true,
+        },
+        {
+          name: "lastPostedAt",
+          type: "date",
+          label: "Last posted",
+          admin: {
+            description: "Last promotional post to this group or page",
+            date: {
+              pickerAppearance: "dayAndTime",
+            },
+          },
+        },
+      ],
+    },
+    {
       name: "address",
       type: "group",
       fields: [

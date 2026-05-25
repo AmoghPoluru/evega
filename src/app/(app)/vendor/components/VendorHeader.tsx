@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Search, Bell, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,11 +20,17 @@ import Link from "next/link";
 
 interface VendorHeaderProps {
   vendorName?: string;
+  vendorLogoUrl?: string;
   userName?: string;
   userEmail?: string;
 }
 
-export function VendorHeader({ vendorName, userName, userEmail }: VendorHeaderProps) {
+export function VendorHeader({
+  vendorName,
+  vendorLogoUrl,
+  userName,
+  userEmail,
+}: VendorHeaderProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: session } = trpc.auth.session.useQuery();
@@ -53,8 +60,21 @@ export function VendorHeader({ vendorName, userName, userEmail }: VendorHeaderPr
     <header className="h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-6">
       {/* Left side - Logo and Search */}
       <div className="flex items-center gap-6 flex-1">
-        <div className="text-white font-semibold text-lg">
-          {vendorName || "My Store"}
+        <div className="flex items-center gap-3 min-w-0">
+          {vendorLogoUrl ? (
+            <div className="relative h-9 w-9 shrink-0 rounded-md overflow-hidden bg-white">
+              <Image
+                src={vendorLogoUrl}
+                alt={vendorName ? `${vendorName} logo` : "Store logo"}
+                fill
+                className="object-contain p-0.5"
+                sizes="36px"
+              />
+            </div>
+          ) : null}
+          <span className="text-white font-semibold text-lg truncate">
+            {vendorName || "My Store"}
+          </span>
         </div>
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />

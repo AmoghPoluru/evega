@@ -32,7 +32,7 @@ export async function requireVendor() {
   const vendor = await payload.findByID({
     collection: "vendors",
     id: vendorId,
-    depth: 0,
+    depth: 1,
   });
 
   // Redirect based on vendor status
