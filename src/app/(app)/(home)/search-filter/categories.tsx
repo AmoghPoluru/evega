@@ -1,8 +1,7 @@
 "use client";
 
 /// <reference types="next" />
-import { usePathname, useParams } from "next/navigation";
-import { useState } from "react";
+import { useParams } from "next/navigation";
 import type { Category } from "@/payload-types";
 import { CategoryDropdown } from "./category-dropdown";
 
@@ -11,16 +10,17 @@ interface Props {
 }
 
 export const Categories = ({ data }: Props) => {
-  console.log("Categories data:", data);
   const params = useParams();
-  const pathname = usePathname();
-  // Extract category slug from pathname (e.g., "/electronics" -> "electronics", "/" -> "all")
+  // Extract category slug from route params (e.g., "/electronics" -> "electronics", "/" -> "all")
   const categoryParam = params.category as string | undefined;
   const activeCategory = categoryParam || "all";
- 
-  
+
   if (!data || data.length === 0) {
-    return <div>No categories found</div>;
+    return (
+      <div className="flex items-center justify-center rounded-md border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+        No categories found
+      </div>
+    );
   }
 
   return (
