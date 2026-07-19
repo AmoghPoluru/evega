@@ -138,9 +138,9 @@ export function Navbar() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="text-white hover:bg-gray-800 hover:text-white border-0"
+                  className="text-white hover:bg-gray-800 hover:text-white border-0 rounded-md animate-vendor-attention"
                 >
-                  <Store className="h-4 w-4 mr-2" />
+                  <Store className="h-4 w-4 mr-2 animate-vendor-attention-icon" />
                   Vendors
                   <ChevronDown className="h-4 w-4 ml-2" />
                 </Button>
@@ -199,7 +199,7 @@ export function Navbar() {
         <div className="flex-1 flex justify-center items-center px-4 max-w-2xl">
           {categoriesData && (
             <div className="w-full bg-white rounded-xl shadow-xl p-1">
-              <SearchInput categories={categoriesData as any} />
+              <SearchInput />
             </div>
           )}
         </div>
