@@ -213,7 +213,10 @@ export interface ResolvedTemplate {
   templateConfig: TemplateConfig;
   customization: TemplateCustomization;
   cssVariables: Record<string, string>;
+  /** Structural layout identifier used to pick a storefront layout component. */
+  layout: string;
   componentMapping: {
+    layout?: string;
     heroBanner: string;
     productCard: string;
     navigation: string;

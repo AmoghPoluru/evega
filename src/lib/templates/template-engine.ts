@@ -124,12 +124,19 @@ export async function resolveVendorTemplate(
   // Generate CSS variables from merged config (mergedConfig already includes customizations)
   const cssVariables = generateCSSVariables(mergedConfig);
 
+  const componentMapping = (template.componentMapping as any) || {};
+  const layout: string =
+    typeof componentMapping.layout === "string" && componentMapping.layout
+      ? componentMapping.layout
+      : "default";
+
   return {
     templateId: template.id,
     templateSlug: template.slug,
     templateConfig: mergedConfig,
     customization,
     cssVariables,
-    componentMapping: template.componentMapping as any,
+    layout,
+    componentMapping,
   };
 }
