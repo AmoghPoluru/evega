@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Search, Bell, User, LogOut } from "lucide-react";
+import { Bell, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -23,6 +23,7 @@ interface VendorHeaderProps {
   vendorLogoUrl?: string;
   userName?: string;
   userEmail?: string;
+  hasUnreadNotifications?: boolean;
 }
 
 export function VendorHeader({
@@ -30,10 +31,10 @@ export function VendorHeader({
   vendorLogoUrl,
   userName,
   userEmail,
+  hasUnreadNotifications = false,
 }: VendorHeaderProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { data: session } = trpc.auth.session.useQuery();
 
   const logout = trpc.auth.logout.useMutation({
     onError: (error) => {
@@ -46,7 +47,6 @@ export function VendorHeader({
     },
   });
 
-  const user = session?.user;
   const initials = userName
     ? userName
         .split(" ")
@@ -57,12 +57,12 @@ export function VendorHeader({
     : userEmail?.[0]?.toUpperCase() || "U";
 
   return (
-    <header className="h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-6">
-      {/* Left side - Logo and Search */}
+    <header className="h-16 bg-sidebar border-b border-sidebar-border flex items-center justify-between px-6">
+      {/* Left side - Logo */}
       <div className="flex items-center gap-6 flex-1">
         <div className="flex items-center gap-3 min-w-0">
           {vendorLogoUrl ? (
-            <div className="relative h-9 w-9 shrink-0 rounded-md overflow-hidden bg-white">
+            <div className="relative h-9 w-9 shrink-0 rounded-md overflow-hidden bg-card">
               <Image
                 src={vendorLogoUrl}
                 alt={vendorName ? `${vendorName} logo` : "Store logo"}
@@ -72,17 +72,9 @@ export function VendorHeader({
               />
             </div>
           ) : null}
-          <span className="text-white font-semibold text-lg truncate">
+          <span className="text-sidebar-foreground font-semibold text-lg truncate">
             {vendorName || "My Store"}
           </span>
-        </div>
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Q Search"
-            className="w-full pl-10 pr-4 py-2 bg-gray-700 text-white placeholder-gray-400 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-          />
         </div>
       </div>
 
@@ -92,22 +84,22 @@ export function VendorHeader({
         <Button
           variant="ghost"
           size="icon"
-          className="text-gray-300 hover:text-white hover:bg-gray-700 relative"
+          className="relative text-muted-foreground"
+          aria-label="Notifications"
+          onClick={() => router.push("/vendor/notifications")}
         >
           <Bell className="h-5 w-5" />
-          <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
+          {hasUnreadNotifications && (
+            <span className="absolute top-1 right-1 h-2 w-2 bg-destructive rounded-full" />
+          )}
         </Button>
 
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-gray-300 hover:text-white hover:bg-gray-700"
-            >
+            <Button variant="ghost" size="icon">
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-gray-600 text-white text-xs font-medium">
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
                   {initials}
                 </AvatarFallback>
               </Avatar>
@@ -119,7 +111,7 @@ export function VendorHeader({
                 <p className="text-sm font-medium leading-none">
                   {userName || "User"}
                 </p>
-                <p className="text-xs leading-none text-gray-500">{userEmail}</p>
+                <p className="text-xs leading-none text-muted-foreground">{userEmail}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -133,7 +125,7 @@ export function VendorHeader({
             <DropdownMenuItem
               onClick={() => logout.mutate()}
               disabled={logout.isPending}
-              className="text-red-600 focus:text-red-600 cursor-pointer"
+              className="text-destructive focus:text-destructive cursor-pointer"
             >
               <LogOut className="mr-2 h-4 w-4" />
               {logout.isPending ? "Logging out..." : "Log out"}

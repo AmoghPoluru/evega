@@ -15,9 +15,9 @@ import {
   Bell,
   MessageCircle,
   Image,
-  ShoppingBag,
   Palette,
 } from "lucide-react";
+import { GoShoppingButton } from "@/components/go-shopping-button";
 
 const navItems = [
   { href: "/vendor/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -42,26 +42,18 @@ export function VendorSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 bg-gray-100 border-r border-gray-200 flex flex-col h-screen">
+    <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col h-screen">
       {/* Logo/Brand Section */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-sidebar-border">
         <Link href="/vendor/dashboard" className="flex items-center gap-2">
-          <Store className="h-6 w-6 text-gray-700" />
-          <span className="font-semibold text-gray-900">Vendor Portal</span>
+          <Store className="h-6 w-6 text-sidebar-foreground" />
+          <span className="font-semibold text-sidebar-foreground">Vendor Portal</span>
         </Link>
       </div>
 
       {/* Prominent Go Shopping Button */}
-      <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-        <a
-          href="https://evegasupplier-ind.vercel.app"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-        >
-          <ShoppingBag className="h-5 w-5" />
-          <span>Go Shopping</span>
-        </a>
+      <div className="p-4 border-b border-sidebar-border">
+        <GoShoppingButton className="w-full" />
       </div>
 
       {/* Navigation */}
@@ -77,15 +69,15 @@ export function VendorSidebar() {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-gray-200 text-gray-900"
-                    : "text-gray-700 hover:bg-gray-200 hover:text-gray-900"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 )}
               >
                 <Icon className="h-5 w-5" />
                 <div className="flex flex-col">
                   <span>{item.label}</span>
                   {"description" in item && item.description && (
-                    <span className="text-[11px] text-gray-500">
+                    <span className="text-[11px] text-muted-foreground">
                       {item.description}
                     </span>
                   )}

@@ -4,17 +4,17 @@ import { HeroBannersSection } from "@/components/hero-banners-section";
 
 export default function Home() {
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-r from-gray-800 to-gray-600">
+    <div className="flex flex-col min-h-screen bg-background">
       {/* Hero Banners with Products - Fetched from database */}
-      <div className="w-full bg-white">
-        <Suspense fallback={<div className="h-64 bg-gray-200 animate-pulse" />}>
+      <div className="w-full bg-card">
+        <Suspense fallback={<div className="h-64 bg-muted animate-pulse" />}>
           <HeroBannersSection />
         </Suspense>
       </div>
 
       {/* Product Sections */}
-      <div className="w-full bg-gray-50">
-        <Suspense fallback={<div className="h-64 bg-gray-200 animate-pulse" />}>
+      <div className="w-full bg-muted">
+        <Suspense fallback={<div className="h-64 bg-muted animate-pulse" />}>
           <SubcategoryProductsSection />
         </Suspense>
       </div>
