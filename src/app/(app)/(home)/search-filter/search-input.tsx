@@ -14,6 +14,20 @@ interface Props {
   categories?: Category[];
 }
 
+const SEARCH_SUGGESTIONS = [
+  "white shirt",
+  "black pant",
+  "vintage jacket",
+  "denim jeans",
+  "summer dress",
+  "sneakers",
+];
+
+const TYPING_SPEED = 90;
+const DELETING_SPEED = 45;
+const PAUSE_AFTER_TYPED = 1500;
+const PAUSE_AFTER_DELETED = 400;
+
 export const SearchInput = ({
   disabled,
   defaultValue,
@@ -25,6 +39,46 @@ export const SearchInput = ({
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [filters, setFilters] = useProductFilters();
+  const [isFocused, setIsFocused] = useState(false);
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
+  const [displayText, setDisplayText] = useState("");
+  const [charIndex, setCharIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const showAnimatedPlaceholder = searchValue === "" && !isFocused;
+
+  // Typewriter effect for the animated placeholder
+  useEffect(() => {
+    if (!showAnimatedPlaceholder) return;
+
+    const currentSuggestion = SEARCH_SUGGESTIONS[suggestionIndex];
+    let delay = isDeleting ? DELETING_SPEED : TYPING_SPEED;
+
+    if (!isDeleting && charIndex === currentSuggestion.length) {
+      delay = PAUSE_AFTER_TYPED;
+    } else if (isDeleting && charIndex === 0) {
+      delay = PAUSE_AFTER_DELETED;
+    }
+
+    const timer = setTimeout(() => {
+      if (!isDeleting && charIndex === currentSuggestion.length) {
+        setIsDeleting(true);
+        return;
+      }
+
+      if (isDeleting && charIndex === 0) {
+        setIsDeleting(false);
+        setSuggestionIndex((prev) => (prev + 1) % SEARCH_SUGGESTIONS.length);
+        return;
+      }
+
+      const nextCharIndex = isDeleting ? charIndex - 1 : charIndex + 1;
+      setCharIndex(nextCharIndex);
+      setDisplayText(currentSuggestion.slice(0, nextCharIndex));
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [showAnimatedPlaceholder, charIndex, isDeleting, suggestionIndex]);
 
   // Sync local state with URL params
   useEffect(() => {
@@ -127,15 +181,28 @@ export const SearchInput = ({
         )}
       </div>
 
-      <input
-        type="text"
-        value={searchValue}
-        onChange={(e) => setSearchValue(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Search for products, brands and more..."
-        disabled={disabled}
-        className="flex-1 h-14 px-6 bg-white focus:outline-none text-sm text-gray-700 placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
-      />
+      <div className="relative flex-1">
+        <input
+          type="text"
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          placeholder={showAnimatedPlaceholder ? "" : "Search for products, brands and more..."}
+          disabled={disabled}
+          className="w-full h-14 px-6 bg-white focus:outline-none text-sm text-gray-700 placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+        />
+        {showAnimatedPlaceholder && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 left-0 flex items-center px-6 text-sm text-gray-400"
+          >
+            Search &ldquo;{displayText}&rdquo;
+            <span className="ml-0.5 inline-block w-px animate-pulse">|</span>
+          </span>
+        )}
+      </div>
 
       <button
         type="submit"
