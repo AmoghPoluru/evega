@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -16,30 +17,106 @@ import {
   MessageCircle,
   Image,
   Palette,
+  Folder,
+  ChevronUp,
+  type LucideIcon,
 } from "lucide-react";
 import { GoShoppingButton } from "@/components/go-shopping-button";
 
-const navItems = [
-  { href: "/vendor/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/vendor/products", label: "Products", icon: Package },
-  { href: "/vendor/hero-banner", label: "Hero Banner", icon: Image },
-  { href: "/vendor/templates", label: "Templates", icon: Palette },
-  { href: "/vendor/orders", label: "Orders", icon: ShoppingCart },
-  { href: "/vendor/customers", label: "Customers", icon: Users },
-  { href: "/vendor/analytics", label: "Analytics", icon: BarChart3 },
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  description?: string;
+};
+
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const standaloneItem: NavItem = {
+  href: "/vendor/dashboard",
+  label: "Dashboard",
+  icon: LayoutDashboard,
+};
+
+const navGroups: NavGroup[] = [
   {
-    href: "/vendor/tasks",
-    label: "Contact & chat with BDO",
-    description: "Create tasks and offline messages for your Business Development Officer",
-    icon: MessageCircle,
+    label: "Sales",
+    items: [{ href: "/vendor/customers", label: "Customers", icon: Users }],
   },
-  { href: "/vendor/payouts", label: "Payouts", icon: CreditCard },
-  { href: "/vendor/notifications", label: "Notifications", icon: Bell },
-  { href: "/vendor/settings", label: "Settings", icon: Settings },
+  {
+    label: "Inventory",
+    items: [
+      { href: "/vendor/products", label: "Products", icon: Package },
+      { href: "/vendor/orders", label: "Orders", icon: ShoppingCart },
+    ],
+  },
+  {
+    label: "Support",
+    items: [
+      { href: "/vendor/templates", label: "Templates", icon: Palette },
+      { href: "/vendor/hero-banner", label: "Hero Banner", icon: Image },
+      {
+        href: "/vendor/tasks",
+        label: "Contact & chat with BDO",
+        description:
+          "Create tasks and offline messages for your Business Development Officer",
+        icon: MessageCircle,
+      },
+    ],
+  },
+  {
+    label: "AI",
+    items: [{ href: "/vendor/analytics", label: "Analytics", icon: BarChart3 }],
+  },
+  {
+    label: "Account",
+    items: [
+      { href: "/vendor/payouts", label: "Payouts", icon: CreditCard },
+      { href: "/vendor/notifications", label: "Notifications", icon: Bell },
+      { href: "/vendor/settings", label: "Settings", icon: Settings },
+    ],
+  },
 ];
 
 export function VendorSidebar() {
   const pathname = usePathname();
+
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(href + "/");
+
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const toggleGroup = (label: string) =>
+    setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
+
+  const renderItem = (item: NavItem) => {
+    const Icon = item.icon;
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={cn(
+          "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+          isActive(item.href)
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}
+      >
+        <Icon className="h-5 w-5 shrink-0" />
+        <div className="flex flex-col">
+          <span>{item.label}</span>
+          {item.description && (
+            <span className="text-[11px] text-muted-foreground">
+              {item.description}
+            </span>
+          )}
+        </div>
+      </Link>
+    );
+  };
 
   return (
     <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col h-screen">
@@ -58,34 +135,35 @@ export function VendorSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-2">
-        <div className="space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                )}
+        <div className="space-y-1">{renderItem(standaloneItem)}</div>
+
+        {navGroups.map((group) => {
+          const isCollapsed = collapsed[group.label];
+          return (
+            <div key={group.label} className="mt-4">
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.label)}
+                aria-expanded={!isCollapsed}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
               >
-                <Icon className="h-5 w-5" />
-                <div className="flex flex-col">
-                  <span>{item.label}</span>
-                  {"description" in item && item.description && (
-                    <span className="text-[11px] text-muted-foreground">
-                      {item.description}
-                    </span>
+                <Folder className="h-4 w-4 shrink-0 text-primary" />
+                <span className="flex-1 text-left">{group.label}</span>
+                <ChevronUp
+                  className={cn(
+                    "h-4 w-4 shrink-0 transition-transform",
+                    isCollapsed && "rotate-180"
                   )}
+                />
+              </button>
+              {!isCollapsed && (
+                <div className="mt-1 space-y-1 pl-3">
+                  {group.items.map(renderItem)}
                 </div>
-              </Link>
-            );
-          })}
-        </div>
+              )}
+            </div>
+          );
+        })}
       </nav>
     </aside>
   );
