@@ -1,7 +1,6 @@
-"use client";
-
+import { createElement } from "react";
 import type { ResolvedTemplate } from "@/types/template-customization";
-import { getComponent } from "@/lib/templates/component-registry";
+import { getLayout } from "@/lib/templates/component-registry";
 
 interface VendorStorefrontProps {
   vendor: any;
@@ -9,21 +8,18 @@ interface VendorStorefrontProps {
   products: any[];
 }
 
+/**
+ * VendorStorefront
+ * Reads the resolved template's structural `layout` identifier, looks up the
+ * matching layout component in the registry (falling back to DefaultLayout) and
+ * renders the chosen storefront with the vendor and product data.
+ */
 export function VendorStorefront({ vendor, template, products }: VendorStorefrontProps) {
   if (!template) {
-    // Fallback: render without template
     return null;
   }
 
-  // Get components from registry (will be implemented in Phase 5)
-  // For now, we'll use default rendering
-  // const HeroComponent = getComponent("hero-banner", template.componentMapping.heroBanner);
-  // const ProductCardComponent = getComponent("product-card", template.componentMapping.productCard);
+  const layout = getLayout(template.layout);
 
-  return (
-    <div className="vendor-storefront">
-      {/* Template-specific rendering will be implemented in Phase 5 */}
-      {/* For now, the template CSS variables are applied via the parent div */}
-    </div>
-  );
+  return createElement(layout, { vendor, template, products });
 }
