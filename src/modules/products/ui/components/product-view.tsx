@@ -615,42 +615,6 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                 <span className="text-sm text-blue-600">(18,613)</span>
               </div>
 
-              {/* Favorite & Like Actions */}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleToggleFavorite}
-                  disabled={favoriteAdd.isPending || favoriteRemove.isPending}
-                  aria-pressed={Boolean(data.isFavorited)}
-                  aria-label={data.isFavorited ? "Remove from favorites" : "Add to favorites"}
-                  className={`flex items-center gap-2 px-3 py-2 border rounded-full text-sm font-medium transition-colors disabled:opacity-50 ${
-                    data.isFavorited
-                      ? "border-pink-500 bg-pink-50 text-pink-600"
-                      : "border-gray-300 text-gray-700 hover:border-pink-400 hover:text-pink-600"
-                  }`}
-                >
-                  <Heart className={`w-4 h-4 ${data.isFavorited ? "fill-current" : ""}`} />
-                  {data.isFavorited ? "Favorited" : "Favorite"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleToggleLike}
-                  disabled={likeMutation.isPending || unlikeMutation.isPending}
-                  aria-pressed={Boolean(data.hasLiked)}
-                  aria-label={data.hasLiked ? "Unlike product" : "Like product"}
-                  className={`flex items-center gap-2 px-3 py-2 border rounded-full text-sm font-medium transition-colors disabled:opacity-50 ${
-                    data.hasLiked
-                      ? "border-blue-500 bg-blue-50 text-blue-600"
-                      : "border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-600"
-                  }`}
-                >
-                  <ThumbsUp className={`w-4 h-4 ${data.hasLiked ? "fill-current" : ""}`} />
-                  <span>{data.hasLiked ? "Liked" : "Like"}</span>
-                  <span className="text-gray-500">({data.likeCount ?? 0})</span>
-                </button>
-              </div>
-
               {/* Best Choice Badge */}
               <div className="inline-block">
                 <div className="bg-gray-800 text-white text-xs font-medium px-2 py-1 rounded">
@@ -926,6 +890,42 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                     </>
                   )}
                 </Button>
+
+                {/* Favorite & Like Actions */}
+                <div className="grid grid-cols-2 gap-3 pt-3 mt-1 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={handleToggleFavorite}
+                    disabled={favoriteAdd.isPending || favoriteRemove.isPending}
+                    aria-pressed={Boolean(data.isFavorited)}
+                    aria-label={data.isFavorited ? "Remove from favorites" : "Add to favorites"}
+                    className={`flex items-center justify-center gap-2 px-3 py-2.5 border rounded-full text-sm font-medium transition-colors disabled:opacity-50 ${
+                      data.isFavorited
+                        ? "border-pink-500 bg-pink-50 text-pink-600"
+                        : "border-gray-300 text-gray-700 hover:border-pink-400 hover:text-pink-600"
+                    }`}
+                  >
+                    <Heart className={`w-4 h-4 ${data.isFavorited ? "fill-current" : ""}`} />
+                    {data.isFavorited ? "Favorited" : "Favorite"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleLike}
+                    disabled={likeMutation.isPending || unlikeMutation.isPending}
+                    aria-pressed={Boolean(data.hasLiked)}
+                    aria-label={data.hasLiked ? "Unlike product" : "Like product"}
+                    className={`flex items-center justify-center gap-2 px-3 py-2.5 border rounded-full text-sm font-medium transition-colors disabled:opacity-50 ${
+                      data.hasLiked
+                        ? "border-blue-500 bg-blue-50 text-blue-600"
+                        : "border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-600"
+                    }`}
+                  >
+                    <ThumbsUp className={`w-4 h-4 ${data.hasLiked ? "fill-current" : ""}`} />
+                    <span>{data.hasLiked ? "Liked" : "Like"}</span>
+                    <span className="text-gray-500">({data.likeCount ?? 0})</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
