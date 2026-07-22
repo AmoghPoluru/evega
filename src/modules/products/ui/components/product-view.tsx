@@ -6,10 +6,11 @@ import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckIcon, LinkIcon, ChevronDown, ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
+import { CheckIcon, LinkIcon, ChevronDown, ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight, Maximize2, Heart, ThumbsUp, MessageCircle, Trash2 } from "lucide-react";
 import { RichText } from "@payloadcms/richtext-lexical/react";
 
 import { trpc } from "@/trpc/client";
+import type { ProductComment } from "@/payload-types";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { useCart } from "@/modules/checkout/hooks/use-cart";
@@ -36,6 +37,86 @@ export const ProductView = ({ productId }: ProductViewProps) => {
   const { removeProduct, addProduct } = useCart();
   const { data, isLoading, error } = trpc.products.getOne.useQuery({ id: productId });
   const { data: session } = trpc.auth.session.useQuery();
+  const utils = trpc.useUtils();
+
+  const currentUserId = session?.user?.id;
+
+  // Comments for this product (public read).
+  const { data: commentsData } = trpc.productInteractions.comments.list.useQuery({ productId });
+  const [commentText, setCommentText] = useState("");
+
+  const invalidateProduct = () => {
+    utils.products.getOne.invalidate({ id: productId });
+  };
+
+  const favoriteAdd = trpc.productInteractions.favorites.add.useMutation({
+    onSuccess: invalidateProduct,
+    onError: (e) => toast.error(e.message),
+  });
+  const favoriteRemove = trpc.productInteractions.favorites.remove.useMutation({
+    onSuccess: invalidateProduct,
+    onError: (e) => toast.error(e.message),
+  });
+  const likeMutation = trpc.productInteractions.likes.like.useMutation({
+    onSuccess: invalidateProduct,
+    onError: (e) => toast.error(e.message),
+  });
+  const unlikeMutation = trpc.productInteractions.likes.unlike.useMutation({
+    onSuccess: invalidateProduct,
+    onError: (e) => toast.error(e.message),
+  });
+  const addComment = trpc.productInteractions.comments.add.useMutation({
+    onSuccess: () => {
+      setCommentText("");
+      utils.productInteractions.comments.list.invalidate({ productId });
+      invalidateProduct();
+      toast.success("Comment posted");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteComment = trpc.productInteractions.comments.delete.useMutation({
+    onSuccess: () => {
+      utils.productInteractions.comments.list.invalidate({ productId });
+      invalidateProduct();
+      toast.success("Comment deleted");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const requireAuth = () => {
+    if (!session?.user) {
+      toast.error("Please sign in to continue");
+      router.push(`/sign-in?redirect=/products/${productId}`);
+      return false;
+    }
+    return true;
+  };
+
+  const handleToggleFavorite = () => {
+    if (!requireAuth()) return;
+    if (data?.isFavorited) {
+      favoriteRemove.mutate({ productId });
+    } else {
+      favoriteAdd.mutate({ productId });
+    }
+  };
+
+  const handleToggleLike = () => {
+    if (!requireAuth()) return;
+    if (data?.hasLiked) {
+      unlikeMutation.mutate({ productId });
+    } else {
+      likeMutation.mutate({ productId });
+    }
+  };
+
+  const handleSubmitComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requireAuth()) return;
+    const trimmed = commentText.trim();
+    if (!trimmed) return;
+    addComment.mutate({ productId, comment: trimmed });
+  };
 
   // Helper function to extract image URL from various formats
   // IMPORTANT: We now rely ONLY on the `url` field (Blob or Payload URL).
@@ -534,6 +615,42 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                 <span className="text-sm text-blue-600">(18,613)</span>
               </div>
 
+              {/* Favorite & Like Actions */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleToggleFavorite}
+                  disabled={favoriteAdd.isPending || favoriteRemove.isPending}
+                  aria-pressed={Boolean(data.isFavorited)}
+                  aria-label={data.isFavorited ? "Remove from favorites" : "Add to favorites"}
+                  className={`flex items-center gap-2 px-3 py-2 border rounded-full text-sm font-medium transition-colors disabled:opacity-50 ${
+                    data.isFavorited
+                      ? "border-pink-500 bg-pink-50 text-pink-600"
+                      : "border-gray-300 text-gray-700 hover:border-pink-400 hover:text-pink-600"
+                  }`}
+                >
+                  <Heart className={`w-4 h-4 ${data.isFavorited ? "fill-current" : ""}`} />
+                  {data.isFavorited ? "Favorited" : "Favorite"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleToggleLike}
+                  disabled={likeMutation.isPending || unlikeMutation.isPending}
+                  aria-pressed={Boolean(data.hasLiked)}
+                  aria-label={data.hasLiked ? "Unlike product" : "Like product"}
+                  className={`flex items-center gap-2 px-3 py-2 border rounded-full text-sm font-medium transition-colors disabled:opacity-50 ${
+                    data.hasLiked
+                      ? "border-blue-500 bg-blue-50 text-blue-600"
+                      : "border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-600"
+                  }`}
+                >
+                  <ThumbsUp className={`w-4 h-4 ${data.hasLiked ? "fill-current" : ""}`} />
+                  <span>{data.hasLiked ? "Liked" : "Like"}</span>
+                  <span className="text-gray-500">({data.likeCount ?? 0})</span>
+                </button>
+              </div>
+
               {/* Best Choice Badge */}
               <div className="inline-block">
                 <div className="bg-gray-800 text-white text-xs font-medium px-2 py-1 rounded">
@@ -811,6 +928,107 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                 </Button>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Comments Section */}
+        <div className="mt-10 border-t border-gray-200 pt-8">
+          <h2 className="text-xl font-medium text-gray-900 flex items-center gap-2 mb-4">
+            <MessageCircle className="w-5 h-5" />
+            Comments
+            <span className="text-gray-500 font-normal">
+              ({commentsData?.totalDocs ?? 0})
+            </span>
+          </h2>
+
+          {/* New Comment Form */}
+          {session?.user ? (
+            <form onSubmit={handleSubmitComment} className="mb-8">
+              <textarea
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Share your thoughts about this product..."
+                rows={3}
+                maxLength={2000}
+                className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+              />
+              <div className="flex justify-end mt-2">
+                <Button
+                  type="submit"
+                  disabled={addComment.isPending || !commentText.trim()}
+                  className="bg-orange-400 hover:bg-orange-500 text-gray-900 rounded-full disabled:opacity-50"
+                >
+                  {addComment.isPending ? "Posting..." : "Post Comment"}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <div className="mb-8 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+              <Link
+                href={`/sign-in?redirect=/products/${productId}`}
+                className="text-blue-600 hover:text-orange-600 hover:underline font-medium"
+              >
+                Sign in
+              </Link>{" "}
+              to leave a comment.
+            </div>
+          )}
+
+          {/* Comment List */}
+          <div className="space-y-4">
+            {commentsData && commentsData.docs.length > 0 ? (
+              commentsData.docs.map((comment: ProductComment) => {
+                const commentUser =
+                  typeof comment.user === "object" && comment.user !== null
+                    ? comment.user
+                    : null;
+                const commentUserId = commentUser ? commentUser.id : comment.user;
+                const displayName =
+                  commentUser?.username || commentUser?.email || "User";
+                const canDelete =
+                  currentUserId != null && String(commentUserId) === String(currentUserId);
+
+                return (
+                  <div
+                    key={comment.id}
+                    className="border border-gray-200 rounded-lg p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {displayName}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(comment.createdAt).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </p>
+                      </div>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => deleteComment.mutate({ id: comment.id })}
+                          disabled={deleteComment.isPending}
+                          className="text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                          aria-label="Delete comment"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-700 mt-2 whitespace-pre-wrap">
+                      {comment.comment}
+                    </p>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-sm text-gray-500">
+                No comments yet. Be the first to share your thoughts.
+              </p>
+            )}
           </div>
         </div>
       </div>

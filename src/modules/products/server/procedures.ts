@@ -61,6 +61,50 @@ export const productsRouter = createTRPCRouter({
       //   where: { product: { equals: input.id } },
       // });
 
+      const [likesCount, commentsCount] = await Promise.all([
+        ctx.db.count({
+          collection: "product-likes",
+          where: { product: { equals: input.id } },
+        }),
+        ctx.db.count({
+          collection: "product-comments",
+          where: { product: { equals: input.id } },
+        }),
+      ]);
+
+      let isFavorited = false;
+      let hasLiked = false;
+
+      if (session.user) {
+        const [favoriteData, likeData] = await Promise.all([
+          ctx.db.find({
+            collection: "favorites",
+            limit: 1,
+            depth: 0,
+            where: {
+              and: [
+                { user: { equals: session.user.id } },
+                { product: { equals: input.id } },
+              ],
+            },
+          }),
+          ctx.db.find({
+            collection: "product-likes",
+            limit: 1,
+            depth: 0,
+            where: {
+              and: [
+                { user: { equals: session.user.id } },
+                { product: { equals: input.id } },
+              ],
+            },
+          }),
+        ]);
+
+        isFavorited = Boolean(favoriteData.docs[0]);
+        hasLiked = Boolean(likeData.docs[0]);
+      }
+
       return {
         ...product,
         isPurchased: false, // TODO: Implement when orders collection exists
@@ -69,6 +113,10 @@ export const productsRouter = createTRPCRouter({
         reviewRating: 0, // TODO: Implement when reviews collection exists
         reviewCount: 0, // TODO: Implement when reviews collection exists
         ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }, // TODO: Implement when reviews collection exists
+        likeCount: likesCount.totalDocs,
+        commentCount: commentsCount.totalDocs,
+        isFavorited,
+        hasLiked,
       }
     }),
   getMany: baseProcedure

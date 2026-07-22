@@ -84,6 +84,9 @@ export interface Config {
     'vendor-hero-banners': VendorHeroBanner;
     'vendor-templates': VendorTemplate;
     'potential-vendor-regions': PotentialVendorRegion;
+    favorites: Favorite;
+    'product-likes': ProductLike;
+    'product-comments': ProductComment;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -112,6 +115,9 @@ export interface Config {
     'vendor-hero-banners': VendorHeroBannersSelect<false> | VendorHeroBannersSelect<true>;
     'vendor-templates': VendorTemplatesSelect<false> | VendorTemplatesSelect<true>;
     'potential-vendor-regions': PotentialVendorRegionsSelect<false> | PotentialVendorRegionsSelect<true>;
+    favorites: FavoritesSelect<false> | FavoritesSelect<true>;
+    'product-likes': ProductLikesSelect<false> | ProductLikesSelect<true>;
+    'product-comments': ProductCommentsSelect<false> | ProductCommentsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -1526,6 +1532,46 @@ export interface PotentialVendorRegion {
   createdAt: string;
 }
 /**
+ * Products a customer has favorited.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "favorites".
+ */
+export interface Favorite {
+  id: string;
+  user: string | User;
+  product: string | Product;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Likes a customer has given to products.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "product-likes".
+ */
+export interface ProductLike {
+  id: string;
+  user: string | User;
+  product: string | Product;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Customer comments on products.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "product-comments".
+ */
+export interface ProductComment {
+  id: string;
+  user: string | User;
+  product: string | Product;
+  comment: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -1616,6 +1662,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'potential-vendor-regions';
         value: string | PotentialVendorRegion;
+      } | null)
+    | ({
+        relationTo: 'favorites';
+        value: string | Favorite;
+      } | null)
+    | ({
+        relationTo: 'product-likes';
+        value: string | ProductLike;
+      } | null)
+    | ({
+        relationTo: 'product-comments';
+        value: string | ProductComment;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -2145,6 +2203,37 @@ export interface PotentialVendorRegionsSelect<T extends boolean = true> {
       };
   order?: T;
   isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "favorites_select".
+ */
+export interface FavoritesSelect<T extends boolean = true> {
+  user?: T;
+  product?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "product-likes_select".
+ */
+export interface ProductLikesSelect<T extends boolean = true> {
+  user?: T;
+  product?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "product-comments_select".
+ */
+export interface ProductCommentsSelect<T extends boolean = true> {
+  user?: T;
+  product?: T;
+  comment?: T;
   updatedAt?: T;
   createdAt?: T;
 }
