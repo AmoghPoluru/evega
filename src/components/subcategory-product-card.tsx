@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ProductInteractionButtons } from '@/components/product-interaction-buttons';
 
 interface Product {
   id: string;
@@ -125,6 +126,7 @@ export function SubcategoryProductCard({
                     fill
                     className="object-contain p-4 group-hover:scale-105 transition-transform duration-200"
                   />
+                  <ProductInteractionButtons productId={product.id} className="absolute top-2 right-2" />
                 </div>
                 <h3 className="text-sm font-medium line-clamp-2 mb-1">
                   {product.name}

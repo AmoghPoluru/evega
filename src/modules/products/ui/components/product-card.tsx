@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { StarIcon } from "lucide-react";
 
 import { formatCurrency } from "@/lib/utils";
+import { ProductInteractionButtons } from "@/components/product-interaction-buttons";
 
 interface ProductCardProps {
   id: string;
@@ -49,6 +50,7 @@ export const ProductCard = ({
             src={imageUrl || "/placeholder.png"}
             className="object-cover"
           />
+          <ProductInteractionButtons productId={id} className="absolute top-2 right-2" />
         </div>
         <div className="p-4 border-y flex flex-col gap-3 flex-1">
           {vendorName && (
