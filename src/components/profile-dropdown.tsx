@@ -1,6 +1,6 @@
 "use client";
 
-import { Store, MapPin, LogOut, Settings, Package, Shield, Heart } from "lucide-react";
+import { Store, MapPin, LogOut, Settings, Package, Shield } from "lucide-react";
 import { isAppStaff } from "@/lib/access";
 import type { User } from "@/payload-types";
 import Link from "next/link";
@@ -141,12 +141,6 @@ export function ProfileDropdown() {
           <Link href="/orders" className="flex items-center cursor-pointer">
             <Package className="mr-2 h-4 w-4" />
             My Orders
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/favorites" className="flex items-center cursor-pointer">
-            <Heart className="mr-2 h-4 w-4" />
-            My Favorites
           </Link>
         </DropdownMenuItem>
         {showVendorDashboard && (
