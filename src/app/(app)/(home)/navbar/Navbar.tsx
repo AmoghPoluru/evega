@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Store, Search, X } from "lucide-react";
+import { ChevronDown, Store, Search, X, Heart } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { isAppStaff, getUserRole, hasVendor } from "@/lib/access";
 import type { User } from "@/payload-types";
@@ -236,6 +236,18 @@ export function Navbar() {
           </Button>
         )}
 
+        {isLoggedIn && (
+          <Button
+            asChild
+            variant="ghost"
+            className="text-white hover:bg-gray-800 hover:text-white"
+          >
+            <Link href="/favorites" className="flex items-center gap-2">
+              <Heart className="h-4 w-4" />
+              My Favorites
+            </Link>
+          </Button>
+        )}
         <CheckoutButton hideIfEmpty={false} />
         {isLoggedIn ? (
           <ProfileDropdown />
@@ -278,6 +290,17 @@ export function Navbar() {
           </Button>
         )}
 
+        {isLoggedIn && (
+          <Button
+            asChild
+            variant="ghost"
+            className="size-12 border-transparent bg-transparent hover:bg-gray-800 text-white"
+          >
+            <Link href="/favorites" aria-label="My Favorites">
+              <Heart size={22} />
+            </Link>
+          </Button>
+        )}
         <CheckoutButton hideIfEmpty={false} />
         <Button
           variant="ghost"

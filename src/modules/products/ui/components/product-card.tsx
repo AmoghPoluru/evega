@@ -1,9 +1,13 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { StarIcon } from "lucide-react";
 
 import { formatCurrency } from "@/lib/utils";
+import { ProductInteractionButtons } from "@/components/product-interaction-buttons";
 
 interface ProductCardProps {
   id: string;
@@ -29,6 +33,7 @@ export const ProductCard = ({
   price,
   vendor,
 }: ProductCardProps) => {
+  const router = useRouter();
   const vendorName = typeof vendor === "object" && vendor !== null ? vendor.name : null;
   const vendorSlug = typeof vendor === "object" && vendor !== null ? vendor.slug : null;
   const vendorLogo = typeof vendor === "object" && vendor !== null
@@ -45,6 +50,7 @@ export const ProductCard = ({
             src={imageUrl || "/placeholder.png"}
             className="object-cover"
           />
+          <ProductInteractionButtons productId={id} className="absolute top-2 right-2" />
         </div>
         <div className="p-4 border-y flex flex-col gap-3 flex-1">
           {vendorName && (
@@ -58,13 +64,25 @@ export const ProductCard = ({
                   className="rounded-full object-cover"
                 />
               )}
-              <Link
-                href={vendorSlug ? `/vendor/${vendorSlug}` : "#"}
-                onClick={(e) => e.stopPropagation()}
-                className="text-xs text-gray-600 hover:text-gray-900 font-medium"
+              <span
+                role="link"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (vendorSlug) router.push(`/vendor/${vendorSlug}`);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && vendorSlug) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    router.push(`/vendor/${vendorSlug}`);
+                  }
+                }}
+                className="text-xs text-gray-600 hover:text-gray-900 font-medium cursor-pointer"
               >
                 {vendorName}
-              </Link>
+              </span>
             </div>
           )}
           <h2 className="text-lg font-medium line-clamp-4">{name}</h2>

@@ -4,6 +4,7 @@ import type { Category } from '@/payload-types';
 import { authRouter } from '@/modules/auth/server/procedures';
 import { vendorRouter } from '@/modules/vendor/server/procedures';
 import { productsRouter } from '@/modules/products/server/procedures';
+import { productInteractionsRouter } from '@/modules/products/server/interactions';
 import { checkoutRouter } from '@/modules/checkout/server/procedures';
 import { tagsRouter } from '@/modules/tags/server/procedures';
 import { ordersRouter } from '@/modules/orders/server/procedures';
@@ -155,6 +156,7 @@ export const appRouter = createTRPCRouter({
       return category;
     }),
   products: productsRouter,
+  productInteractions: productInteractionsRouter,
   checkout: checkoutRouter,
   tags: tagsRouter,
   orders: ordersRouter,
