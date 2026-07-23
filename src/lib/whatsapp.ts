@@ -228,6 +228,7 @@ export function notifyVendorNewOrder(
     quantity: number;
     total: number;
     customerName: string;
+    orderUrl?: string;
   }
 ): Promise<{ id?: string } | null> {
   return notifyVendorWhatsApp(vendor, TEMPLATE_ORDER, [
@@ -236,6 +237,7 @@ export function notifyVendorNewOrder(
     String(args.quantity),
     `$${args.total.toFixed(2)}`,
     args.customerName,
+    args.orderUrl || "",
   ]);
 }
 

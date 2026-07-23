@@ -374,6 +374,7 @@ export async function POST(req: Request) {
                 quantity: cartItem.quantity || 1,
                 total,
                 customerName: user.name || user.email || "Customer",
+                orderUrl: `${process.env.NEXT_PUBLIC_APP_URL}/vendor/orders/${createdOrder.id}`,
               });
             } catch (whatsappError) {
               console.error(`⚠️  Failed to send vendor WhatsApp order notification:`, whatsappError);

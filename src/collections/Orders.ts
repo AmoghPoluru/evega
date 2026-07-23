@@ -158,6 +158,7 @@ export const Orders: CollectionConfig = {
                 quantity: doc.quantity || 1,
                 total: doc.total,
                 customerName: user.name || user.email || "Customer",
+                orderUrl: `${process.env.NEXT_PUBLIC_APP_URL}/vendor/orders/${doc.id}`,
               });
             } catch (whatsappError) {
               console.error("Failed to send vendor WhatsApp order notification:", whatsappError);

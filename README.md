@@ -1053,8 +1053,8 @@ Notes:
 - **WhatsApp business-initiated messages require pre-approved message templates.**
   Create and get approval for templates matching `WHATSAPP_TEMPLATE_ORDER`,
   `WHATSAPP_TEMPLATE_LIKE`, and `WHATSAPP_TEMPLATE_FAVORITE` in the WhatsApp
-  Manager. Order template body should accept 5 parameters (order number, product
-  name, quantity, total, customer name); like/favorite templates take 1
+  Manager. Order template body should accept 6 parameters (order number, product
+  name, quantity, total, customer name, order URL); like/favorite templates take 1
   (product name).
 - **Instagram publishing requires a publicly hosted image URL** — the product's
   media URL is used.
