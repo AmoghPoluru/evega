@@ -77,6 +77,35 @@ export const Favorites: CollectionConfig = {
         return data;
       },
     ],
+    afterChange: [
+      async ({ doc, operation, req }) => {
+        if (operation !== "create") return;
+        try {
+          const productId =
+            typeof doc.product === "object" && doc.product !== null
+              ? doc.product.id
+              : doc.product;
+          if (!productId) return;
+
+          const product = await req.payload.findByID({
+            collection: "products",
+            id: productId,
+            depth: 0,
+            overrideAccess: true,
+          });
+
+          const { resolveVendorWhatsApp, notifyVendorProductFavorited } = await import(
+            "@/lib/whatsapp"
+          );
+          const vendorWhatsApp = await resolveVendorWhatsApp(req.payload, product);
+          await notifyVendorProductFavorited(vendorWhatsApp, {
+            productName: product.name || "your product",
+          });
+        } catch (error) {
+          console.error("Failed to send vendor WhatsApp favorite notification:", error);
+        }
+      },
+    ],
   },
   fields: [
     {

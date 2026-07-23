@@ -25,6 +25,7 @@ import { VariantOptions } from "./collections/VariantOptions";
 import { Favorites } from "./collections/Favorites";
 import { ProductLikes } from "./collections/ProductLikes";
 import { ProductComments } from "./collections/ProductComments";
+import { SocialPosts } from "./collections/SocialPosts";
 import { getPayloadCsrfOrigins } from "./lib/payload-csrf-origins";
 
 const filename = fileURLToPath(import.meta.url);
@@ -50,7 +51,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Categories, Products, Tags, HeroBanners, Orders, Vendors, Roles, Customers, VariantTypes, VariantOptions, VendorTasks, VendorTaskMessages, VendorHeroBanners, VendorTemplates, PotentialVendorRegions, Favorites, ProductLikes, ProductComments],
+  collections: [Users, Media, Categories, Products, Tags, HeroBanners, Orders, Vendors, Roles, Customers, VariantTypes, VariantOptions, VendorTasks, VendorTaskMessages, VendorHeroBanners, VendorTemplates, PotentialVendorRegions, Favorites, ProductLikes, ProductComments, SocialPosts],
   editor: lexicalEditor(),
   // Use placeholder during build (must be at least 32 chars), actual secret at runtime
   secret: payloadSecret || (isBuildTime ? 'build-placeholder-secret-replace-at-runtime-minimum-32-characters-long' : ''),

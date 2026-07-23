@@ -401,6 +401,98 @@ export const Vendors: CollectionConfig = {
       ],
     },
     {
+      name: "whatsappConfig",
+      type: "group",
+      label: "WhatsApp Business (notifications)",
+      admin: {
+        description:
+          "Connected WhatsApp Business Cloud API account. Order/like/favorite notifications are sent to the business number below.",
+      },
+      fields: [
+        {
+          name: "businessNumber",
+          type: "text",
+          label: "Business number (E.164)",
+          admin: {
+            description:
+              "Recipient for WhatsApp notifications, in E.164 format (e.g. +13098253354).",
+          },
+        },
+        {
+          name: "phoneNumberId",
+          type: "text",
+          label: "Phone number ID",
+          admin: {
+            description: "WhatsApp Cloud API phone number ID (from Meta).",
+          },
+        },
+        {
+          name: "wabaId",
+          type: "text",
+          label: "WhatsApp Business Account ID",
+          admin: {
+            description: "WABA ID (from Meta).",
+          },
+        },
+        {
+          name: "accessToken",
+          type: "text",
+          label: "Access token",
+          access: {
+            read: ({ req }) => isSuperAdmin(req.user),
+            update: ({ req }) => isSuperAdmin(req.user) || Boolean(getVendorId(req.user)),
+          },
+          admin: {
+            hidden: true,
+            description: "Secret WhatsApp Cloud API access token. Never exposed to clients.",
+          },
+        },
+        {
+          name: "notificationsEnabled",
+          type: "checkbox",
+          label: "WhatsApp notifications enabled",
+          defaultValue: true,
+          admin: {
+            description: "When enabled, send WhatsApp notifications for orders, likes, and favorites.",
+          },
+        },
+      ],
+    },
+    {
+      name: "metaConfig",
+      type: "group",
+      label: "Meta (Facebook / Instagram)",
+      admin: {
+        description:
+          "Connected Facebook Page and Instagram Business account used to post products to social channels.",
+      },
+      fields: [
+        {
+          name: "facebookPageId",
+          type: "text",
+          label: "Facebook Page ID",
+        },
+        {
+          name: "instagramBusinessId",
+          type: "text",
+          label: "Instagram Business account ID",
+        },
+        {
+          name: "pageAccessToken",
+          type: "text",
+          label: "Page access token",
+          access: {
+            read: ({ req }) => isSuperAdmin(req.user),
+            update: ({ req }) => isSuperAdmin(req.user) || Boolean(getVendorId(req.user)),
+          },
+          admin: {
+            hidden: true,
+            description: "Secret Meta Page access token. Never exposed to clients.",
+          },
+        },
+      ],
+    },
+    {
       name: "address",
       type: "group",
       fields: [

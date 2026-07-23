@@ -1012,6 +1012,65 @@ beforeChange: [
 
 ---
 
+## WhatsApp Notifications & Social Posting
+
+Vendors can receive WhatsApp notifications (order / like / favorite) and publish
+products to Instagram, Facebook, and WhatsApp. Credentials are stored per-vendor
+in the `Vendors` collection (`whatsappConfig`, `metaConfig`); the environment
+variables below act as a platform-wide fallback used when a vendor has not
+connected its own account.
+
+### Environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `WHATSAPP_PHONE_NUMBER_ID` | Default WhatsApp Cloud API phone number ID (fallback). |
+| `WHATSAPP_ACCESS_TOKEN` | Default WhatsApp Cloud API access token (fallback). |
+| `META_GRAPH_API_VERSION` | Meta Graph API version, e.g. `v21.0`. Defaults to `v21.0`. |
+| `META_APP_ID` | Meta app ID (used for token management / app review). |
+| `META_APP_SECRET` | Meta app secret. Never expose to clients. |
+
+Optional template name overrides (defaults shown) for business-initiated
+WhatsApp messages:
+
+| Variable | Default |
+| --- | --- |
+| `WHATSAPP_TEMPLATE_ORDER` | `order_notification` |
+| `WHATSAPP_TEMPLATE_LIKE` | `product_liked` |
+| `WHATSAPP_TEMPLATE_FAVORITE` | `product_favorited` |
+
+### Meta app configuration
+
+The Meta app needs the following permissions (and Meta App Review approval for
+production, non-test usage):
+
+- `whatsapp_business_messaging` — send WhatsApp Business messages.
+- `pages_manage_posts` — publish to a Facebook Page.
+- `instagram_content_publish` — publish to an Instagram Business account.
+
+Notes:
+
+- **WhatsApp business-initiated messages require pre-approved message templates.**
+  Create and get approval for templates matching `WHATSAPP_TEMPLATE_ORDER`,
+  `WHATSAPP_TEMPLATE_LIKE`, and `WHATSAPP_TEMPLATE_FAVORITE` in the WhatsApp
+  Manager. Order template body should accept 5 parameters (order number, product
+  name, quantity, total, customer name); like/favorite templates take 1
+  (product name).
+- **Instagram publishing requires a publicly hosted image URL** — the product's
+  media URL is used.
+
+### Seeding a starter WhatsApp number
+
+To set every vendor's `whatsappConfig.businessNumber` to the starter number
+`+13098253354` and enable notifications:
+
+```bash
+# Confirm DATABASE_URL points at the intended database first.
+npx tsx src/scripts/set-whatsapp-all-vendors.ts
+# or
+npm run db:seed:whatsapp
+```
+
 ## Next Steps
 
 1. ✅ Create `Tenants` collection

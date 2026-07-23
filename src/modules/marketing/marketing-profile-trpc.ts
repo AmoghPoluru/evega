@@ -3,8 +3,24 @@ import type { BasePayload } from "payload";
 import type { Vendor } from "@/payload-types";
 import {
   buildMarketingChannelsUpdate,
+  buildMetaConfigUpdate,
   buildSocialChannelsUpdate,
+  buildWhatsAppConfigUpdate,
 } from "@/lib/vendor-marketing-profile";
+
+export const whatsappConfigInputSchema = z.object({
+  businessNumber: z.string().optional(),
+  phoneNumberId: z.string().optional(),
+  wabaId: z.string().optional(),
+  accessToken: z.string().optional(),
+  notificationsEnabled: z.boolean().optional(),
+});
+
+export const metaConfigInputSchema = z.object({
+  facebookPageId: z.string().optional(),
+  instagramBusinessId: z.string().optional(),
+  pageAccessToken: z.string().optional(),
+});
 
 export const marketingProfileUpdateBodySchema = z.object({
   socialChannels: z
@@ -36,6 +52,8 @@ export const marketingProfileUpdateBodySchema = z.object({
       })
     )
     .optional(),
+  whatsappConfig: whatsappConfigInputSchema.optional(),
+  metaConfig: metaConfigInputSchema.optional(),
   logo: z.string().nullable().optional(),
 });
 
@@ -70,6 +88,20 @@ export function toMarketingProfileResponse(vendor: Vendor) {
       isActive: ch.isActive ?? true,
       lastPostedAt: ch.lastPostedAt ?? null,
     })),
+    // Secret tokens are intentionally never returned to clients; only a flag
+    // indicating whether one is already stored.
+    whatsappConfig: {
+      businessNumber: vendor.whatsappConfig?.businessNumber ?? "",
+      phoneNumberId: vendor.whatsappConfig?.phoneNumberId ?? "",
+      wabaId: vendor.whatsappConfig?.wabaId ?? "",
+      notificationsEnabled: vendor.whatsappConfig?.notificationsEnabled ?? true,
+      hasAccessToken: Boolean(vendor.whatsappConfig?.accessToken),
+    },
+    metaConfig: {
+      facebookPageId: vendor.metaConfig?.facebookPageId ?? "",
+      instagramBusinessId: vendor.metaConfig?.instagramBusinessId ?? "",
+      hasPageAccessToken: Boolean(vendor.metaConfig?.pageAccessToken),
+    },
   };
 }
 
@@ -100,6 +132,12 @@ export async function updateVendorMarketingProfile(
         socialChannels: buildSocialChannelsUpdate(existing.socialChannels, input.socialChannels),
       }),
       ...(marketingChannels !== undefined && { marketingChannels }),
+      ...(input.whatsappConfig !== undefined && {
+        whatsappConfig: buildWhatsAppConfigUpdate(existing.whatsappConfig, input.whatsappConfig),
+      }),
+      ...(input.metaConfig !== undefined && {
+        metaConfig: buildMetaConfigUpdate(existing.metaConfig, input.metaConfig),
+      }),
     },
     overrideAccess: options?.overrideAccess,
   });
