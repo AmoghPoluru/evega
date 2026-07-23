@@ -3,28 +3,11 @@ import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, vendorProcedure } from "@/trpc/init";
 import { postToFacebookPage, postToInstagram } from "@/lib/social";
-import { sendWhatsAppText } from "@/lib/whatsapp";
+import { sendWhatsAppText, extractProductImageUrl } from "@/lib/whatsapp";
 import { buildSocialChannelsUpdate } from "@/lib/vendor-marketing-profile";
-import type { Product, Vendor } from "@/payload-types";
+import type { Vendor } from "@/payload-types";
 
 const channelEnum = z.enum(["instagram", "facebook", "whatsapp"]);
-
-/** Resolve a product's primary image URL for social posting. */
-function resolveProductImageUrl(product: Product): string | undefined {
-  const image = product.image;
-  if (image && typeof image === "object" && "url" in image && image.url) {
-    return image.url;
-  }
-  const cover = product.cover;
-  if (Array.isArray(cover)) {
-    for (const item of cover) {
-      if (item && typeof item === "object" && "url" in item && item.url) {
-        return item.url;
-      }
-    }
-  }
-  return undefined;
-}
 
 const CHANNEL_TO_LAST_POSTED: Record<
   z.infer<typeof channelEnum>,
@@ -77,7 +60,7 @@ export const socialRouter = createTRPCRouter({
 
       const meta = vendor.metaConfig;
       const whatsapp = vendor.whatsappConfig;
-      const imageUrl = resolveProductImageUrl(product);
+      const imageUrl = extractProductImageUrl(product);
 
       const results: Array<{
         channel: z.infer<typeof channelEnum>;

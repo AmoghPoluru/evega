@@ -80,6 +80,8 @@ export interface SendWhatsAppTemplateArgs extends WhatsAppCreds {
   /** Body text parameters, in order. */
   params?: string[];
   languageCode?: string;
+  /** Publicly hosted image URL for an IMAGE header component. */
+  headerImageUrl?: string;
 }
 
 /**
@@ -92,15 +94,21 @@ export async function sendWhatsAppTemplate(
   const creds = resolveCreds(args);
   if (!creds) return null;
 
-  const components =
-    args.params && args.params.length > 0
-      ? [
-          {
-            type: "body",
-            parameters: args.params.map((text) => ({ type: "text", text })),
-          },
-        ]
-      : undefined;
+  const components: Record<string, unknown>[] = [];
+
+  if (args.headerImageUrl) {
+    components.push({
+      type: "header",
+      parameters: [{ type: "image", image: { link: args.headerImageUrl } }],
+    });
+  }
+
+  if (args.params && args.params.length > 0) {
+    components.push({
+      type: "body",
+      parameters: args.params.map((text) => ({ type: "text", text })),
+    });
+  }
 
   return postToGraph(creds.phoneNumberId, creds.accessToken, {
     to: args.to,
@@ -108,7 +116,7 @@ export async function sendWhatsAppTemplate(
     template: {
       name: args.template,
       language: { code: args.languageCode || "en_US" },
-      ...(components ? { components } : {}),
+      ...(components.length > 0 ? { components } : {}),
     },
   });
 }
@@ -194,6 +202,63 @@ export async function resolveVendorWhatsApp(
   }
 }
 
+/**
+ * Extract a product's primary image URL from a media-populated product,
+ * returning an absolute URL (Meta requires a publicly hosted image URL).
+ */
+export function extractProductImageUrl(product: Product): string | undefined {
+  const candidates: unknown[] = [product.image];
+  if (Array.isArray(product.cover)) {
+    candidates.push(...product.cover);
+  }
+  for (const candidate of candidates) {
+    if (
+      candidate &&
+      typeof candidate === "object" &&
+      "url" in candidate &&
+      typeof (candidate as { url?: unknown }).url === "string"
+    ) {
+      const url = (candidate as { url: string }).url;
+      if (url.startsWith("http")) return url;
+      const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
+      return `${base}${url.startsWith("/") ? "" : "/"}${url}`;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Load a product (media populated) and return its primary image URL. Refetches
+ * with depth when the passed product's media is not populated.
+ */
+export async function resolveProductImageUrl(
+  payload: BasePayload,
+  product: Product | string
+): Promise<string | undefined> {
+  try {
+    let productDoc: Product;
+    if (
+      typeof product === "object" &&
+      product.image &&
+      typeof product.image === "object"
+    ) {
+      productDoc = product;
+    } else {
+      const id = typeof product === "string" ? product : product.id;
+      productDoc = await payload.findByID({
+        collection: "products",
+        id,
+        depth: 1,
+        overrideAccess: true,
+      });
+    }
+    return extractProductImageUrl(productDoc);
+  } catch (error) {
+    console.error("Failed to resolve product image URL:", error);
+    return undefined;
+  }
+}
+
 const TEMPLATE_ORDER = process.env.WHATSAPP_TEMPLATE_ORDER || "order_notification";
 const TEMPLATE_LIKE = process.env.WHATSAPP_TEMPLATE_LIKE || "product_liked";
 const TEMPLATE_FAVORITE = process.env.WHATSAPP_TEMPLATE_FAVORITE || "product_favorited";
@@ -206,7 +271,8 @@ const TEMPLATE_FAVORITE = process.env.WHATSAPP_TEMPLATE_FAVORITE || "product_fav
 export async function notifyVendorWhatsApp(
   vendor: ResolvedVendorWhatsApp | null,
   template: string,
-  params: string[]
+  params: string[],
+  headerImageUrl?: string
 ): Promise<{ id?: string } | null> {
   if (!vendor) return null;
   if (!vendor.notificationsEnabled || !vendor.businessNumber) return null;
@@ -215,6 +281,7 @@ export async function notifyVendorWhatsApp(
     to: vendor.businessNumber,
     template,
     params,
+    headerImageUrl,
     phoneNumberId: vendor.phoneNumberId,
     accessToken: vendor.accessToken,
   });
@@ -229,16 +296,22 @@ export function notifyVendorNewOrder(
     total: number;
     customerName: string;
     orderUrl?: string;
+    imageUrl?: string;
   }
 ): Promise<{ id?: string } | null> {
-  return notifyVendorWhatsApp(vendor, TEMPLATE_ORDER, [
-    args.orderNumber,
-    args.productName,
-    String(args.quantity),
-    `$${args.total.toFixed(2)}`,
-    args.customerName,
-    args.orderUrl || "",
-  ]);
+  return notifyVendorWhatsApp(
+    vendor,
+    TEMPLATE_ORDER,
+    [
+      args.orderNumber,
+      args.productName,
+      String(args.quantity),
+      `$${args.total.toFixed(2)}`,
+      args.customerName,
+      args.orderUrl || "",
+    ],
+    args.imageUrl
+  );
 }
 
 export function notifyVendorProductLiked(
