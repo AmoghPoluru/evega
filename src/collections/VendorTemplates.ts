@@ -28,19 +28,20 @@ export const VendorTemplates: CollectionConfig = {
       },
     ],
     beforeChange: [
-      async ({ data, operation, req }) => {
+      async ({ data, operation, req, originalDoc }) => {
+        const docId = originalDoc?.id ?? data?.id;
+
         // If setting a template as default, unset other defaults
         if (data?.isDefault === true) {
           const existingDefaults = await req.payload.find({
             collection: "vendor-templates",
             where: {
               isDefault: { equals: true },
-              id: { not_equals: data?.id },
+              ...(docId ? { id: { not_equals: docId } } : {}),
             },
             limit: 100,
           });
 
-          // Unset other defaults
           for (const template of existingDefaults.docs) {
             await req.payload.update({
               collection: "vendor-templates",
@@ -51,6 +52,40 @@ export const VendorTemplates: CollectionConfig = {
             });
           }
         }
+
+        // Prevent unsetting the last site-wide default while other active templates exist
+        const wasDefault = originalDoc?.isDefault === true;
+        const unsettingDefault = wasDefault && data?.isDefault === false;
+
+        if (unsettingDefault && docId) {
+          const otherDefaults = await req.payload.find({
+            collection: "vendor-templates",
+            where: {
+              isDefault: { equals: true },
+              id: { not_equals: docId },
+            },
+            limit: 1,
+          });
+
+          if (otherDefaults.docs.length === 0) {
+            const otherActive = await req.payload.find({
+              collection: "vendor-templates",
+              where: {
+                isActive: { equals: true },
+                id: { not_equals: docId },
+              },
+              limit: 1,
+            });
+
+            if (otherActive.docs.length > 0) {
+              throw new Error(
+                "At least one template must be marked as the site-wide default. " +
+                  "Set another active template as default before unchecking this one."
+              );
+            }
+          }
+        }
+
         return data;
       },
     ],
@@ -118,7 +153,8 @@ export const VendorTemplates: CollectionConfig = {
       type: "checkbox",
       defaultValue: false,
       admin: {
-        description: "Whether this is the default template for new vendors",
+        description:
+          "Site-wide default template for new vendors. Only one template can be default; checking this unchecks any other default.",
       },
     },
     {

@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import type { ResolvedTemplate } from "@/types/template-customization";
 import { getLayout } from "@/lib/templates/component-registry";
+import { buildFallbackResolvedTemplate } from "@/lib/templates/default-template";
 
 interface VendorStorefrontProps {
   vendor: any;
@@ -15,11 +16,9 @@ interface VendorStorefrontProps {
  * renders the chosen storefront with the vendor and product data.
  */
 export function VendorStorefront({ vendor, template, products }: VendorStorefrontProps) {
-  if (!template) {
-    return null;
-  }
+  const resolvedTemplate = template ?? buildFallbackResolvedTemplate();
 
-  const layout = getLayout(template.layout);
+  const layout = getLayout(resolvedTemplate.layout);
 
-  return createElement(layout, { vendor, template, products });
+  return createElement(layout, { vendor, template: resolvedTemplate, products });
 }

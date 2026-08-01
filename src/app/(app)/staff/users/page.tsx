@@ -10,11 +10,11 @@ export default async function StaffUsersPage() {
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">Users</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Platform-wide users. Admins can sign in as any user to troubleshoot their account.
+          Platform-wide users. Admins can edit accounts and sign in as any user to troubleshoot.
         </p>
       </div>
 
-      <StaffUsersTable canImpersonate={isAppAdmin(user)} />
+      <StaffUsersTable canManage={isAppAdmin(user)} />
     </div>
   );
 }

@@ -897,7 +897,7 @@ export interface VendorTemplate {
    */
   category: 'minimal' | 'elegant' | 'bold' | 'colorful' | 'classic';
   /**
-   * Whether this is the default template for new vendors
+   * Site-wide default template for new vendors. Only one template can be default; checking this unchecks any other default.
    */
   isDefault?: boolean | null;
   /**

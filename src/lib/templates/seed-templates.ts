@@ -959,23 +959,3 @@ export async function seedTemplates(payload: Payload): Promise<void> {
 
   console.log("✨ Template seeding complete!");
 }
-
-/**
- * Get default template
- */
-export async function getDefaultTemplate(payload: Payload) {
-  const result = await payload.find({
-    collection: "vendor-templates",
-    where: {
-      isDefault: { equals: true },
-      isActive: { equals: true },
-    },
-    limit: 1,
-  });
-
-  if (result.docs.length === 0) {
-    throw new Error("No default template found. Please seed templates first.");
-  }
-
-  return result.docs[0];
-}

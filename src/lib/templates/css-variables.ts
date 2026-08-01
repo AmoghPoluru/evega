@@ -66,6 +66,43 @@ export function generateCSSVariables(
 }
 
 /**
+ * Map default template tokens onto marketplace :root variables so existing
+ * Tailwind/shadcn classes (bg-background, text-primary, etc.) inherit the
+ * site-wide default template without restructuring page layouts.
+ */
+export function generateSiteRootCSSVariables(
+  templateConfig: TemplateConfig | Record<string, unknown>
+): Record<string, string> {
+  const templateVars = generateCSSVariables(templateConfig);
+  const colors = (templateConfig as TemplateConfig).colors ?? {};
+
+  const background =
+    colors.background === "transparent" || !colors.background
+      ? colors.cardBackground || "#FFFFFF"
+      : colors.background;
+
+  return {
+    ...templateVars,
+    "--background": background,
+    "--foreground": colors.text || "#1A1A1A",
+    "--card": colors.cardBackground || "#FFFFFF",
+    "--card-foreground": colors.text || "#1A1A1A",
+    "--popover": colors.cardBackground || "#FFFFFF",
+    "--popover-foreground": colors.text || "#1A1A1A",
+    "--primary": colors.primary || "#000000",
+    "--primary-foreground": "#FFFFFF",
+    "--secondary": colors.secondary || "#666666",
+    "--secondary-foreground": "#FFFFFF",
+    "--muted": colors.cardBackground || "#F5F5F5",
+    "--muted-foreground": colors.textSecondary || "#666666",
+    "--accent": colors.accent || colors.primary || "#000000",
+    "--accent-foreground": colors.text || "#1A1A1A",
+    "--border": colors.border || "#E5E5E5",
+    "--ring": colors.primary || colors.border || "#000000",
+  };
+}
+
+/**
  * Convert CSS variables object to CSS string
  */
 export function cssVariablesToString(variables: Record<string, string>): string {
