@@ -86,9 +86,85 @@ export interface PostToInstagramArgs {
   imageUrl: string;
 }
 
+export interface PostToInstagramWithLoginTokenArgs {
+  igUserId: string;
+  instagramAccessToken: string;
+  caption: string;
+  imageUrl: string;
+}
+
+function instagramGraphUrl(pathname: string): string {
+  return `https://graph.instagram.com/${GRAPH_API_VERSION}/${pathname}`;
+}
+
+async function instagramGraphPost(
+  pathname: string,
+  params: Record<string, string | undefined>
+): Promise<Record<string, unknown>> {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      search.set(key, value);
+    }
+  }
+
+  const res = await fetch(instagramGraphUrl(pathname), {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: search.toString(),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as {
+    error?: { message?: string };
+  } & Record<string, unknown>;
+
+  if (!res.ok) {
+    throw new Error(
+      `Instagram API error (${res.status}): ${data?.error?.message || "unknown error"}`
+    );
+  }
+
+  return data;
+}
+
 /**
- * Publish a single image to an Instagram Business account. Requires a publicly
- * hosted image URL. Returns the published media id.
+ * Publish via Instagram API with Instagram Login (IGAA… token).
+ * Uses graph.instagram.com — no Facebook Page token required.
+ */
+export async function postToInstagramWithLoginToken(
+  args: PostToInstagramWithLoginTokenArgs
+): Promise<{ id: string }> {
+  if (!args.igUserId || !args.instagramAccessToken) {
+    throw new Error(
+      "Instagram not configured (missing Instagram user ID or access token)."
+    );
+  }
+  if (!args.imageUrl) {
+    throw new Error("Instagram requires a publicly hosted image URL.");
+  }
+
+  const container = await instagramGraphPost(`${args.igUserId}/media`, {
+    image_url: args.imageUrl,
+    caption: args.caption,
+    access_token: args.instagramAccessToken,
+  });
+
+  const creationId = container.id as string | undefined;
+  if (!creationId) {
+    throw new Error("Instagram media container creation returned no id.");
+  }
+
+  const published = await instagramGraphPost(`${args.igUserId}/media_publish`, {
+    creation_id: creationId,
+    access_token: args.instagramAccessToken,
+  });
+
+  return { id: String(published.id) };
+}
+
+/**
+ * Publish a single image to an Instagram Business account via Facebook Graph API
+ * (EAA… Page token + linked IG Business ID).
  */
 export async function postToInstagram(
   args: PostToInstagramArgs

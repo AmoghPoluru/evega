@@ -388,13 +388,6 @@ export const ProductView = ({ productId }: ProductViewProps) => {
 
   // Handle Buy Now - add to cart and navigate to checkout page
   const handleBuyNow = () => {
-    // Check if user is authenticated
-    if (!session?.user) {
-      toast.error("Please sign in to purchase");
-      router.push(`/sign-in?redirect=/products/${productId}`);
-      return;
-    }
-
     if (hasVariants) {
       // Check if all required variants are selected
       const missingRequired = requiredVariants.filter((vt: string) => !selectedVariants[vt]);

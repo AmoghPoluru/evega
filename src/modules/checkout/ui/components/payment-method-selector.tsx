@@ -18,6 +18,7 @@ interface PaymentMethodSelectorProps {
   onMethodChange: (method: "stripe" | "offline") => void;
   customerPhone?: string;
   onPhoneChange: (phone: string) => void;
+  hideCustomerPhone?: boolean;
 }
 
 export function PaymentMethodSelector({
@@ -26,6 +27,7 @@ export function PaymentMethodSelector({
   onMethodChange,
   customerPhone = "",
   onPhoneChange,
+  hideCustomerPhone = false,
 }: PaymentMethodSelectorProps) {
   const hasStripe = !!vendor.stripeAccountId;
   const showStripe = hasStripe && (vendor.preferredPaymentMethod === "stripe" || vendor.preferredPaymentMethod === "both");
@@ -69,6 +71,7 @@ export function PaymentMethodSelector({
               </div>
               {selectedMethod === "offline" && (
                 <div className="mt-3 space-y-3 text-sm">
+                  {!hideCustomerPhone && (
                   <div>
                     <Label htmlFor="customer-phone" className="text-sm font-medium text-gray-700 mb-1 block">
                       Your Phone Number <span className="text-red-500">*</span>
@@ -89,6 +92,12 @@ export function PaymentMethodSelector({
                       The vendor will contact you at this number to complete the payment
                     </p>
                   </div>
+                  )}
+                  {hideCustomerPhone && (
+                    <p className="text-xs text-gray-500">
+                      The vendor will contact you at the phone number from your delivery details.
+                    </p>
+                  )}
                   {vendor.offlinePaymentInstructions && (
                     <div className="mt-2 p-3 bg-gray-50 rounded text-gray-700 border border-gray-200">
                       <p className="font-medium mb-1 text-xs uppercase text-gray-600">Payment Instructions:</p>

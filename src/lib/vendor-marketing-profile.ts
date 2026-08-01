@@ -146,12 +146,16 @@ export type MetaConfigInput = {
   facebookPageId?: string | null;
   instagramBusinessId?: string | null;
   pageAccessToken?: string | null;
+  instagramAccessToken?: string | null;
+  instagramUsername?: string | null;
 };
 
-type MetaConfigStored = {
+export type MetaConfigStored = {
   facebookPageId?: string | null;
   instagramBusinessId?: string | null;
   pageAccessToken?: string | null;
+  instagramAccessToken?: string | null;
+  instagramUsername?: string | null;
 };
 
 /** Only overwrite a secret token when a non-empty value is provided. */
@@ -204,6 +208,14 @@ export function buildMetaConfigUpdate(
         ? resolveText(input.instagramBusinessId)
         : existing?.instagramBusinessId,
     pageAccessToken: resolveSecret(input.pageAccessToken, existing?.pageAccessToken),
+    instagramAccessToken: resolveSecret(
+      input.instagramAccessToken,
+      existing?.instagramAccessToken
+    ),
+    instagramUsername:
+      input.instagramUsername !== undefined
+        ? resolveText(input.instagramUsername)
+        : existing?.instagramUsername,
   };
 }
 

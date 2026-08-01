@@ -2,10 +2,18 @@ import { z } from "zod";
 import type { BasePayload } from "payload";
 import type { Vendor } from "@/payload-types";
 import {
+  resolveMetaIdsFromPageToken,
+  resolveInstagramUserFromToken,
+  sanitizeMetaAccessToken,
+  isInstagramLoginToken,
+} from "@/lib/meta/resolve-ids";
+import {
   buildMarketingChannelsUpdate,
   buildMetaConfigUpdate,
   buildSocialChannelsUpdate,
   buildWhatsAppConfigUpdate,
+  type MetaConfigInput,
+  type MetaConfigStored,
 } from "@/lib/vendor-marketing-profile";
 
 export const whatsappConfigInputSchema = z.object({
@@ -20,6 +28,7 @@ export const metaConfigInputSchema = z.object({
   facebookPageId: z.string().optional(),
   instagramBusinessId: z.string().optional(),
   pageAccessToken: z.string().optional(),
+  instagramAccessToken: z.string().optional(),
 });
 
 export const marketingProfileUpdateBodySchema = z.object({
@@ -100,9 +109,82 @@ export function toMarketingProfileResponse(vendor: Vendor) {
     metaConfig: {
       facebookPageId: vendor.metaConfig?.facebookPageId ?? "",
       instagramBusinessId: vendor.metaConfig?.instagramBusinessId ?? "",
+      instagramUsername: vendor.metaConfig?.instagramUsername ?? "",
       hasPageAccessToken: Boolean(vendor.metaConfig?.pageAccessToken),
+      hasInstagramAccessToken: Boolean(vendor.metaConfig?.instagramAccessToken),
+      instagramAuthMethod: vendor.metaConfig?.instagramAccessToken
+        ? ("instagram_login" as const)
+        : vendor.metaConfig?.pageAccessToken
+          ? ("facebook_page" as const)
+          : ("none" as const),
     },
   };
+}
+
+export async function enrichMetaConfigInput(
+  input: MetaConfigInput,
+  existing: MetaConfigStored | null | undefined
+): Promise<MetaConfigInput> {
+  let result: MetaConfigInput = { ...input };
+
+  const rawIgToken = input.instagramAccessToken?.trim();
+  if (rawIgToken) {
+    const sanitized = sanitizeMetaAccessToken(rawIgToken);
+    const resolved = await resolveInstagramUserFromToken(sanitized);
+    result = {
+      ...result,
+      instagramAccessToken: sanitized,
+      instagramBusinessId: resolved.userId,
+      instagramUsername: resolved.username,
+    };
+  }
+
+  const rawPageToken = input.pageAccessToken?.trim();
+  if (rawPageToken) {
+    const sanitized = sanitizeMetaAccessToken(rawPageToken);
+
+    if (isInstagramLoginToken(sanitized)) {
+      const resolved = await resolveInstagramUserFromToken(sanitized);
+      result = {
+        ...result,
+        instagramAccessToken: sanitized,
+        instagramBusinessId: resolved.userId,
+        instagramUsername: resolved.username,
+      };
+    } else {
+      const preferredPageId =
+        input.facebookPageId?.trim() || existing?.facebookPageId?.trim() || undefined;
+      const existingIgId =
+        input.instagramBusinessId?.trim() ||
+        existing?.instagramBusinessId?.trim() ||
+        undefined;
+
+      try {
+        const resolved = await resolveMetaIdsFromPageToken(sanitized, preferredPageId);
+        result = {
+          ...result,
+          facebookPageId: resolved.pageId,
+          instagramBusinessId: resolved.igBusinessId,
+          pageAccessToken: sanitized,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown Meta API error";
+
+        if (preferredPageId && existingIgId) {
+          result = {
+            ...result,
+            facebookPageId: preferredPageId,
+            instagramBusinessId: existingIgId,
+            pageAccessToken: sanitized,
+          };
+        } else {
+          throw new Error(`${message} Use EAA… for Page token or IGAA… for Instagram Login token.`);
+        }
+      }
+    }
+  }
+
+  return result;
 }
 
 export async function updateVendorMarketingProfile(
@@ -123,6 +205,14 @@ export async function updateVendorMarketingProfile(
       ? buildMarketingChannelsUpdate(existing.marketingChannels ?? [], input.marketingChannels)
       : undefined;
 
+  const metaConfig =
+    input.metaConfig !== undefined
+      ? buildMetaConfigUpdate(
+          existing.metaConfig,
+          await enrichMetaConfigInput(input.metaConfig, existing.metaConfig)
+        )
+      : undefined;
+
   return db.update({
     collection: "vendors",
     id: vendorId,
@@ -135,9 +225,7 @@ export async function updateVendorMarketingProfile(
       ...(input.whatsappConfig !== undefined && {
         whatsappConfig: buildWhatsAppConfigUpdate(existing.whatsappConfig, input.whatsappConfig),
       }),
-      ...(input.metaConfig !== undefined && {
-        metaConfig: buildMetaConfigUpdate(existing.metaConfig, input.metaConfig),
-      }),
+      ...(metaConfig !== undefined && { metaConfig }),
     },
     overrideAccess: options?.overrideAccess,
   });

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, vendorProcedure } from "@/trpc/init";
-import { postToFacebookPage, postToInstagram } from "@/lib/social";
+import { postToFacebookPage, postToInstagram, postToInstagramWithLoginToken } from "@/lib/social";
 import { sendWhatsAppText, extractProductImageUrl } from "@/lib/whatsapp";
 import { buildSocialChannelsUpdate } from "@/lib/vendor-marketing-profile";
 import type { Vendor } from "@/payload-types";
@@ -85,19 +85,31 @@ export const socialRouter = createTRPCRouter({
             });
             externalPostId = res.id;
           } else if (channel === "instagram") {
-            if (!meta?.instagramBusinessId || !meta?.pageAccessToken) {
-              throw new Error("Instagram is not connected for this vendor.");
-            }
             if (!imageUrl) {
               throw new Error("Instagram requires a product image.");
             }
-            const res = await postToInstagram({
-              igBusinessId: meta.instagramBusinessId,
-              pageAccessToken: meta.pageAccessToken,
-              caption: input.caption,
-              imageUrl,
-            });
-            externalPostId = res.id;
+
+            if (meta?.instagramAccessToken && meta?.instagramBusinessId) {
+              const res = await postToInstagramWithLoginToken({
+                igUserId: meta.instagramBusinessId,
+                instagramAccessToken: meta.instagramAccessToken,
+                caption: input.caption,
+                imageUrl,
+              });
+              externalPostId = res.id;
+            } else if (meta?.instagramBusinessId && meta?.pageAccessToken) {
+              const res = await postToInstagram({
+                igBusinessId: meta.instagramBusinessId,
+                pageAccessToken: meta.pageAccessToken,
+                caption: input.caption,
+                imageUrl,
+              });
+              externalPostId = res.id;
+            } else {
+              throw new Error(
+                "Instagram is not connected. Add an Instagram access token (IGAA…) or a Facebook Page token (EAA…) in Digital marketing."
+              );
+            }
           } else {
             // whatsapp — broadcast to the vendor's business number.
             if (!whatsapp?.businessNumber) {

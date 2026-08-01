@@ -88,6 +88,44 @@ export const ordersRouter = createTRPCRouter({
       };
     }),
 
+  getOneForGuest: baseProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        email: z.string().email(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const order = await ctx.db.findByID({
+        collection: "orders",
+        id: input.id,
+        depth: 2,
+      });
+
+      if (!order) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Order not found",
+        });
+      }
+
+      const orderGuestEmail =
+        typeof order.guestEmail === "string" ? order.guestEmail.toLowerCase() : null;
+
+      if (!orderGuestEmail || orderGuestEmail !== input.email.toLowerCase()) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have permission to view this order",
+        });
+      }
+
+      return {
+        ...order,
+        user: order.user as User | string | null | undefined,
+        product: order.product as Product | string,
+      };
+    }),
+
   getOneForUser: protectedProcedure
     .input(
       z.object({

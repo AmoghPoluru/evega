@@ -303,12 +303,15 @@ export async function createCheckoutSessionWithConnect(
   applicationFeeAmount: number,
   successUrl: string,
   cancelUrl: string,
-  metadata: Record<string, string> = {}
+  metadata: Record<string, string> = {},
+  customerEmail?: string
 ): Promise<string> {
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: lineItems,
+      metadata,
+      customer_email: customerEmail,
       payment_intent_data: {
         application_fee_amount: Math.round(applicationFeeAmount * 100),
         transfer_data: {
