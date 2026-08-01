@@ -11,6 +11,7 @@ import { ordersRouter } from '@/modules/orders/server/procedures';
 import { addressesRouter } from '@/modules/addresses/server/procedures';
 import { vendorTasksRouter } from '@/modules/vendor-tasks/server/procedures';
 import { adminRouter } from '@/modules/admin/server/procedures';
+import { socialRouter } from '@/modules/social/server/procedures';
 
 export const appRouter = createTRPCRouter({
   hello: baseProcedure
@@ -27,6 +28,7 @@ export const appRouter = createTRPCRouter({
   auth: authRouter,
   admin: adminRouter,
   vendor: vendorRouter,
+  social: socialRouter,
   categories: baseProcedure
     .query(async ({ ctx }) => {
       const categories = await ctx.db.find({

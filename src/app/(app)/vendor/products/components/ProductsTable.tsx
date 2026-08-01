@@ -35,6 +35,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  Share2,
 } from "lucide-react";
 import {
   Tooltip,
@@ -49,6 +50,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Product } from "@/payload-types";
+import { PostToSocialsDialog } from "./PostToSocialsDialog";
 
 interface CategoryOption {
   id: string;
@@ -94,6 +96,7 @@ export function ProductsTable({
 }: ProductsTableProps) {
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [socialProduct, setSocialProduct] = useState<Product | null>(null);
   const queryClient = trpc.useUtils();
   const router = useRouter();
 
@@ -539,6 +542,16 @@ export function ProductsTable({
                             onSelect={(e) => {
                               e.preventDefault();
                               setOpenDropdownId(null);
+                              setSocialProduct(product);
+                            }}
+                          >
+                            <Share2 className="mr-2 h-4 w-4" />
+                            Post to socials
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setOpenDropdownId(null);
                               bulkUpdate.mutate({
                                 productIds: [product.id],
                                 action: "archive",
@@ -588,6 +601,20 @@ export function ProductsTable({
             </Button>
           </div>
         </div>
+      )}
+
+      {socialProduct && (
+        <PostToSocialsDialog
+          open={Boolean(socialProduct)}
+          onOpenChange={(open) => {
+            if (!open) setSocialProduct(null);
+          }}
+          product={{
+            id: socialProduct.id,
+            name: socialProduct.name,
+            price: socialProduct.price,
+          }}
+        />
       )}
     </div>
   );

@@ -87,6 +87,7 @@ export interface Config {
     favorites: Favorite;
     'product-likes': ProductLike;
     'product-comments': ProductComment;
+    'social-posts': SocialPost;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -118,6 +119,7 @@ export interface Config {
     favorites: FavoritesSelect<false> | FavoritesSelect<true>;
     'product-likes': ProductLikesSelect<false> | ProductLikesSelect<true>;
     'product-comments': ProductCommentsSelect<false> | ProductCommentsSelect<true>;
+    'social-posts': SocialPostsSelect<false> | SocialPostsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -430,6 +432,42 @@ export interface Vendor {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Connected WhatsApp Business Cloud API account. Order/like/favorite notifications are sent to the business number below.
+   */
+  whatsappConfig?: {
+    /**
+     * Recipient for WhatsApp notifications, in E.164 format (e.g. +13098253354).
+     */
+    businessNumber?: string | null;
+    /**
+     * WhatsApp Cloud API phone number ID (from Meta).
+     */
+    phoneNumberId?: string | null;
+    /**
+     * WABA ID (from Meta).
+     */
+    wabaId?: string | null;
+    /**
+     * Secret WhatsApp Cloud API access token. Never exposed to clients.
+     */
+    accessToken?: string | null;
+    /**
+     * When enabled, send WhatsApp notifications for orders, likes, and favorites.
+     */
+    notificationsEnabled?: boolean | null;
+  };
+  /**
+   * Connected Facebook Page and Instagram Business account used to post products to social channels.
+   */
+  metaConfig?: {
+    facebookPageId?: string | null;
+    instagramBusinessId?: string | null;
+    /**
+     * Secret Meta Page access token. Never exposed to clients.
+     */
+    pageAccessToken?: string | null;
+  };
   address?: {
     street?: string | null;
     city?: string | null;
@@ -1572,6 +1610,31 @@ export interface ProductComment {
   createdAt: string;
 }
 /**
+ * Log of products posted to Instagram, Facebook, and WhatsApp.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "social-posts".
+ */
+export interface SocialPost {
+  id: string;
+  vendor: string | Vendor;
+  product: string | Product;
+  channels: ('instagram' | 'facebook' | 'whatsapp')[];
+  caption?: string | null;
+  status: 'draft' | 'posted' | 'failed';
+  /**
+   * ID returned by the social platform for the created post.
+   */
+  externalPostId?: string | null;
+  /**
+   * Error message if the post failed.
+   */
+  error?: string | null;
+  postedBy?: (string | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -1674,6 +1737,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'product-comments';
         value: string | ProductComment;
+      } | null)
+    | ({
+        relationTo: 'social-posts';
+        value: string | SocialPost;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1992,6 +2059,22 @@ export interface VendorsSelect<T extends boolean = true> {
         lastPostedAt?: T;
         id?: T;
       };
+  whatsappConfig?:
+    | T
+    | {
+        businessNumber?: T;
+        phoneNumberId?: T;
+        wabaId?: T;
+        accessToken?: T;
+        notificationsEnabled?: T;
+      };
+  metaConfig?:
+    | T
+    | {
+        facebookPageId?: T;
+        instagramBusinessId?: T;
+        pageAccessToken?: T;
+      };
   address?:
     | T
     | {
@@ -2234,6 +2317,22 @@ export interface ProductCommentsSelect<T extends boolean = true> {
   user?: T;
   product?: T;
   comment?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "social-posts_select".
+ */
+export interface SocialPostsSelect<T extends boolean = true> {
+  vendor?: T;
+  product?: T;
+  channels?: T;
+  caption?: T;
+  status?: T;
+  externalPostId?: T;
+  error?: T;
+  postedBy?: T;
   updatedAt?: T;
   createdAt?: T;
 }

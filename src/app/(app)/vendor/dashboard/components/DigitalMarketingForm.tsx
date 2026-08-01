@@ -69,6 +69,18 @@ const marketingProfileSchema = z.object({
     socialWhatsAppGroupLastPostedAt: z.string().nullable().optional(),
   }),
   marketingChannels: z.array(marketingChannelSchema),
+  whatsappConfig: z.object({
+    businessNumber: z.string().optional(),
+    phoneNumberId: z.string().optional(),
+    wabaId: z.string().optional(),
+    accessToken: z.string().optional(),
+    notificationsEnabled: z.boolean().optional(),
+  }),
+  metaConfig: z.object({
+    facebookPageId: z.string().optional(),
+    instagramBusinessId: z.string().optional(),
+    pageAccessToken: z.string().optional(),
+  }),
 });
 
 type MarketingProfileFormValues = z.infer<typeof marketingProfileSchema>;
@@ -231,6 +243,18 @@ export function DigitalMarketingForm({
         socialWhatsAppGroupLastPostedAt: null,
       },
       marketingChannels: [],
+      whatsappConfig: {
+        businessNumber: "",
+        phoneNumberId: "",
+        wabaId: "",
+        accessToken: "",
+        notificationsEnabled: true,
+      },
+      metaConfig: {
+        facebookPageId: "",
+        instagramBusinessId: "",
+        pageAccessToken: "",
+      },
     },
   });
 
@@ -262,6 +286,18 @@ export function DigitalMarketingForm({
         isActive: ch.isActive ?? true,
         lastPostedAt: ch.lastPostedAt ?? null,
       })),
+      whatsappConfig: {
+        businessNumber: data.whatsappConfig?.businessNumber ?? "",
+        phoneNumberId: data.whatsappConfig?.phoneNumberId ?? "",
+        wabaId: data.whatsappConfig?.wabaId ?? "",
+        accessToken: "",
+        notificationsEnabled: data.whatsappConfig?.notificationsEnabled ?? true,
+      },
+      metaConfig: {
+        facebookPageId: data.metaConfig?.facebookPageId ?? "",
+        instagramBusinessId: data.metaConfig?.instagramBusinessId ?? "",
+        pageAccessToken: "",
+      },
     });
   }, [data, form, isStaff]);
 
@@ -288,6 +324,18 @@ export function DigitalMarketingForm({
         isActive: ch.isActive ?? true,
         lastPostedAt: ch.lastPostedAt ?? null,
       })),
+      whatsappConfig: {
+        businessNumber: data.whatsappConfig?.businessNumber ?? "",
+        phoneNumberId: data.whatsappConfig?.phoneNumberId ?? "",
+        wabaId: data.whatsappConfig?.wabaId ?? "",
+        accessToken: "",
+        notificationsEnabled: data.whatsappConfig?.notificationsEnabled ?? true,
+      },
+      metaConfig: {
+        facebookPageId: data.metaConfig?.facebookPageId ?? "",
+        instagramBusinessId: data.metaConfig?.instagramBusinessId ?? "",
+        pageAccessToken: "",
+      },
     });
   }, [data, form, isStaff, vendorId]);
 
@@ -649,6 +697,165 @@ export function DigitalMarketingForm({
                   ))}
                 </div>
               )}
+            </div>
+
+            <div className="space-y-4 border-t border-gray-200 pt-6">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  WhatsApp Business notifications
+                </h3>
+                <p className="text-xs text-gray-600 mt-1">
+                  Connect your WhatsApp Business Cloud API account to receive order, like, and
+                  favorite notifications and to post products to WhatsApp.
+                </p>
+              </div>
+              <FormField
+                control={form.control}
+                name="whatsappConfig.businessNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Business number (E.164)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+13098253354" {...field} value={field.value ?? ""} />
+                    </FormControl>
+                    <FormDescription>
+                      Where notifications are sent. Use E.164 format, e.g. +13098253354.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="whatsappConfig.phoneNumberId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone number ID</FormLabel>
+                      <FormControl>
+                        <Input placeholder="From Meta" {...field} value={field.value ?? ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="whatsappConfig.wabaId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>WhatsApp Business Account ID</FormLabel>
+                      <FormControl>
+                        <Input placeholder="From Meta" {...field} value={field.value ?? ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="whatsappConfig.accessToken"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Access token</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder={
+                          data?.whatsappConfig?.hasAccessToken
+                            ? "•••••••• (leave blank to keep current)"
+                            : "Paste WhatsApp Cloud API token"
+                        }
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <FormDescription>Stored securely and never shown after saving.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="whatsappConfig.notificationsEnabled"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center gap-2">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value ?? true}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormLabel className="mt-0 font-normal">
+                      Send WhatsApp notifications for orders, likes, and favorites
+                    </FormLabel>
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="space-y-4 border-t border-gray-200 pt-6">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Meta (Facebook &amp; Instagram) posting
+                </h3>
+                <p className="text-xs text-gray-600 mt-1">
+                  Connect your Facebook Page and Instagram Business account to post products
+                  directly to social channels.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="metaConfig.facebookPageId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Facebook Page ID</FormLabel>
+                      <FormControl>
+                        <Input placeholder="From Meta" {...field} value={field.value ?? ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="metaConfig.instagramBusinessId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Instagram Business account ID</FormLabel>
+                      <FormControl>
+                        <Input placeholder="From Meta" {...field} value={field.value ?? ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="metaConfig.pageAccessToken"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Page access token</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder={
+                          data?.metaConfig?.hasPageAccessToken
+                            ? "•••••••• (leave blank to keep current)"
+                            : "Paste Meta Page access token"
+                        }
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <FormDescription>Stored securely and never shown after saving.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <Button

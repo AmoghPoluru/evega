@@ -363,6 +363,25 @@ export async function POST(req: Request) {
                 console.error(`⚠️  Failed to send order confirmation email:`, emailError);
               }
             }
+
+            // Notify the owning vendor via WhatsApp (async, don't block, log on failure)
+            try {
+              const { resolveVendorWhatsApp, notifyVendorNewOrder, resolveProductImageUrl } =
+                await import("@/lib/whatsapp");
+              const vendorWhatsApp = await resolveVendorWhatsApp(payload, product);
+              const imageUrl = await resolveProductImageUrl(payload, product);
+              await notifyVendorNewOrder(vendorWhatsApp, {
+                orderNumber,
+                productName: product.name || "Product",
+                quantity: cartItem.quantity || 1,
+                total,
+                customerName: user.name || user.email || "Customer",
+                orderUrl: `${process.env.NEXT_PUBLIC_APP_URL}/vendor/orders/${createdOrder.id}`,
+                imageUrl,
+              });
+            } catch (whatsappError) {
+              console.error(`⚠️  Failed to send vendor WhatsApp order notification:`, whatsappError);
+            }
           } catch (orderError) {
             console.error(`❌ Failed to create order for product ${product.name}:`, orderError);
             if (orderError instanceof Error) {

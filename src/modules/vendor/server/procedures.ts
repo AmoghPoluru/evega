@@ -19,7 +19,9 @@ import { createManualOrder } from "@/modules/orders/create-manual-order";
 import { manualOrderCreateInputSchema } from "@/modules/orders/manual-order-schema";
 import {
   buildMarketingChannelsUpdate,
+  buildMetaConfigUpdate,
   buildSocialChannelsUpdate,
+  buildWhatsAppConfigUpdate,
 } from "@/lib/vendor-marketing-profile";
 import { payloadReqFromUser } from "@/lib/payload-req";
 import { toMarketingProfileResponse } from "@/modules/marketing/marketing-profile-trpc";
@@ -2105,6 +2107,22 @@ export const vendorRouter = createTRPCRouter({
               })
             )
             .optional(),
+          whatsappConfig: z
+            .object({
+              businessNumber: z.string().optional(),
+              phoneNumberId: z.string().optional(),
+              wabaId: z.string().optional(),
+              accessToken: z.string().optional(),
+              notificationsEnabled: z.boolean().optional(),
+            })
+            .optional(),
+          metaConfig: z
+            .object({
+              facebookPageId: z.string().optional(),
+              instagramBusinessId: z.string().optional(),
+              pageAccessToken: z.string().optional(),
+            })
+            .optional(),
           logo: z.string().nullable().optional(),
         })
       )
@@ -2128,7 +2146,7 @@ export const vendorRouter = createTRPCRouter({
               )
             : undefined;
 
-        const updatedVendor = await ctx.db.update({
+        await ctx.db.update({
           collection: "vendors",
           id: vendorId,
           data: {
@@ -2140,10 +2158,26 @@ export const vendorRouter = createTRPCRouter({
               ),
             }),
             ...(marketingChannels !== undefined && { marketingChannels }),
+            ...(input.whatsappConfig !== undefined && {
+              whatsappConfig: buildWhatsAppConfigUpdate(
+                existing.whatsappConfig,
+                input.whatsappConfig
+              ),
+            }),
+            ...(input.metaConfig !== undefined && {
+              metaConfig: buildMetaConfigUpdate(existing.metaConfig, input.metaConfig),
+            }),
           },
         });
 
-        return updatedVendor;
+        // Re-fetch and return a sanitized response (never leak secret tokens).
+        const updatedVendor = await ctx.db.findByID({
+          collection: "vendors",
+          id: vendorId,
+          depth: 1,
+        });
+
+        return toMarketingProfileResponse(updatedVendor as Vendor);
       }),
 
     stats: vendorProcedure.query(async ({ ctx }) => {

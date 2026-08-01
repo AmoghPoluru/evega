@@ -126,6 +126,87 @@ export function buildMarketingChannelsUpdate(
   });
 }
 
+export type WhatsAppConfigInput = {
+  businessNumber?: string | null;
+  phoneNumberId?: string | null;
+  wabaId?: string | null;
+  accessToken?: string | null;
+  notificationsEnabled?: boolean | null;
+};
+
+type WhatsAppConfigStored = {
+  businessNumber?: string | null;
+  phoneNumberId?: string | null;
+  wabaId?: string | null;
+  accessToken?: string | null;
+  notificationsEnabled?: boolean | null;
+};
+
+export type MetaConfigInput = {
+  facebookPageId?: string | null;
+  instagramBusinessId?: string | null;
+  pageAccessToken?: string | null;
+};
+
+type MetaConfigStored = {
+  facebookPageId?: string | null;
+  instagramBusinessId?: string | null;
+  pageAccessToken?: string | null;
+};
+
+/** Only overwrite a secret token when a non-empty value is provided. */
+function resolveSecret(
+  inputValue: string | null | undefined,
+  existingValue: string | null | undefined
+): string | undefined {
+  if (inputValue === undefined || inputValue === null) return existingValue ?? undefined;
+  const trimmed = inputValue.trim();
+  if (trimmed === "") return existingValue ?? undefined;
+  return trimmed;
+}
+
+function resolveText(value: string | null | undefined): string | undefined {
+  const trimmed = (value ?? "").trim();
+  return trimmed || undefined;
+}
+
+export function buildWhatsAppConfigUpdate(
+  existing: WhatsAppConfigStored | null | undefined,
+  input: WhatsAppConfigInput
+): WhatsAppConfigStored {
+  return {
+    businessNumber:
+      input.businessNumber !== undefined
+        ? resolveText(input.businessNumber)
+        : existing?.businessNumber,
+    phoneNumberId:
+      input.phoneNumberId !== undefined
+        ? resolveText(input.phoneNumberId)
+        : existing?.phoneNumberId,
+    wabaId: input.wabaId !== undefined ? resolveText(input.wabaId) : existing?.wabaId,
+    accessToken: resolveSecret(input.accessToken, existing?.accessToken),
+    notificationsEnabled:
+      input.notificationsEnabled ?? existing?.notificationsEnabled ?? true,
+  };
+}
+
+export function buildMetaConfigUpdate(
+  existing: MetaConfigStored | null | undefined,
+  input: MetaConfigInput
+): MetaConfigStored {
+  return {
+    facebookPageId:
+      input.facebookPageId !== undefined
+        ? resolveText(input.facebookPageId)
+        : existing?.facebookPageId,
+    instagramBusinessId:
+      input.instagramBusinessId !== undefined
+        ? resolveText(input.instagramBusinessId)
+        : existing?.instagramBusinessId,
+    pageAccessToken: resolveSecret(input.pageAccessToken, existing?.pageAccessToken),
+  };
+}
+
 /** Convert ISO date to value for datetime-local input */
 export function isoToDatetimeLocalValue(iso: string | null | undefined): string {
   if (!iso) return "";
