@@ -1,11 +1,15 @@
 /**
- * Origins allowed for Payload JWT cookie auth (see payload extractJWT "cookie" strategy).
- * If the request Origin is not listed, the cookie token is ignored → 401 on /api/media.
+ * Origins allowed to call Payload/tRPC endpoints from a browser.
  *
- * Clients sending `Authorization: JWT <token>` (native mobile) are not subject
- * to this check. Extra origins may be added via `PAYLOAD_EXTRA_CORS_ORIGINS`.
+ * Native mobile clients (Expo) send no `Origin` header and authenticate with
+ * `Authorization: JWT <token>`, so they are unaffected by CORS/CSRF. These
+ * origins exist for the web app and for Expo web / dev tooling, which do send
+ * an `Origin`.
+ *
+ * Extra origins can be supplied via `PAYLOAD_EXTRA_CORS_ORIGINS`
+ * (comma-separated). Setting it to `*` allows any origin.
  */
-export function getPayloadCsrfOrigins(): string[] {
+export function getPayloadCorsOrigins(): string[] | "*" {
   const origins = new Set<string>();
 
   const add = (value?: string) => {
@@ -28,12 +32,16 @@ export function getPayloadCsrfOrigins(): string[] {
   if (root && root !== "localhost") {
     add(`https://${root}`);
     add(`https://www.${root}`);
-    add(`http://${root}`);
-    add(`http://www.${root}`);
   }
 
-  for (const value of process.env.PAYLOAD_EXTRA_CORS_ORIGINS?.split(",") ?? []) {
-    if (value.trim() !== "*") add(value);
+  const extra = process.env.PAYLOAD_EXTRA_CORS_ORIGINS?.trim();
+
+  if (extra === "*") {
+    return "*";
+  }
+
+  for (const value of extra?.split(",") ?? []) {
+    add(value);
   }
 
   if (process.env.NODE_ENV === "development") {
