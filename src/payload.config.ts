@@ -27,6 +27,7 @@ import { ProductLikes } from "./collections/ProductLikes";
 import { ProductComments } from "./collections/ProductComments";
 import { SocialPosts } from "./collections/SocialPosts";
 import { getPayloadCsrfOrigins } from "./lib/payload-csrf-origins";
+import { getPayloadCorsOrigins } from "./lib/payload-cors-origins";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -65,6 +66,7 @@ export default buildConfig({
   // This ensures Payload generates absolute URLs for media files
   serverURL: process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000',
   csrf: getPayloadCsrfOrigins(),
+  cors: getPayloadCorsOrigins(),
   sharp,
   plugins: [],
 });
