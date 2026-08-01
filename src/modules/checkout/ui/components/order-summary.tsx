@@ -18,7 +18,8 @@ interface OrderSummaryProps {
   total: number;
   onPlaceOrder: () => void;
   isProcessing?: boolean;
-  hasShippingAddress?: boolean;
+  canPlaceOrder?: boolean;
+  isGuest?: boolean;
 }
 
 export function OrderSummary({
@@ -29,20 +30,28 @@ export function OrderSummary({
   total,
   onPlaceOrder,
   isProcessing = false,
-  hasShippingAddress = true,
+  canPlaceOrder = true,
+  isGuest = false,
 }: OrderSummaryProps) {
+  const buttonLabel = isProcessing
+    ? "Processing..."
+    : canPlaceOrder
+      ? "Place your order"
+      : isGuest
+        ? "Complete delivery details"
+        : "Add shipping address";
+
   return (
     <div className="bg-white border border-gray-300 rounded-lg p-4 sticky top-4">
-      {/* Place Order Button */}
       <Button
         onClick={onPlaceOrder}
-        disabled={isProcessing || !hasShippingAddress}
+        disabled={isProcessing || !canPlaceOrder}
         className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium py-3 text-base mb-4 disabled:bg-gray-300 disabled:cursor-not-allowed"
       >
-        {isProcessing ? "Processing..." : hasShippingAddress ? "Place your order" : "Add shipping address"}
+        {buttonLabel}
       </Button>
       
-      {!hasShippingAddress && (
+      {!canPlaceOrder && !isGuest && (
         <p className="text-sm text-red-600 mb-4 text-center">
           Please add a shipping address to continue
         </p>

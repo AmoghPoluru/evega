@@ -80,6 +80,7 @@ const marketingProfileSchema = z.object({
     facebookPageId: z.string().optional(),
     instagramBusinessId: z.string().optional(),
     pageAccessToken: z.string().optional(),
+    instagramAccessToken: z.string().optional(),
   }),
 });
 
@@ -254,6 +255,7 @@ export function DigitalMarketingForm({
         facebookPageId: "",
         instagramBusinessId: "",
         pageAccessToken: "",
+        instagramAccessToken: "",
       },
     },
   });
@@ -297,6 +299,7 @@ export function DigitalMarketingForm({
         facebookPageId: data.metaConfig?.facebookPageId ?? "",
         instagramBusinessId: data.metaConfig?.instagramBusinessId ?? "",
         pageAccessToken: "",
+        instagramAccessToken: "",
       },
     });
   }, [data, form, isStaff]);
@@ -335,6 +338,7 @@ export function DigitalMarketingForm({
         facebookPageId: data.metaConfig?.facebookPageId ?? "",
         instagramBusinessId: data.metaConfig?.instagramBusinessId ?? "",
         pageAccessToken: "",
+        instagramAccessToken: "",
       },
     });
   }, [data, form, isStaff, vendorId]);
@@ -798,60 +802,112 @@ export function DigitalMarketingForm({
             <div className="space-y-4 border-t border-gray-200 pt-6">
               <div>
                 <h3 className="text-sm font-semibold text-gray-900">
-                  Meta (Facebook &amp; Instagram) posting
+                  Instagram posting
                 </h3>
                 <p className="text-xs text-gray-600 mt-1">
-                  Connect your Facebook Page and Instagram Business account to post products
-                  directly to social channels.
+                  Paste your Instagram access token (<code className="text-xs">IGAA…</code>).
+                  No Facebook Page required. Instagram user ID is filled in automatically when
+                  you save.
                 </p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <FormField
-                  control={form.control}
-                  name="metaConfig.facebookPageId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Facebook Page ID</FormLabel>
-                      <FormControl>
-                        <Input placeholder="From Meta" {...field} value={field.value ?? ""} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="metaConfig.instagramBusinessId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Instagram Business account ID</FormLabel>
-                      <FormControl>
-                        <Input placeholder="From Meta" {...field} value={field.value ?? ""} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name="metaConfig.instagramAccessToken"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Instagram access token</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder={
+                          data?.metaConfig?.hasInstagramAccessToken
+                            ? "•••••••• (leave blank to keep current)"
+                            : "Paste Instagram token (IGAA…)"
+                        }
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      From Meta Instagram Login / Graph API Explorer. Needs{" "}
+                      <code className="text-xs">instagram_basic</code> and{" "}
+                      <code className="text-xs">instagram_content_publish</code>.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="metaConfig.instagramBusinessId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Instagram account ID</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Auto-filled from token"
+                        readOnly
+                        className="bg-gray-50"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    {data?.metaConfig?.instagramUsername ? (
+                      <FormDescription>
+                        Connected as @{data.metaConfig.instagramUsername}
+                      </FormDescription>
+                    ) : null}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="border-t border-gray-100 pt-4">
+                <h4 className="text-sm font-medium text-gray-800">
+                  Facebook Page posting (optional)
+                </h4>
+                <p className="text-xs text-gray-500 mt-1">
+                  Only needed to post to Facebook or to use the Facebook Page + Instagram path
+                  with an <code className="text-xs">EAA…</code> token.
+                </p>
               </div>
               <FormField
                 control={form.control}
                 name="metaConfig.pageAccessToken"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Page access token</FormLabel>
+                    <FormLabel>Facebook Page access token</FormLabel>
                     <FormControl>
                       <Input
                         type="password"
                         placeholder={
                           data?.metaConfig?.hasPageAccessToken
                             ? "•••••••• (leave blank to keep current)"
-                            : "Paste Meta Page access token"
+                            : "Paste Page token (EAA…) — optional"
                         }
                         {...field}
                         value={field.value ?? ""}
                       />
                     </FormControl>
-                    <FormDescription>Stored securely and never shown after saving.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="metaConfig.facebookPageId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Facebook Page ID</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Auto-filled from Page token"
+                        readOnly
+                        className="bg-gray-50"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

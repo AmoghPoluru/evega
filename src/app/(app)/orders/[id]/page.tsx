@@ -31,9 +31,24 @@ export default function OrderDetailPage({ params }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const paymentPending = searchParams.get("payment") === "pending";
+  const guestEmail = searchParams.get("email");
 
-  // Fetch order data (protected - only returns orders for logged-in user)
-  const { data: order, isLoading, error } = trpc.orders.getOneForUser.useQuery({ id });
+  const { data: session } = trpc.auth.session.useQuery();
+  const isLoggedIn = !!session?.user;
+  const isGuestView = !isLoggedIn && !!guestEmail;
+
+  const userOrderQuery = trpc.orders.getOneForUser.useQuery(
+    { id },
+    { enabled: isLoggedIn }
+  );
+  const guestOrderQuery = trpc.orders.getOneForGuest.useQuery(
+    { id, email: guestEmail! },
+    { enabled: isGuestView }
+  );
+
+  const order = isGuestView ? guestOrderQuery.data : userOrderQuery.data;
+  const isLoading = isGuestView ? guestOrderQuery.isLoading : userOrderQuery.isLoading;
+  const error = isGuestView ? guestOrderQuery.error : userOrderQuery.error;
 
   // Loading state
   if (isLoading) {
@@ -62,12 +77,14 @@ export default function OrderDetailPage({ params }: Props) {
       <div className="bg-gray-100 min-h-screen py-6">
         <div className="max-w-7xl mx-auto px-4">
           <div className="mb-6">
+            {!isGuestView && (
             <Button variant="ghost" asChild>
               <Link href="/orders">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Orders
               </Link>
             </Button>
+            )}
           </div>
           <Card>
             <CardContent className="p-6">

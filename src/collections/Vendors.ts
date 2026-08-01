@@ -476,6 +476,18 @@ export const Vendors: CollectionConfig = {
           name: "instagramBusinessId",
           type: "text",
           label: "Instagram Business account ID",
+          admin: {
+            description:
+              "Auto-filled from token. IG Business ID (Facebook path) or Instagram user ID (IGAA path).",
+          },
+        },
+        {
+          name: "instagramUsername",
+          type: "text",
+          label: "Instagram username",
+          admin: {
+            description: "Auto-filled when using an Instagram Login token (IGAA…).",
+          },
         },
         {
           name: "pageAccessToken",
@@ -487,7 +499,21 @@ export const Vendors: CollectionConfig = {
           },
           admin: {
             hidden: true,
-            description: "Secret Meta Page access token. Never exposed to clients.",
+            description: "Facebook Page access token (EAA…). Used for Facebook + Instagram via Page.",
+          },
+        },
+        {
+          name: "instagramAccessToken",
+          type: "text",
+          label: "Instagram access token",
+          access: {
+            read: ({ req }) => isSuperAdmin(req.user),
+            update: ({ req }) => isSuperAdmin(req.user) || Boolean(getVendorId(req.user)),
+          },
+          admin: {
+            hidden: true,
+            description:
+              "Instagram Login access token (IGAA…). Used for Instagram-only posting without a Facebook Page token.",
           },
         },
       ],

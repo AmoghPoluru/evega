@@ -1038,6 +1038,8 @@ WhatsApp messages:
 | `WHATSAPP_TEMPLATE_ORDER` | `order_notification` |
 | `WHATSAPP_TEMPLATE_LIKE` | `product_liked` |
 | `WHATSAPP_TEMPLATE_FAVORITE` | `product_favorited` |
+| `WHATSAPP_TEMPLATE_COMMENT` | `product_commented` |
+| `WHATSAPP_TEST_TEMPLATE` | *(unset)* — when set (e.g. `hello_world`), overrides all event templates for testing |
 
 ### Meta app configuration
 
@@ -1052,10 +1054,11 @@ Notes:
 
 - **WhatsApp business-initiated messages require pre-approved message templates.**
   Create and get approval for templates matching `WHATSAPP_TEMPLATE_ORDER`,
-  `WHATSAPP_TEMPLATE_LIKE`, and `WHATSAPP_TEMPLATE_FAVORITE` in the WhatsApp
-  Manager. Order template body should accept 6 parameters (order number, product
-  name, quantity, total, customer name, order URL); like/favorite templates take 1
-  (product name).
+  `WHATSAPP_TEMPLATE_LIKE`, `WHATSAPP_TEMPLATE_FAVORITE`, and
+  `WHATSAPP_TEMPLATE_COMMENT` in the WhatsApp Manager. Order template body should
+  accept 6 parameters (order number, product name, quantity, total, customer name,
+  order URL); like/favorite templates take 1 (product name); comment template takes
+  3 (product name, commenter name, comment preview).
 - **Instagram publishing requires a publicly hosted image URL** — the product's
   media URL is used.
 

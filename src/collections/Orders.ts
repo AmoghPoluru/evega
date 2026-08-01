@@ -283,8 +283,20 @@ export const Orders: CollectionConfig = {
       name: "user",
       type: "relationship",
       relationTo: "users",
-      required: true,
+      required: false,
       hasMany: false,
+      admin: {
+        description: "Logged-in customer. Omitted for guest checkout orders.",
+      },
+    },
+    {
+      name: "guestEmail",
+      type: "email",
+      label: "Guest Email",
+      admin: {
+        description: "Email for guest checkout orders (when user is not set)",
+        condition: (data) => !data?.user,
+      },
     },
     {
       name: "vendor",

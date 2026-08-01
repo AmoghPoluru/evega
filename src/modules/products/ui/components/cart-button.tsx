@@ -1,10 +1,7 @@
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { trpc } from "@/trpc/client";
-import { toast } from "sonner";
 
 import { useCart } from "@/modules/checkout/hooks/use-cart";
 
@@ -18,19 +15,10 @@ interface Props {
 }
 
 export const CartButton = ({ productId, size, color, variantPrice, isPurchased, disabled }: Props) => {
-  const router = useRouter();
   const cart = useCart();
-  const { data: session } = trpc.auth.session.useQuery();
   const isInCart = cart.isProductInCart(productId, size, color);
 
   const handleToggleCart = () => {
-    // Check if user is authenticated
-    if (!session?.user) {
-      toast.error("Please sign in to add items to cart");
-      router.push(`/sign-in?redirect=/products/${productId}`);
-      return;
-    }
-
     cart.toggleProduct(productId, size, color, variantPrice);
   };
 

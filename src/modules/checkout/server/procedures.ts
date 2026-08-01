@@ -12,10 +12,15 @@ import {
 import type { ProductInventoryDoc } from "@/lib/inventory/types";
 import { generateOrderNumber } from "@/lib/order-number";
 import { Media } from "@/payload-types";
-import { baseProcedure, createTRPCRouter, protectedProcedure } from "@/trpc/init";
+import { baseProcedure, createTRPCRouter, optionalAuthProcedure } from "@/trpc/init";
+import {
+  guestEmailSchema,
+  guestShippingAddressSchema,
+} from "@/modules/checkout/guest-checkout-schema";
+import { resolveCheckoutContact } from "./resolve-checkout-contact";
 
 export const checkoutRouter = createTRPCRouter({
-  purchase: protectedProcedure
+  purchase: optionalAuthProcedure
     .input(
       z.object({
         cartItems: z.array(z.object({
@@ -26,7 +31,9 @@ export const checkoutRouter = createTRPCRouter({
           variantPrice: z.number().optional(), // Variant price (base + adjustment)
         })).min(1),
         paymentMethod: z.enum(["stripe", "offline"]).default("stripe"), // Payment method selection
-        customerPhone: z.string().optional(), // Customer phone number for offline payments
+        customerPhone: z.string().optional(), // Customer phone number for offline payments (logged-in users)
+        guestEmail: guestEmailSchema.optional(),
+        guestShippingAddress: guestShippingAddressSchema.optional(),
         buyNow: z.boolean().optional().default(false), // Flag for "Buy Now" purchases
       })
     )
@@ -244,48 +251,28 @@ export const checkoutRouter = createTRPCRouter({
 
       // Handle offline payment flow
       if (input.paymentMethod === "offline") {
-        // Validate customer phone is provided for offline payments
-        if (!input.customerPhone || !input.customerPhone.trim()) {
+        const contact = await resolveCheckoutContact(
+          ctx.db,
+          ctx.session?.user ?? null,
+          {
+            guestEmail: input.guestEmail,
+            guestShippingAddress: input.guestShippingAddress,
+            customerPhone: input.customerPhone,
+          }
+        );
+
+        // Logged-in users enter phone in payment section; guests provide it in the address form
+        if (!contact.isGuest && !input.customerPhone?.trim()) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Phone number is required for offline payments. The vendor will contact you at this number.",
+            message:
+              "Phone number is required for offline payments. The vendor will contact you at this number.",
           });
         }
 
-        // Get user with shipping addresses
-        const user = await ctx.db.findByID({
-          collection: "users",
-          id: ctx.session.user.id,
-          depth: 0,
-        });
-
-        if (!user) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "User not found",
-          });
-        }
-
-        // Get default address or first address
-        const userAddresses = (user.shippingAddresses || []) as any[];
-        const defaultAddress = userAddresses.find((addr: any) => addr.isDefault) || userAddresses[0];
-
-        if (!defaultAddress) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Shipping address is required. Please add a shipping address before placing your order.",
-          });
-        }
-
-        // Map user's saved address to order format
-        const shippingAddress: any = {
-          fullName: defaultAddress.fullName,
-          phone: defaultAddress.phone || undefined,
-          street: defaultAddress.street,
-          city: defaultAddress.city,
-          state: defaultAddress.state,
-          zipcode: defaultAddress.zipcode,
-          country: "United States", // Default since addresses are US-focused
+        const shippingAddress = {
+          ...contact.shippingAddress,
+          phone: contact.customerPhone || contact.shippingAddress.phone,
         };
 
         // Create one order per product (matching webhook pattern)
@@ -351,7 +338,8 @@ export const checkoutRouter = createTRPCRouter({
             data: {
               orderNumber,
               name: orderName,
-              user: ctx.session.user.id,
+              ...(contact.userId ? { user: contact.userId } : {}),
+              ...(contact.guestEmail ? { guestEmail: contact.guestEmail } : {}),
               vendor: vendorId,
               product: cartItem.productId,
               quantity: cartItem.quantity || 1,
@@ -372,13 +360,10 @@ export const checkoutRouter = createTRPCRouter({
               offlinePaymentContact: {
                 phone: vendor.contactPhone || null,
                 email: vendor.contactEmail || null,
-                customerPhone: input.customerPhone.trim(), // Store customer phone for vendor to contact
+                customerPhone: contact.customerPhone.trim(),
               },
               offlinePaymentNotes: vendor.offlinePaymentInstructions || null,
-              shippingAddress: {
-                ...shippingAddress,
-                phone: input.customerPhone.trim(), // Also update shipping address phone with customer's contact number
-              },
+              shippingAddress,
             },
           });
 
@@ -388,6 +373,26 @@ export const checkoutRouter = createTRPCRouter({
             quantity: cartItem.quantity || 1,
             price: itemTotal,
           });
+
+          // Notify the owning vendor via WhatsApp (offline orders are created as pending,
+          // so the Orders afterChange hook does not fire for payment_done).
+          try {
+            const { resolveVendorWhatsApp, notifyVendorNewOrder, resolveProductImageUrl } =
+              await import("@/lib/whatsapp");
+            const vendorWhatsApp = await resolveVendorWhatsApp(ctx.db, product);
+            const imageUrl = await resolveProductImageUrl(ctx.db, product);
+            await notifyVendorNewOrder(vendorWhatsApp, {
+              orderNumber,
+              productName: product.name || "Product",
+              quantity: cartItem.quantity || 1,
+              total: itemTotal,
+              customerName: contact.customerName,
+              orderUrl: `${process.env.NEXT_PUBLIC_APP_URL}/vendor/orders/${order.id}`,
+              imageUrl,
+            });
+          } catch (whatsappError) {
+            console.error("Failed to send vendor WhatsApp order notification:", whatsappError);
+          }
         }
 
         // Send email notifications (async, don't block)
@@ -402,7 +407,7 @@ export const checkoutRouter = createTRPCRouter({
           });
 
           await sendOfflinePaymentOrderConfirmation(
-            ctx.session.user.email || "",
+            contact.customerEmail,
             firstOrder.orderNumber,
             {
               phone: vendor.contactPhone || undefined,
@@ -417,8 +422,8 @@ export const checkoutRouter = createTRPCRouter({
             await sendVendorOfflinePaymentNotification(
               vendor.email,
               firstOrder.orderNumber,
-              ctx.session.user.name || ctx.session.user.email || "Customer",
-              input.customerPhone.trim(),
+              contact.customerName,
+              contact.customerPhone.trim(),
               orderTotal,
               orderItems.length
             );
@@ -432,8 +437,19 @@ export const checkoutRouter = createTRPCRouter({
           orderId: createdOrders[0], // Return first order ID for redirect
           orderIds: createdOrders, // All order IDs
           paymentMethod: "offline" as const,
+          guestEmail: contact.guestEmail,
         };
       }
+
+      const contact = await resolveCheckoutContact(
+        ctx.db,
+        ctx.session?.user ?? null,
+        {
+          guestEmail: input.guestEmail,
+          guestShippingAddress: input.guestShippingAddress,
+          customerPhone: input.customerPhone,
+        }
+      );
 
       // Stripe payment flow (existing code)
       // Build success URL - include cartItems if it's a "Buy Now" purchase
@@ -443,21 +459,31 @@ export const checkoutRouter = createTRPCRouter({
         : `${baseUrl}/checkout?success=true`;
 
       // Create checkout session with Stripe Connect
+      const stripeMetadata: Record<string, string> = {
+        vendorId: vendorId,
+        cartItems: JSON.stringify(input.cartItems),
+        buyNow: input.buyNow.toString(),
+        orderTotal: orderTotal.toString(),
+        commission: commission.toString(),
+        vendorPayout: vendorPayout.toString(),
+      };
+
+      if (contact.isGuest) {
+        stripeMetadata.isGuest = "true";
+        stripeMetadata.guestEmail = contact.guestEmail!;
+        stripeMetadata.guestShippingAddress = JSON.stringify(contact.shippingAddress);
+      } else {
+        stripeMetadata.userId = contact.userId!;
+      }
+
       const checkoutUrl = await createCheckoutSessionWithConnect(
         lineItems,
         vendor.stripeAccountId!,
         commission,
         successUrl,
         `${baseUrl}/checkout?cancel=true`,
-        {
-          userId: ctx.session.user.id,
-          vendorId: vendorId,
-          cartItems: JSON.stringify(input.cartItems),
-          buyNow: input.buyNow.toString(),
-          orderTotal: orderTotal.toString(),
-          commission: commission.toString(),
-          vendorPayout: vendorPayout.toString(),
-        }
+        stripeMetadata,
+        contact.customerEmail
       );
 
       return { 

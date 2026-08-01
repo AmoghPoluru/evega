@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import { getPayload } from "payload";
 import config from "@payload-config";
 import { stripe } from "@/lib/stripe";
+import type { User, Order } from "@/payload-types";
 import { generateOrderNumber } from "@/lib/order-number";
 
 // Mark this route as dynamic to prevent build-time analysis
@@ -55,12 +56,23 @@ export async function POST(req: Request) {
 
       // Extract metadata
       const userId = session.metadata?.userId;
+      const isGuest = session.metadata?.isGuest === "true";
+      const guestEmail = session.metadata?.guestEmail;
+      const guestShippingAddressJson = session.metadata?.guestShippingAddress;
       const cartItemsJson = session.metadata?.cartItems;
 
-      if (!userId) {
-        console.error("Missing userId in session metadata");
+      if (!userId && !isGuest) {
+        console.error("Missing userId or guest flag in session metadata");
         return NextResponse.json(
           { error: "Invalid session metadata" },
+          { status: 400 }
+        );
+      }
+
+      if (isGuest && (!guestEmail || !guestShippingAddressJson)) {
+        console.error("Missing guest email or shipping address in session metadata");
+        return NextResponse.json(
+          { error: "Invalid guest session metadata" },
           { status: 400 }
         );
       }
@@ -99,47 +111,67 @@ export async function POST(req: Request) {
 
       // Create orders and update inventory
       try {
-        console.log(`Processing checkout session ${session.id} with ${cartItems.length} item(s)`);
+        console.log(`Processing checkout session ${session.id} with ${cartItems.length} item(s)${isGuest ? " (guest)" : ""}`);
         
-        // Get user with shipping addresses (once, outside the loop)
-        const user = await payload.findByID({
-          collection: "users",
-          id: userId,
-          depth: 0,
-        });
-
-        if (!user) {
-          console.error(`User ${userId} not found`);
-          throw new Error(`User ${userId} not found`);
-        }
-
-        // Get default address or first address
-        const userAddresses = user.shippingAddresses || [];
-        const defaultAddress = userAddresses.find((addr: any) => addr.isDefault) || userAddresses[0];
-
-        if (!defaultAddress) {
-          console.error(`❌ No shipping address found for user ${userId}`);
-          throw new Error(
-            `Shipping address is required but user ${userId} has no saved addresses. ` +
-            `Please ensure user adds a shipping address before checkout.`
-          );
-        }
-
-        // Map user's saved address to order format (reused for all orders)
-        const shippingAddress: any = {
-          fullName: defaultAddress.fullName,
-          phone: defaultAddress.phone || undefined,
-          street: defaultAddress.street,
-          city: defaultAddress.city,
-          state: defaultAddress.state,
-          zipcode: defaultAddress.zipcode,
-          country: "United States", // Default since addresses are US-focused
+        let user: User | null = null;
+        let shippingAddress: {
+          fullName: string;
+          phone?: string;
+          street: string;
+          city: string;
+          state: string;
+          zipcode: string;
+          country: string;
         };
+
+        if (isGuest) {
+          try {
+            shippingAddress = JSON.parse(guestShippingAddressJson!);
+            shippingAddress.country = shippingAddress.country || "United States";
+          } catch (error) {
+            console.error("Failed to parse guestShippingAddress from metadata:", error);
+            throw new Error("Invalid guest shipping address in session metadata");
+          }
+        } else {
+          user = (await payload.findByID({
+            collection: "users",
+            id: userId!,
+            depth: 0,
+          })) as User;
+
+          if (!user) {
+            console.error(`User ${userId} not found`);
+            throw new Error(`User ${userId} not found`);
+          }
+
+          const userAddresses = user.shippingAddresses || [];
+          const defaultAddress = userAddresses.find(
+            (addr: NonNullable<User["shippingAddresses"]>[number]) => addr.isDefault
+          ) || userAddresses[0];
+
+          if (!defaultAddress) {
+            console.error(`❌ No shipping address found for user ${userId}`);
+            throw new Error(
+              `Shipping address is required but user ${userId} has no saved addresses. ` +
+              `Please ensure user adds a shipping address before checkout.`
+            );
+          }
+
+          shippingAddress = {
+            fullName: defaultAddress.fullName,
+            phone: defaultAddress.phone || undefined,
+            street: defaultAddress.street,
+            city: defaultAddress.city,
+            state: defaultAddress.state,
+            zipcode: defaultAddress.zipcode,
+            country: "United States",
+          };
+        }
 
         // Validate that all required shipping address fields are present
         if (!shippingAddress.fullName || !shippingAddress.street || !shippingAddress.city || 
             !shippingAddress.state || !shippingAddress.zipcode) {
-          console.error(`❌ Incomplete shipping address for user ${userId}:`, shippingAddress);
+          console.error(`❌ Incomplete shipping address:`, shippingAddress);
           throw new Error(
             `Shipping address is incomplete. Missing required fields: ` +
             `${!shippingAddress.fullName ? 'fullName, ' : ''}` +
@@ -304,31 +336,31 @@ export async function POST(req: Request) {
           console.log(`Creating order for product ${product.name}, vendor: ${orderVendorId}, commission: ${commissionRate}% (${commission.toFixed(2)}), vendor payout: ${vendorPayout.toFixed(2)}`);
           // Shipping address is already fetched above and reused for all orders
 
-          const orderData: any = {
+          const orderData = {
             orderNumber,
             name: orderName,
-            user: userId,
-            vendor: orderVendorId, // Explicitly set vendor (required field)
+            ...(userId ? { user: userId } : {}),
+            ...(isGuest && guestEmail ? { guestEmail } : {}),
+            vendor: orderVendorId,
             product: cartItem.productId,
-            status: "payment_done", // Payment successful, admin will move to processing then complete
+            status: "payment_done" as const,
             total: total,
             commission: commission,
             commissionRate: commissionRate,
             vendorPayout: {
               amount: vendorPayout,
               commissionAmount: commission,
-              status: "pending",
+              status: "pending" as const,
             },
             quantity: cartItem.quantity || 1,
             size: cartItem.size || undefined,
             color: cartItem.color || undefined,
             stripeCheckoutSessionId: session.id,
-            stripeAccountId: vendor.stripeAccountId || (session as any).account || null,
-            stripePaymentIntentId: session.payment_intent as string || null,
+            stripeAccountId: vendor.stripeAccountId || null,
+            stripePaymentIntentId: (session.payment_intent as string) || null,
             stripeTransferId: transferId || null,
-            transferStatus: transferStatus,
-            shippingAddress: shippingAddress, // Required field
-            // statusHistory will be automatically created by the Orders collection hook
+            transferStatus,
+            shippingAddress,
           };
 
           console.log(`Order data:`, JSON.stringify(orderData, null, 2));
@@ -337,16 +369,17 @@ export async function POST(req: Request) {
           try {
             createdOrder = await payload.create({
               collection: "orders",
-              data: orderData,
+              data: orderData as Omit<Order, "id" | "createdAt" | "updatedAt" | "deletedAt">,
             });
             console.log(`✅ Created order ${orderNumber} (ID: ${createdOrder.id}) for ${product.name}`);
             
             // Send order confirmation email (async, don't block)
-            if (user?.email) {
+            const confirmationEmail = isGuest ? guestEmail : user?.email;
+            if (confirmationEmail) {
               try {
                 const { sendOrderConfirmationEmail } = await import("@/lib/email");
                 await sendOrderConfirmationEmail(
-                  user.email,
+                  confirmationEmail,
                   orderNumber,
                   total, // Order total
                   [
@@ -357,7 +390,7 @@ export async function POST(req: Request) {
                     },
                   ]
                 );
-                console.log(`📧 Sent order confirmation email to ${user.email}`);
+                console.log(`📧 Sent order confirmation email to ${confirmationEmail}`);
               } catch (emailError) {
                 // Log but don't fail order creation
                 console.error(`⚠️  Failed to send order confirmation email:`, emailError);
@@ -370,12 +403,15 @@ export async function POST(req: Request) {
                 await import("@/lib/whatsapp");
               const vendorWhatsApp = await resolveVendorWhatsApp(payload, product);
               const imageUrl = await resolveProductImageUrl(payload, product);
+              const customerName = isGuest
+                ? shippingAddress.fullName || guestEmail || "Guest"
+                : user?.name || user?.email || "Customer";
               await notifyVendorNewOrder(vendorWhatsApp, {
                 orderNumber,
                 productName: product.name || "Product",
                 quantity: cartItem.quantity || 1,
                 total,
-                customerName: user.name || user.email || "Customer",
+                customerName,
                 orderUrl: `${process.env.NEXT_PUBLIC_APP_URL}/vendor/orders/${createdOrder.id}`,
                 imageUrl,
               });
@@ -396,13 +432,14 @@ export async function POST(req: Request) {
           // If we need both "pending" and "payment_done" entries, we can add it here, but it's optional
         }
 
-        // Create or update customer record once after all orders are created
+        // Create or update customer record once after all orders are created (logged-in users only)
+        if (!isGuest && userId) {
         console.log(`Processing customer creation/update for user ${userId} with ${uniqueVendorIds.size} vendor(s)`);
         
         if (uniqueVendorIds.size > 0) {
           try {
             // User is already fetched above, reuse it
-            console.log(`Found user: ${user.email || user.name || userId}`);
+            console.log(`Found user: ${user!.email || user!.name || userId}`);
 
             // Check if customer already exists
             const existingCustomers = await payload.find({
@@ -454,8 +491,8 @@ export async function POST(req: Request) {
                 collection: "customers",
                 id: customer.id,
                 data: {
-                  name: user.name || user.email || "Unknown",
-                  email: user.email || "",
+                  name: user!.name || user!.email || "Unknown",
+                  email: user!.email || "",
                   phone: (user as any).phone || undefined,
                   vendors: vendorIds,
                   totalOrders: totalOrders,
@@ -494,8 +531,8 @@ export async function POST(req: Request) {
 
               const customerData = {
                 user: userId,
-                name: user.name || user.email || "Unknown",
-                email: user.email || "",
+                name: user!.name || user!.email || "Unknown",
+                email: user!.email || "",
                 phone: (user as any).phone || undefined,
                 vendors: Array.from(uniqueVendorIds),
                 totalOrders: totalOrders,
@@ -523,6 +560,7 @@ export async function POST(req: Request) {
           }
         } else {
           console.warn(`⚠️ No vendors found in checkout, skipping customer creation`);
+        }
         }
 
         console.log(`✅ Successfully processed ${cartItems.length} order(s) and updated inventory for session ${session.id}`);

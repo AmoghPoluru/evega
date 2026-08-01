@@ -17,14 +17,8 @@ import {
 import { extractYouTubeVideoId, timeToSeconds } from "@/lib/youtube-utils";
 import { createManualOrder } from "@/modules/orders/create-manual-order";
 import { manualOrderCreateInputSchema } from "@/modules/orders/manual-order-schema";
-import {
-  buildMarketingChannelsUpdate,
-  buildMetaConfigUpdate,
-  buildSocialChannelsUpdate,
-  buildWhatsAppConfigUpdate,
-} from "@/lib/vendor-marketing-profile";
 import { payloadReqFromUser } from "@/lib/payload-req";
-import { toMarketingProfileResponse } from "@/modules/marketing/marketing-profile-trpc";
+import { toMarketingProfileResponse, updateVendorMarketingProfile, marketingProfileUpdateBodySchema } from "@/modules/marketing/marketing-profile-trpc";
 import type { Vendor } from "@/payload-types";
 
 /** Treat empty strings as undefined so optional URL fields don't fail Zod in production. */
@@ -2076,101 +2070,17 @@ export const vendorRouter = createTRPCRouter({
     }),
 
     updateMarketingProfile: vendorProcedure
-      .input(
-        z.object({
-          socialChannels: z
-            .object({
-              socialInstagram: z.string().optional(),
-              socialFacebook: z.string().optional(),
-              socialWhatsAppGroup: z.string().optional(),
-              socialNotes: z.string().optional(),
-              socialInstagramLastPostedAt: z.string().nullable().optional(),
-              socialFacebookLastPostedAt: z.string().nullable().optional(),
-              socialWhatsAppGroupLastPostedAt: z.string().nullable().optional(),
-            })
-            .optional(),
-          marketingChannels: z
-            .array(
-              z.object({
-                platform: z.enum([
-                  "facebook-group",
-                  "instagram-page",
-                  "whatsapp-group",
-                  "other",
-                ]),
-                name: z.string().min(1, "Channel name is required"),
-                url: z.string().min(1, "URL is required"),
-                region: z.string().optional(),
-                audienceNotes: z.string().optional(),
-                isActive: z.boolean().optional(),
-                lastPostedAt: z.string().nullable().optional(),
-              })
-            )
-            .optional(),
-          whatsappConfig: z
-            .object({
-              businessNumber: z.string().optional(),
-              phoneNumberId: z.string().optional(),
-              wabaId: z.string().optional(),
-              accessToken: z.string().optional(),
-              notificationsEnabled: z.boolean().optional(),
-            })
-            .optional(),
-          metaConfig: z
-            .object({
-              facebookPageId: z.string().optional(),
-              instagramBusinessId: z.string().optional(),
-              pageAccessToken: z.string().optional(),
-            })
-            .optional(),
-          logo: z.string().nullable().optional(),
-        })
-      )
+      .input(marketingProfileUpdateBodySchema)
       .mutation(async ({ ctx, input }) => {
         const vendorId =
           typeof ctx.session.vendor === "string"
             ? ctx.session.vendor
             : ctx.session.vendor.id;
 
-        const existing = await ctx.db.findByID({
-          collection: "vendors",
-          id: vendorId,
-          depth: 0,
+        await updateVendorMarketingProfile(ctx.db, vendorId, input, {
+          overrideAccess: true,
         });
 
-        const marketingChannels =
-          input.marketingChannels !== undefined
-            ? buildMarketingChannelsUpdate(
-                existing.marketingChannels ?? [],
-                input.marketingChannels
-              )
-            : undefined;
-
-        await ctx.db.update({
-          collection: "vendors",
-          id: vendorId,
-          data: {
-            ...(input.logo !== undefined && { logo: input.logo }),
-            ...(input.socialChannels !== undefined && {
-              socialChannels: buildSocialChannelsUpdate(
-                existing.socialChannels,
-                input.socialChannels
-              ),
-            }),
-            ...(marketingChannels !== undefined && { marketingChannels }),
-            ...(input.whatsappConfig !== undefined && {
-              whatsappConfig: buildWhatsAppConfigUpdate(
-                existing.whatsappConfig,
-                input.whatsappConfig
-              ),
-            }),
-            ...(input.metaConfig !== undefined && {
-              metaConfig: buildMetaConfigUpdate(existing.metaConfig, input.metaConfig),
-            }),
-          },
-        });
-
-        // Re-fetch and return a sanitized response (never leak secret tokens).
         const updatedVendor = await ctx.db.findByID({
           collection: "vendors",
           id: vendorId,

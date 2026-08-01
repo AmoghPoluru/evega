@@ -462,11 +462,22 @@ export interface Vendor {
    */
   metaConfig?: {
     facebookPageId?: string | null;
+    /**
+     * Auto-filled from token. IG Business ID (Facebook path) or Instagram user ID (IGAA path).
+     */
     instagramBusinessId?: string | null;
     /**
-     * Secret Meta Page access token. Never exposed to clients.
+     * Auto-filled when using an Instagram Login token (IGAA…).
+     */
+    instagramUsername?: string | null;
+    /**
+     * Facebook Page access token (EAA…). Used for Facebook + Instagram via Page.
      */
     pageAccessToken?: string | null;
+    /**
+     * Instagram Login access token (IGAA…). Used for Instagram-only posting without a Facebook Page token.
+     */
+    instagramAccessToken?: string | null;
   };
   address?: {
     street?: string | null;
@@ -984,7 +995,14 @@ export interface Order {
    */
   orderNumber: string;
   name: string;
-  user: string | User;
+  /**
+   * Logged-in customer. Omitted for guest checkout orders.
+   */
+  user?: (string | null) | User;
+  /**
+   * Email for guest checkout orders (when user is not set)
+   */
+  guestEmail?: string | null;
   /**
    * Vendor that should fulfill this order (auto-assigned from product)
    */
@@ -1939,6 +1957,7 @@ export interface OrdersSelect<T extends boolean = true> {
   orderNumber?: T;
   name?: T;
   user?: T;
+  guestEmail?: T;
   vendor?: T;
   product?: T;
   status?: T;
@@ -2073,7 +2092,9 @@ export interface VendorsSelect<T extends boolean = true> {
     | {
         facebookPageId?: T;
         instagramBusinessId?: T;
+        instagramUsername?: T;
         pageAccessToken?: T;
+        instagramAccessToken?: T;
       };
   address?:
     | T

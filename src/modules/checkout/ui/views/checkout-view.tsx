@@ -1,25 +1,26 @@
 "use client";
 
 import { toast } from "sonner";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { InboxIcon, LoaderIcon, ShoppingCart, ChevronDown, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 
 import { trpc } from "@/trpc/client";
+import { Media } from "@/payload-types";
 
 import { useCart } from "../../hooks/use-cart";
-import { CheckoutItem } from "../components/checkout-item";
 import { useCheckoutStates } from "../../hooks/use-checkout-states";
 import { DeliverySection } from "../components/delivery-section";
+import { GuestCheckoutForm, type GuestCheckoutFormRef } from "../components/guest-checkout-form";
 import { PaymentSection } from "../components/payment-section";
 import { PaymentMethodSelector } from "../components/payment-method-selector";
 import { OrderSummary } from "../components/order-summary";
-import { useState } from "react";
 
 export const CheckoutView = () => {
   const router = useRouter();
+  const guestFormRef = useRef<GuestCheckoutFormRef>(null);
   const [states, setStates] = useCheckoutStates();
   const { items, removeProduct, clearCart } = useCart();
   const [paymentMethod, setPaymentMethod] = useState<"stripe" | "offline">("stripe");
@@ -27,27 +28,34 @@ export const CheckoutView = () => {
   
   const queryClient = useQueryClient();
   const productIds = Array.from(new Set(items.map(item => item.productId)));
+
+  const { data: session } = trpc.auth.session.useQuery();
+  const isLoggedIn = !!session?.user;
   
   const { data, error, isLoading } = trpc.checkout.getProducts.useQuery({
     ids: productIds.length > 0 ? productIds : [],
   });
 
-  // Get vendor ID from products (assuming all products are from same vendor)
   const vendorId = useMemo(() => {
     if (!data?.docs || data.docs.length === 0) return null;
     const vendor = data.docs[0].vendor;
     return typeof vendor === "string" ? vendor : vendor?.id;
   }, [data]);
 
-  // Fetch vendor information
   const { data: vendorData } = trpc.vendor.getOne.useQuery(
     { id: vendorId! },
     { enabled: !!vendorId }
   );
 
-  // Check if user has a shipping address
-  const { data: userAddresses } = trpc.addresses.getUserAddresses.useQuery();
-  const hasShippingAddress = userAddresses?.shippingAddresses && userAddresses.shippingAddresses.length > 0;
+  const { data: userAddresses } = trpc.addresses.getUserAddresses.useQuery(undefined, {
+    enabled: isLoggedIn,
+  });
+  const hasShippingAddress =
+    isLoggedIn &&
+    !!userAddresses?.shippingAddresses &&
+    userAddresses.shippingAddresses.length > 0;
+
+  const canPlaceOrder = isLoggedIn ? hasShippingAddress : true;
 
   const purchase = trpc.checkout.purchase.useMutation({
     onMutate: () => {
@@ -55,25 +63,22 @@ export const CheckoutView = () => {
     },
     onSuccess: (data) => {
       if (data.paymentMethod === "offline" && data.orderId) {
-        // For offline payments, clear cart and redirect to order confirmation
         clearCart();
         toast.success("Order placed! Please contact vendor to complete payment.");
-        router.push(`/orders/${data.orderId}?payment=pending`);
+        const guestQuery =
+          "guestEmail" in data && data.guestEmail
+            ? `&email=${encodeURIComponent(data.guestEmail)}`
+            : "";
+        router.push(`/orders/${data.orderId}?payment=pending${guestQuery}`);
       } else if (data.url) {
-        // For Stripe checkout, cart will be cleared after payment in webhook
-        // Redirect to Stripe checkout
         window.location.href = data.url;
       } else {
-        // For other success cases, clear cart
         clearCart();
         toast.success("Purchase completed successfully");
         setStates({ success: true, cancel: false });
       }
     },
     onError: (error) => {
-      if (error.data?.code === "UNAUTHORIZED") {
-        router.push("/sign-in");
-      }
       toast.error(error.message);
     },
   });
@@ -84,21 +89,18 @@ export const CheckoutView = () => {
       const buyNow = urlParams.get('buyNow') === 'true';
       const cartItemsParam = urlParams.get('cartItems');
 
-      // Clear cart when order is successfully placed (returning from Stripe or other success)
       if (buyNow && cartItemsParam) {
         try {
           const purchasedCartItems = JSON.parse(decodeURIComponent(cartItemsParam));
-          purchasedCartItems.forEach((item: any) => {
+          purchasedCartItems.forEach((item: { productId: string; size?: string; color?: string }) => {
             removeProduct(item.productId, item.size, item.color);
           });
           toast.success("Purchase completed! Item(s) removed from cart.");
-        } catch (e) {
-          console.error("Failed to parse cartItems from URL:", e);
+        } catch {
           clearCart();
           toast.success("Purchase completed! Cart cleared.");
         }
       } else {
-        // For regular checkout, clear entire cart
         clearCart();
         toast.success("Order placed successfully! Cart cleared.");
       }
@@ -125,11 +127,10 @@ export const CheckoutView = () => {
     }
   }, [error, clearCart]);
 
-  // Calculate totals
   const orderItems = useMemo(() => {
     if (!data?.docs) return [];
     return items.map(cartItem => {
-      const product = data.docs.find((p: any) => p.id === cartItem.productId);
+      const product = data.docs.find((p: { id: string; price: number; name: string }) => p.id === cartItem.productId);
       if (!product) return null;
       const price = cartItem.variantPrice ?? product.price;
       return {
@@ -151,9 +152,46 @@ export const CheckoutView = () => {
   }, [items, data?.docs]);
 
   const subtotal = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const shipping = subtotal >= 75 ? 0 : 2.99; // Free shipping over $75
-  const tax = subtotal * 0.08; // 8% tax (placeholder - should use actual tax calculation)
+  const shipping = subtotal >= 75 ? 0 : 2.99;
+  const tax = subtotal * 0.08;
   const total = subtotal + shipping + tax;
+
+  const handlePlaceOrder = async () => {
+    if (isLoggedIn && !hasShippingAddress) {
+      toast.error("Please add a shipping address before placing your order");
+      router.push("/account?tab=addresses");
+      return;
+    }
+
+    let guestPayload: { guestEmail: string; guestShippingAddress: import("@/modules/checkout/guest-checkout-schema").GuestShippingAddress } | undefined;
+
+    if (!isLoggedIn) {
+      const guestData = await guestFormRef.current?.validate();
+      if (!guestData) {
+        toast.error("Please complete your contact and delivery details");
+        return;
+      }
+      guestPayload = guestData;
+    }
+
+    if (isLoggedIn && paymentMethod === "offline" && !customerPhone.trim()) {
+      toast.error("Please enter your phone number for offline payment. The vendor will contact you.");
+      return;
+    }
+
+    purchase.mutate({
+      cartItems: items.map(item => ({
+        productId: item.productId,
+        size: item.size,
+        color: item.color,
+        quantity: item.quantity || 1,
+        variantPrice: item.variantPrice,
+      })),
+      paymentMethod,
+      customerPhone: isLoggedIn && paymentMethod === "offline" ? customerPhone.trim() : undefined,
+      ...guestPayload,
+    });
+  };
 
   if (isLoading) {
     return (
@@ -185,7 +223,6 @@ export const CheckoutView = () => {
 
   return (
     <div className="bg-gray-100 min-h-screen">
-      {/* Header */}
       <div className="bg-gray-800 text-white py-3">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between">
@@ -203,12 +240,9 @@ export const CheckoutView = () => {
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Delivery & Payment */}
           <div className="lg:col-span-2 space-y-4">
-            {/* Delivery Section */}
-            <DeliverySection />
+            {isLoggedIn ? <DeliverySection /> : <GuestCheckoutForm ref={guestFormRef} />}
 
-            {/* Payment Method Section */}
             {vendorData ? (
               <PaymentMethodSelector
                 vendor={vendorData}
@@ -216,17 +250,17 @@ export const CheckoutView = () => {
                 onMethodChange={setPaymentMethod}
                 customerPhone={customerPhone}
                 onPhoneChange={setCustomerPhone}
+                hideCustomerPhone={!isLoggedIn}
               />
             ) : (
               <PaymentSection />
             )}
 
-            {/* Order Items Summary */}
             <div className="bg-white border border-gray-300 rounded-lg p-4">
               <h2 className="text-lg font-medium text-gray-900 mb-4">Order items</h2>
               <div className="space-y-4">
-                {items.map((cartItem, index) => {
-                  const product = data?.docs.find((p: any) => p.id === cartItem.productId);
+                {items.map((cartItem) => {
+                  const product = data?.docs.find((p: { id: string; price: number; name: string; image?: Media | null }) => p.id === cartItem.productId);
                   if (!product) return null;
                   
                   const itemPrice = cartItem.variantPrice ?? product.price;
@@ -273,7 +307,6 @@ export const CheckoutView = () => {
             </div>
           </div>
 
-          {/* Right Column - Order Summary */}
           <div className="lg:col-span-1">
             <OrderSummary
               items={orderItems}
@@ -281,29 +314,9 @@ export const CheckoutView = () => {
               shipping={shipping}
               tax={tax}
               total={total}
-              hasShippingAddress={hasShippingAddress}
-              onPlaceOrder={() => {
-                if (!hasShippingAddress) {
-                  toast.error("Please add a shipping address before placing your order");
-                  router.push("/account?tab=addresses");
-                  return;
-                }
-                if (paymentMethod === "offline" && !customerPhone.trim()) {
-                  toast.error("Please enter your phone number for offline payment. The vendor will contact you.");
-                  return;
-                }
-                purchase.mutate({
-                  cartItems: items.map(item => ({
-                    productId: item.productId,
-                    size: item.size,
-                    color: item.color,
-                    quantity: item.quantity || 1,
-                    variantPrice: item.variantPrice,
-                  })),
-                  paymentMethod,
-                  customerPhone: paymentMethod === "offline" ? customerPhone.trim() : undefined,
-                });
-              }}
+              canPlaceOrder={canPlaceOrder}
+              isGuest={!isLoggedIn}
+              onPlaceOrder={handlePlaceOrder}
               isProcessing={purchase.isPending}
             />
           </div>

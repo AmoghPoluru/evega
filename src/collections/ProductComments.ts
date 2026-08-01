@@ -58,4 +58,50 @@ export const ProductComments: CollectionConfig = {
     },
   ],
   timestamps: true,
+  hooks: {
+    afterChange: [
+      async ({ doc, operation, req }) => {
+        if (operation !== "create") return;
+        try {
+          const productId =
+            typeof doc.product === "object" && doc.product !== null
+              ? doc.product.id
+              : doc.product;
+          if (!productId) return;
+
+          const userId =
+            typeof doc.user === "object" && doc.user !== null ? doc.user.id : doc.user;
+
+          const [product, user] = await Promise.all([
+            req.payload.findByID({
+              collection: "products",
+              id: productId,
+              depth: 0,
+              overrideAccess: true,
+            }),
+            userId
+              ? req.payload.findByID({
+                  collection: "users",
+                  id: userId,
+                  depth: 0,
+                  overrideAccess: true,
+                })
+              : Promise.resolve(null),
+          ]);
+
+          const { resolveVendorWhatsApp, notifyVendorProductCommented } = await import(
+            "@/lib/whatsapp"
+          );
+          const vendorWhatsApp = await resolveVendorWhatsApp(req.payload, product);
+          await notifyVendorProductCommented(vendorWhatsApp, {
+            productName: product.name || "your product",
+            commenterName: user?.name || user?.email || "A customer",
+            commentPreview: doc.comment || "",
+          });
+        } catch (error) {
+          console.error("Failed to send vendor WhatsApp comment notification:", error);
+        }
+      },
+    ],
+  },
 };

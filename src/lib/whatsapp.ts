@@ -12,6 +12,15 @@ import type { Product, Vendor } from "@/payload-types";
 const GRAPH_API_VERSION = process.env.META_GRAPH_API_VERSION || "v21.0";
 const DEFAULT_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 const DEFAULT_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
+const LOG_PREFIX = "[WhatsApp]";
+
+function logWhatsApp(message: string, details?: Record<string, unknown>): void {
+  if (details) {
+    console.log(`${LOG_PREFIX} ${message}`, details);
+    return;
+  }
+  console.log(`${LOG_PREFIX} ${message}`);
+}
 
 if (
   process.env.NODE_ENV === "development" &&
@@ -38,11 +47,24 @@ function resolveCreds(creds: WhatsAppCreds): {
   const phoneNumberId = creds.phoneNumberId || DEFAULT_PHONE_NUMBER_ID;
   const accessToken = creds.accessToken || DEFAULT_ACCESS_TOKEN;
   if (!phoneNumberId || !accessToken) {
-    if (process.env.NODE_ENV === "development") {
-      console.warn("📱 WhatsApp message not sent (no phone number id / access token).");
-    }
+    logWhatsApp("Skipped send — missing credentials", {
+      hasPhoneNumberId: Boolean(phoneNumberId),
+      hasAccessToken: Boolean(accessToken),
+      credentialSource: creds.phoneNumberId ? "vendor" : "env-fallback",
+    });
     return null;
   }
+
+  logWhatsApp("Resolved credentials", {
+    phoneNumberId,
+    credentialSource:
+      creds.phoneNumberId && creds.accessToken
+        ? "vendor"
+        : creds.phoneNumberId || creds.accessToken
+          ? "mixed"
+          : "env-fallback",
+  });
+
   return { phoneNumberId, accessToken };
 }
 
@@ -51,6 +73,19 @@ async function postToGraph(
   accessToken: string,
   payload: Record<string, unknown>
 ): Promise<{ id?: string }> {
+  logWhatsApp("Sending message to Meta Graph API", {
+    phoneNumberId,
+    to: payload.to,
+    type: payload.type,
+    template:
+      payload.type === "template" &&
+      typeof payload.template === "object" &&
+      payload.template !== null &&
+      "name" in payload.template
+        ? (payload.template as { name?: string }).name
+        : undefined,
+  });
+
   const res = await fetch(graphUrl(phoneNumberId), {
     method: "POST",
     headers: {
@@ -66,12 +101,25 @@ async function postToGraph(
   };
 
   if (!res.ok) {
+    console.error(`${LOG_PREFIX} Meta API error`, {
+      status: res.status,
+      to: payload.to,
+      type: payload.type,
+      message: data?.error?.message || "unknown error",
+    });
     throw new Error(
       `WhatsApp API error (${res.status}): ${data?.error?.message || "unknown error"}`
     );
   }
 
-  return { id: data?.messages?.[0]?.id };
+  const messageId = data?.messages?.[0]?.id;
+  logWhatsApp("Message sent successfully", {
+    to: payload.to,
+    type: payload.type,
+    messageId,
+  });
+
+  return { id: messageId };
 }
 
 export interface SendWhatsAppTemplateArgs extends WhatsAppCreds {
@@ -94,24 +142,31 @@ export async function sendWhatsAppTemplate(
   const creds = resolveCreds(args);
   if (!creds) return null;
 
+  const parameterless = isParameterlessTemplate(args.template);
   const components: Record<string, unknown>[] = [];
 
-  if (args.headerImageUrl) {
+  if (!parameterless && args.headerImageUrl) {
     components.push({
       type: "header",
       parameters: [{ type: "image", image: { link: args.headerImageUrl } }],
     });
   }
 
-  if (args.params && args.params.length > 0) {
+  if (!parameterless && args.params && args.params.length > 0) {
     components.push({
       type: "body",
       parameters: args.params.map((text) => ({ type: "text", text })),
     });
   }
 
+  if (parameterless) {
+    logWhatsApp("Using parameterless template (hello_world test mode)", {
+      template: args.template,
+    });
+  }
+
   return postToGraph(creds.phoneNumberId, creds.accessToken, {
-    to: args.to,
+    to: normalizeWhatsAppRecipient(args.to),
     type: "template",
     template: {
       name: args.template,
@@ -138,7 +193,7 @@ export async function sendWhatsAppText(
   if (!creds) return null;
 
   return postToGraph(creds.phoneNumberId, creds.accessToken, {
-    to: args.to,
+    to: normalizeWhatsAppRecipient(args.to),
     type: "text",
     text: { preview_url: args.previewUrl ?? true, body: args.body },
   });
@@ -176,7 +231,12 @@ export async function resolveVendorWhatsApp(
     const vendorRef = productDoc.vendor;
     const vendorId =
       typeof vendorRef === "string" ? vendorRef : vendorRef?.id;
-    if (!vendorId) return null;
+    if (!vendorId) {
+      logWhatsApp("Skipped — product has no vendor", {
+        productId: productDoc.id,
+      });
+      return null;
+    }
 
     const vendor: Vendor =
       typeof vendorRef === "object" && vendorRef !== null && "whatsappConfig" in vendorRef
@@ -189,15 +249,27 @@ export async function resolveVendorWhatsApp(
           });
 
     const config = vendor.whatsappConfig;
-    return {
+    const resolved = {
       vendorId,
       businessNumber: config?.businessNumber ?? null,
       phoneNumberId: config?.phoneNumberId ?? null,
       accessToken: config?.accessToken ?? null,
       notificationsEnabled: config?.notificationsEnabled ?? false,
     };
+
+    logWhatsApp("Resolved vendor WhatsApp config", {
+      vendorId: resolved.vendorId,
+      vendorName: vendor.name,
+      businessNumber: resolved.businessNumber,
+      notificationsEnabled: resolved.notificationsEnabled,
+      hasVendorPhoneNumberId: Boolean(resolved.phoneNumberId),
+      hasVendorAccessToken: Boolean(resolved.accessToken),
+      hasEnvFallback: Boolean(DEFAULT_PHONE_NUMBER_ID && DEFAULT_ACCESS_TOKEN),
+    });
+
+    return resolved;
   } catch (error) {
-    console.error("Failed to resolve vendor WhatsApp config:", error);
+    console.error(`${LOG_PREFIX} Failed to resolve vendor WhatsApp config:`, error);
     return null;
   }
 }
@@ -259,9 +331,36 @@ export async function resolveProductImageUrl(
   }
 }
 
-const TEMPLATE_ORDER = process.env.WHATSAPP_TEMPLATE_ORDER || "order_notification";
-const TEMPLATE_LIKE = process.env.WHATSAPP_TEMPLATE_LIKE || "product_liked";
-const TEMPLATE_FAVORITE = process.env.WHATSAPP_TEMPLATE_FAVORITE || "product_favorited";
+const TEMPLATE_ORDER =
+  process.env.WHATSAPP_TEMPLATE_ORDER?.trim() || "order_notification";
+const TEMPLATE_LIKE =
+  process.env.WHATSAPP_TEMPLATE_LIKE?.trim() || "product_liked";
+const TEMPLATE_FAVORITE =
+  process.env.WHATSAPP_TEMPLATE_FAVORITE?.trim() || "product_favorited";
+const TEMPLATE_COMMENT =
+  process.env.WHATSAPP_TEMPLATE_COMMENT?.trim() || "product_commented";
+/** When set (e.g. hello_world), overrides all event templates for testing. */
+const TEST_TEMPLATE_OVERRIDE = process.env.WHATSAPP_TEST_TEMPLATE?.trim();
+
+if (TEST_TEMPLATE_OVERRIDE) {
+  logWhatsApp(`Test mode: all notifications use template "${TEST_TEMPLATE_OVERRIDE}"`);
+}
+
+export const whatsAppTemplates = {
+  order: () => TEST_TEMPLATE_OVERRIDE || TEMPLATE_ORDER,
+  like: () => TEST_TEMPLATE_OVERRIDE || TEMPLATE_LIKE,
+  favorite: () => TEST_TEMPLATE_OVERRIDE || TEMPLATE_FAVORITE,
+  comment: () => TEST_TEMPLATE_OVERRIDE || TEMPLATE_COMMENT,
+} as const;
+
+/** Meta's default sandbox template — no body params or header components. */
+function isParameterlessTemplate(template: string): boolean {
+  return template === "hello_world";
+}
+
+function normalizeWhatsAppRecipient(phone: string): string {
+  return phone.replace(/\D/g, "");
+}
 
 /**
  * Send a vendor WhatsApp notification for a template if the vendor has
@@ -274,8 +373,33 @@ export async function notifyVendorWhatsApp(
   params: string[],
   headerImageUrl?: string
 ): Promise<{ id?: string } | null> {
-  if (!vendor) return null;
-  if (!vendor.notificationsEnabled || !vendor.businessNumber) return null;
+  if (!vendor) {
+    logWhatsApp("Skipped notification — no vendor config resolved");
+    return null;
+  }
+
+  if (!vendor.notificationsEnabled) {
+    logWhatsApp("Skipped notification — notifications disabled for vendor", {
+      vendorId: vendor.vendorId,
+      businessNumber: vendor.businessNumber,
+    });
+    return null;
+  }
+
+  if (!vendor.businessNumber) {
+    logWhatsApp("Skipped notification — vendor has no businessNumber", {
+      vendorId: vendor.vendorId,
+    });
+    return null;
+  }
+
+  logWhatsApp("Sending vendor notification", {
+    vendorId: vendor.vendorId,
+    to: vendor.businessNumber,
+    template,
+    params,
+    hasHeaderImage: Boolean(headerImageUrl),
+  });
 
   return sendWhatsAppTemplate({
     to: vendor.businessNumber,
@@ -299,9 +423,15 @@ export function notifyVendorNewOrder(
     imageUrl?: string;
   }
 ): Promise<{ id?: string } | null> {
+  logWhatsApp("Order notification triggered", {
+    orderNumber: args.orderNumber,
+    productName: args.productName,
+    customerName: args.customerName,
+  });
+
   return notifyVendorWhatsApp(
     vendor,
-    TEMPLATE_ORDER,
+    whatsAppTemplates.order(),
     [
       args.orderNumber,
       args.productName,
@@ -318,12 +448,35 @@ export function notifyVendorProductLiked(
   vendor: ResolvedVendorWhatsApp | null,
   args: { productName: string }
 ): Promise<{ id?: string } | null> {
-  return notifyVendorWhatsApp(vendor, TEMPLATE_LIKE, [args.productName]);
+  logWhatsApp("Like notification triggered", { productName: args.productName });
+  return notifyVendorWhatsApp(vendor, whatsAppTemplates.like(), [args.productName]);
 }
 
 export function notifyVendorProductFavorited(
   vendor: ResolvedVendorWhatsApp | null,
   args: { productName: string }
 ): Promise<{ id?: string } | null> {
-  return notifyVendorWhatsApp(vendor, TEMPLATE_FAVORITE, [args.productName]);
+  logWhatsApp("Favorite notification triggered", { productName: args.productName });
+  return notifyVendorWhatsApp(vendor, whatsAppTemplates.favorite(), [args.productName]);
+}
+
+export function notifyVendorProductCommented(
+  vendor: ResolvedVendorWhatsApp | null,
+  args: { productName: string; commenterName: string; commentPreview: string }
+): Promise<{ id?: string } | null> {
+  logWhatsApp("Comment notification triggered", {
+    productName: args.productName,
+    commenterName: args.commenterName,
+  });
+
+  const preview =
+    args.commentPreview.length > 120
+      ? `${args.commentPreview.slice(0, 117)}...`
+      : args.commentPreview;
+
+  return notifyVendorWhatsApp(vendor, whatsAppTemplates.comment(), [
+    args.productName,
+    args.commenterName,
+    preview,
+  ]);
 }

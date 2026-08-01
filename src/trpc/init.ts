@@ -55,6 +55,24 @@ export const baseProcedure = t.procedure.use(async ({ ctx, next }) => {
   return next({ ctx: { ...ctx, db, headers } });
 });
 
+/** Authenticates when a session exists; does not require login. */
+export const optionalAuthProcedure = baseProcedure.use(async ({ ctx, next }) => {
+  const headers = (ctx as { headers?: Headers }).headers || (await getHeaders());
+  const session = await ctx.db.auth({ headers });
+
+  return next({
+    ctx: {
+      ...ctx,
+      session: session.user
+        ? {
+            ...session,
+            user: session.user,
+          }
+        : null,
+    },
+  });
+});
+
 export const protectedProcedure = baseProcedure.use(async ({ ctx, next }) => {
   // Use headers from context if available, otherwise get them
   const headers = (ctx as any).headers || await getHeaders();
