@@ -834,13 +834,15 @@ export const Vendors: CollectionConfig = {
       },
       hooks: {
         beforeValidate: [
-          async ({ value, data, operation, req }) => {
-            // Set default template if not specified on create
-            if (operation === "create" && !value) {
+          async ({ value, operation, req }) => {
+            if ((operation === "create" || operation === "update") && !value) {
               try {
                 const defaultTemplate = await req.payload.find({
                   collection: "vendor-templates",
-                  where: { isDefault: { equals: true } },
+                  where: {
+                    isDefault: { equals: true },
+                    isActive: { equals: true },
+                  },
                   limit: 1,
                 });
                 if (defaultTemplate.docs.length > 0) {

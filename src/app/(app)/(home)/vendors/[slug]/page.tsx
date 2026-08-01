@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { getPayload } from "payload";
 import config from "@payload-config";
+import type { TemplateCustomization } from "@/types/template-customization";
 import { resolveVendorTemplate } from "@/lib/templates/template-engine";
+import { buildFallbackResolvedTemplate } from "@/lib/templates/default-template";
 import { cssVariablesToString } from "@/lib/templates/css-variables";
 import { VendorStorefront } from "@/components/vendor/VendorStorefront";
 
@@ -45,28 +47,24 @@ export default async function VendorPage({ params }: Props) {
     sort: "-createdAt",
   });
 
-  // Resolve vendor template
+  // Resolve vendor template (always yields a valid config; built-in fallback as last resort)
   let resolvedTemplate;
   try {
     resolvedTemplate = await resolveVendorTemplate(vendor.id, payload);
   } catch (error) {
     console.error("❌ Error resolving vendor template:", error);
-    // Fallback: continue without template
-    resolvedTemplate = null;
+    const customization =
+      (vendor.templateCustomization as TemplateCustomization) || {};
+    resolvedTemplate = buildFallbackResolvedTemplate(customization);
   }
 
-  // Generate CSS variables (injected globally so descendant layouts can use them)
-  const cssVariables = resolvedTemplate
-    ? cssVariablesToString(resolvedTemplate.cssVariables)
-    : "";
+  const cssVariables = cssVariablesToString(resolvedTemplate.cssVariables);
 
   return (
     <>
-      {cssVariables && (
-        <style>{`:root {
+      <style>{`:root {
           ${cssVariables}
         }`}</style>
-      )}
       <VendorStorefront
         vendor={vendor}
         template={resolvedTemplate}

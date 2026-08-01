@@ -3,7 +3,7 @@ import { getPayload } from 'payload';
 import config from "@payload-config";
 import superjson from "superjson";
 import { headers as getHeaders } from 'next/headers';
-import { isAppStaff } from '@/lib/access';
+import { isAppAdmin, isAppStaff } from '@/lib/access';
 import type { User } from '@/payload-types';
 
 import { cache } from 'react';
@@ -159,6 +159,20 @@ export const staffProcedure = protectedProcedure.use(async ({ ctx, next }) => {
     throw new TRPCError({
       code: 'FORBIDDEN',
       message: 'Staff access required',
+    });
+  }
+
+  return next({ ctx });
+});
+
+/** Platform admins only (never BDO) — sensitive actions such as impersonation. */
+export const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  const user = ctx.session.user as User;
+
+  if (!isAppAdmin(user)) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Admin access required',
     });
   }
 

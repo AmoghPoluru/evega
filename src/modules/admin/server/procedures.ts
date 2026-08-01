@@ -1,8 +1,17 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import type { Sort, Where } from 'payload';
-import type { Product, Vendor } from '@/payload-types';
-import { createTRPCRouter, staffProcedure } from '@/trpc/init';
+import type { Product, User, Vendor } from '@/payload-types';
+import { createLocalReq, getFieldsToSign, jwtSign } from 'payload';
+import { addSessionToUser } from 'payload/shared';
+import { adminProcedure, baseProcedure, createTRPCRouter, staffProcedure } from '@/trpc/init';
+import {
+  clearImpersonatorCookie,
+  generateAuthCookie,
+  getAuthCookie,
+  getImpersonatorCookie,
+  setImpersonatorCookie,
+} from '@/modules/auth/utils';
 import {
   processProductCreateInput,
   staffProductCreateInputSchema,
@@ -77,8 +86,546 @@ function flagsToStatus(isPrivate?: boolean | null, isArchived?: boolean | null):
   return 'published';
 }
 
+const userRoleSchema = z.enum(['user', 'vendor', 'admin', 'bdo']);
+
+const staffUserUpdateInputSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().optional(),
+  username: z.string().optional(),
+  email: z.string().email().optional(),
+  role: userRoleSchema.optional(),
+  vendorId: z.string().nullable().optional(),
+  password: z.string().min(8).optional(),
+});
+
+function formatStaffUser(user: User) {
+  const vendor = user.vendor;
+  const vendorId = typeof vendor === 'string' ? vendor : vendor?.id ?? null;
+  const vendorName =
+    typeof vendor === 'object' && vendor ? vendor.name || vendor.slug || null : null;
+
+  return {
+    id: user.id,
+    email: user.email,
+    username: user.username ?? null,
+    name: user.name ?? null,
+    role: user.role ?? 'user',
+    oauthProvider: user.oauthProvider ?? 'email',
+    vendorId,
+    vendorName,
+    createdAt: user.createdAt,
+  };
+}
+
+const vendorStatusSchema = z.enum(['pending', 'approved', 'suspended', 'rejected']);
+const preferredPaymentMethodSchema = z.enum(['stripe', 'offline', 'both']);
+
+const staffVendorUpdateInputSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).optional(),
+  slug: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  website: z.string().optional(),
+  status: vendorStatusSchema.optional(),
+  isActive: z.boolean().optional(),
+  commissionRate: z.number().min(0).max(100).optional(),
+  contactPhone: z.string().optional(),
+  contactEmail: z.string().email().optional().nullable(),
+  preferredPaymentMethod: preferredPaymentMethodSchema.optional(),
+  offlinePaymentInstructions: z.string().optional(),
+  selectedTemplateId: z.string().nullable().optional(),
+  whatsappBusinessNumber: z.string().optional(),
+  whatsappNotificationsEnabled: z.boolean().optional(),
+});
+
+function formatStaffVendor(vendor: Vendor) {
+  const selectedTemplate = vendor.selectedTemplate;
+  const selectedTemplateId =
+    typeof selectedTemplate === 'string' ? selectedTemplate : selectedTemplate?.id ?? null;
+  const selectedTemplateName =
+    typeof selectedTemplate === 'object' && selectedTemplate ? selectedTemplate.name : null;
+
+  return {
+    id: vendor.id,
+    name: vendor.name,
+    slug: vendor.slug,
+    email: vendor.email,
+    phone: vendor.phone ?? null,
+    website: vendor.website ?? null,
+    status: vendor.status ?? 'pending',
+    isActive: vendor.isActive ?? false,
+    commissionRate: vendor.commissionRate ?? 10,
+    contactPhone: vendor.contactPhone ?? null,
+    contactEmail: vendor.contactEmail ?? null,
+    preferredPaymentMethod: vendor.preferredPaymentMethod ?? 'both',
+    offlinePaymentInstructions: vendor.offlinePaymentInstructions ?? null,
+    selectedTemplateId,
+    selectedTemplateName,
+    whatsappBusinessNumber: vendor.whatsappConfig?.businessNumber ?? null,
+    whatsappNotificationsEnabled: vendor.whatsappConfig?.notificationsEnabled ?? true,
+    stripeAccountId: vendor.stripeAccountId ?? null,
+    stripeAccountStatus: vendor.stripeAccountStatus ?? 'not_connected',
+    createdAt: vendor.createdAt,
+    updatedAt: vendor.updatedAt,
+  };
+}
+
 export const adminRouter = createTRPCRouter({
+  users: createTRPCRouter({
+    list: staffProcedure
+      .input(
+        z.object({
+          search: z.string().optional(),
+          limit: z.number().min(1).max(200).default(50),
+          page: z.number().min(1).default(1),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const where: Where = {};
+        const search = input.search?.trim();
+
+        if (search) {
+          where.or = [
+            { email: { contains: search } },
+            { username: { contains: search } },
+            { name: { contains: search } },
+          ];
+        }
+
+        const result = await ctx.db.find({
+          collection: 'users',
+          where,
+          limit: input.limit,
+          page: input.page,
+          sort: '-createdAt',
+          depth: 0,
+          overrideAccess: true,
+        });
+
+        return {
+          users: result.docs.map((user: User) => formatStaffUser(user)),
+          totalPages: result.totalPages,
+          totalDocs: result.totalDocs,
+          page: result.page ?? input.page,
+        };
+      }),
+
+    getOne: adminProcedure
+      .input(z.object({ id: z.string().min(1) }))
+      .query(async ({ ctx, input }) => {
+        const user = await ctx.db
+          .findByID({
+            collection: 'users',
+            id: input.id,
+            depth: 1,
+            overrideAccess: true,
+          })
+          .catch(() => null);
+
+        if (!user) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+        }
+
+        return formatStaffUser(user as User);
+      }),
+
+    update: adminProcedure
+      .input(staffUserUpdateInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const { id, vendorId, password, ...fields } = input;
+
+        const existing = await ctx.db
+          .findByID({
+            collection: 'users',
+            id,
+            depth: 0,
+            overrideAccess: true,
+          })
+          .catch(() => null);
+
+        if (!existing) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+        }
+
+        const data: Record<string, unknown> = {};
+
+        if (fields.name !== undefined) {
+          data.name = fields.name.trim() || null;
+        }
+        if (fields.username !== undefined) {
+          data.username = fields.username.trim() || null;
+        }
+        if (fields.email !== undefined) {
+          data.email = fields.email.trim();
+        }
+        if (fields.role !== undefined) {
+          data.role = fields.role;
+          if (fields.role === 'admin' || fields.role === 'bdo') {
+            data.vendor = null;
+          }
+        }
+
+        const effectiveRole = (fields.role ?? existing.role) as z.infer<typeof userRoleSchema>;
+
+        if (vendorId !== undefined) {
+          if (effectiveRole === 'vendor') {
+            if (vendorId) {
+              try {
+                await ctx.db.findByID({
+                  collection: 'vendors',
+                  id: vendorId,
+                  depth: 0,
+                  overrideAccess: true,
+                });
+              } catch {
+                throw new TRPCError({
+                  code: 'BAD_REQUEST',
+                  message: 'Selected vendor does not exist',
+                });
+              }
+              data.vendor = vendorId;
+            } else {
+              data.vendor = null;
+            }
+          }
+        }
+
+        if (password) {
+          data.password = password;
+        }
+
+        if (Object.keys(data).length === 0) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'No fields to update' });
+        }
+
+        try {
+          const updated = await ctx.db.update({
+            collection: 'users',
+            id,
+            data,
+            overrideAccess: true,
+          });
+
+          return formatStaffUser(updated as User);
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : 'Failed to update user';
+          throw new TRPCError({ code: 'BAD_REQUEST', message });
+        }
+      }),
+
+    impersonate: adminProcedure
+      .input(z.object({ userId: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        if (input.userId === ctx.session.user.id) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'You are already signed in as this user',
+          });
+        }
+
+        const targetUser = await ctx.db
+          .findByID({
+            collection: 'users',
+            id: input.userId,
+            depth: 0,
+            overrideAccess: true,
+          })
+          .catch(() => null);
+
+        if (!targetUser) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+        }
+
+        const cookiePrefix = ctx.db.config.cookiePrefix;
+        const adminToken = await getAuthCookie({ prefix: cookiePrefix });
+
+        if (!adminToken) {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Missing admin session token',
+          });
+        }
+
+        // Keep the first (real admin) token so nested impersonation still returns home.
+        const existingImpersonator = await getImpersonatorCookie();
+        if (!existingImpersonator) {
+          await setImpersonatorCookie(adminToken);
+        }
+
+        const collectionConfig = ctx.db.collections.users.config;
+        const req = await createLocalReq({}, ctx.db);
+        const { sid } = await addSessionToUser({
+          collectionConfig,
+          payload: ctx.db,
+          req,
+          user: targetUser,
+        });
+
+        const { token } = await jwtSign({
+          fieldsToSign: getFieldsToSign({
+            collectionConfig,
+            email: targetUser.email,
+            sid,
+            user: targetUser,
+          }),
+          secret: ctx.db.secret,
+          tokenExpiration: collectionConfig.auth.tokenExpiration,
+        });
+
+        await generateAuthCookie({ prefix: cookiePrefix, value: token });
+
+        return { success: true };
+      }),
+
+    stopImpersonating: baseProcedure.mutation(async ({ ctx }) => {
+      const impersonatorToken = await getImpersonatorCookie();
+
+      if (!impersonatorToken) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Not impersonating',
+        });
+      }
+
+      await generateAuthCookie({
+        prefix: ctx.db.config.cookiePrefix,
+        value: impersonatorToken,
+      });
+      await clearImpersonatorCookie();
+
+      return { success: true };
+    }),
+
+    impersonationStatus: baseProcedure.query(async () => {
+      const impersonatorToken = await getImpersonatorCookie();
+
+      return {
+        impersonating: Boolean(impersonatorToken),
+        originalPresent: Boolean(impersonatorToken),
+      };
+    }),
+  }),
+
   vendors: createTRPCRouter({
+    list: staffProcedure
+      .input(
+        z.object({
+          search: z.string().optional(),
+          status: z.enum(['all', 'pending', 'approved', 'suspended', 'rejected']).optional(),
+          limit: z.number().min(1).max(200).default(50),
+          page: z.number().min(1).default(1),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const where: Where = {};
+        const search = input.search?.trim();
+
+        if (search) {
+          where.or = [
+            { name: { contains: search } },
+            { slug: { contains: search } },
+            { email: { contains: search } },
+          ];
+        }
+
+        if (input.status && input.status !== 'all') {
+          where.status = { equals: input.status };
+        }
+
+        const result = await ctx.db.find({
+          collection: 'vendors',
+          where,
+          limit: input.limit,
+          page: input.page,
+          sort: 'name',
+          depth: 1,
+          overrideAccess: true,
+        });
+
+        return {
+          vendors: result.docs.map((vendor: Vendor) => formatStaffVendor(vendor)),
+          totalPages: result.totalPages,
+          totalDocs: result.totalDocs,
+          page: result.page ?? input.page,
+        };
+      }),
+
+    getOne: staffProcedure
+      .input(z.object({ id: z.string().min(1) }))
+      .query(async ({ ctx, input }) => {
+        const vendor = await ctx.db
+          .findByID({
+            collection: 'vendors',
+            id: input.id,
+            depth: 1,
+            overrideAccess: true,
+          })
+          .catch(() => null);
+
+        if (!vendor) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Vendor not found' });
+        }
+
+        return formatStaffVendor(vendor as Vendor);
+      }),
+
+    update: staffProcedure
+      .input(staffVendorUpdateInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const { id, selectedTemplateId, whatsappBusinessNumber, whatsappNotificationsEnabled, ...fields } =
+          input;
+
+        const existing = await ctx.db
+          .findByID({
+            collection: 'vendors',
+            id,
+            depth: 0,
+            overrideAccess: true,
+          })
+          .catch(() => null);
+
+        if (!existing) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Vendor not found' });
+        }
+
+        const data: Record<string, unknown> = {};
+
+        if (fields.name !== undefined) data.name = fields.name.trim();
+        if (fields.slug !== undefined) data.slug = fields.slug.trim();
+        if (fields.email !== undefined) data.email = fields.email.trim();
+        if (fields.phone !== undefined) data.phone = fields.phone.trim() || null;
+        if (fields.website !== undefined) data.website = fields.website.trim() || null;
+        if (fields.status !== undefined) data.status = fields.status;
+        if (fields.isActive !== undefined) data.isActive = fields.isActive;
+        if (fields.commissionRate !== undefined) data.commissionRate = fields.commissionRate;
+        if (fields.contactPhone !== undefined) data.contactPhone = fields.contactPhone.trim() || null;
+        if (fields.contactEmail !== undefined) {
+          data.contactEmail = fields.contactEmail?.trim() || null;
+        }
+        if (fields.preferredPaymentMethod !== undefined) {
+          data.preferredPaymentMethod = fields.preferredPaymentMethod;
+        }
+        if (fields.offlinePaymentInstructions !== undefined) {
+          data.offlinePaymentInstructions = fields.offlinePaymentInstructions.trim() || null;
+        }
+
+        if (selectedTemplateId !== undefined) {
+          if (selectedTemplateId) {
+            try {
+              await ctx.db.findByID({
+                collection: 'vendor-templates',
+                id: selectedTemplateId,
+                depth: 0,
+                overrideAccess: true,
+              });
+            } catch {
+              throw new TRPCError({
+                code: 'BAD_REQUEST',
+                message: 'Selected template does not exist',
+              });
+            }
+            data.selectedTemplate = selectedTemplateId;
+          } else {
+            data.selectedTemplate = null;
+          }
+        }
+
+        if (
+          whatsappBusinessNumber !== undefined ||
+          whatsappNotificationsEnabled !== undefined
+        ) {
+          data.whatsappConfig = {
+            ...(existing.whatsappConfig ?? {}),
+            ...(whatsappBusinessNumber !== undefined
+              ? { businessNumber: whatsappBusinessNumber.trim() || null }
+              : {}),
+            ...(whatsappNotificationsEnabled !== undefined
+              ? { notificationsEnabled: whatsappNotificationsEnabled }
+              : {}),
+          };
+        }
+
+        if (Object.keys(data).length === 0) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'No fields to update' });
+        }
+
+        try {
+          const updated = await ctx.db.update({
+            collection: 'vendors',
+            id,
+            data,
+            overrideAccess: true,
+          });
+
+          const withTemplate = await ctx.db.findByID({
+            collection: 'vendors',
+            id: updated.id,
+            depth: 1,
+            overrideAccess: true,
+          });
+
+          return formatStaffVendor(withTemplate as Vendor);
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : 'Failed to update vendor';
+          throw new TRPCError({ code: 'BAD_REQUEST', message });
+        }
+      }),
+
+    approve: staffProcedure
+      .input(z.object({ id: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const updated = await ctx.db.update({
+            collection: 'vendors',
+            id: input.id,
+            data: {
+              status: 'approved',
+              isActive: true,
+            },
+            overrideAccess: true,
+          });
+
+          const withTemplate = await ctx.db.findByID({
+            collection: 'vendors',
+            id: updated.id,
+            depth: 1,
+            overrideAccess: true,
+          });
+
+          return formatStaffVendor(withTemplate as Vendor);
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : 'Failed to approve vendor';
+          throw new TRPCError({ code: 'BAD_REQUEST', message });
+        }
+      }),
+
+    setActive: staffProcedure
+      .input(z.object({ id: z.string().min(1), isActive: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const updated = await ctx.db.update({
+            collection: 'vendors',
+            id: input.id,
+            data: { isActive: input.isActive },
+            overrideAccess: true,
+          });
+
+          const withTemplate = await ctx.db.findByID({
+            collection: 'vendors',
+            id: updated.id,
+            depth: 1,
+            overrideAccess: true,
+          });
+
+          return formatStaffVendor(withTemplate as Vendor);
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to update vendor active status';
+          throw new TRPCError({ code: 'BAD_REQUEST', message });
+        }
+      }),
+
     listOptions: staffProcedure.query(async ({ ctx }) => {
       const result = await ctx.db.find({
         collection: 'vendors',
@@ -93,6 +640,24 @@ export const adminRouter = createTRPCRouter({
         name: v.name,
         slug: v.slug,
         status: v.status,
+      }));
+    }),
+
+    listTemplateOptions: staffProcedure.query(async ({ ctx }) => {
+      const result = await ctx.db.find({
+        collection: 'vendor-templates',
+        where: { isActive: { equals: true } },
+        limit: 100,
+        sort: 'name',
+        depth: 0,
+        overrideAccess: true,
+      });
+
+      return result.docs.map((template: { id: string; name: string; slug: string; isDefault?: boolean | null }) => ({
+        id: template.id,
+        name: template.name,
+        slug: template.slug,
+        isDefault: template.isDefault ?? false,
       }));
     }),
   }),

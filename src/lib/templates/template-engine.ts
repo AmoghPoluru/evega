@@ -1,22 +1,39 @@
 import type { Payload } from "payload";
-import type { ResolvedTemplate, TemplateCustomization } from "@/types/template-customization";
-import { generateCSSVariables } from "./css-variables";
+import type { ResolvedTemplate, TemplateConfig, TemplateCustomization } from "@/types/template-customization";
+import { generateCSSVariables, generateSiteRootCSSVariables } from "./css-variables";
+import {
+  BUILTIN_TEMPLATE_DOC,
+  buildFallbackResolvedTemplate,
+  mergeTemplateWithCustomization,
+} from "./default-template";
+
+type VendorTemplateDoc = {
+  id: string;
+  slug: string;
+  isActive?: boolean | null;
+  templateConfig?: unknown;
+  componentMapping?: unknown;
+};
 
 /**
- * Get default template from database
+ * Get default template from database, falling back to the built-in config.
+ * Never throws.
  */
-export async function getDefaultTemplate(payload: Payload) {
-  const result = await payload.find({
-    collection: "vendor-templates",
-    where: {
-      isDefault: { equals: true },
-      isActive: { equals: true },
-    },
-    limit: 1,
-  });
+export async function getDefaultTemplate(payload: Payload): Promise<VendorTemplateDoc> {
+  try {
+    const result = await payload.find({
+      collection: "vendor-templates",
+      where: {
+        isDefault: { equals: true },
+        isActive: { equals: true },
+      },
+      limit: 1,
+    });
 
-  if (result.docs.length === 0) {
-    // Fallback: get first active template
+    if (result.docs.length > 0) {
+      return result.docs[0] as VendorTemplateDoc;
+    }
+
     const fallback = await payload.find({
       collection: "vendor-templates",
       where: {
@@ -26,106 +43,59 @@ export async function getDefaultTemplate(payload: Payload) {
       sort: "-createdAt",
     });
 
-    if (fallback.docs.length === 0) {
-      throw new Error("No active templates found. Please seed templates first.");
+    if (fallback.docs.length > 0) {
+      return fallback.docs[0] as VendorTemplateDoc;
     }
-
-    return fallback.docs[0];
+  } catch (error) {
+    console.error("Error fetching default template from database:", error);
   }
 
-  return result.docs[0];
+  return BUILTIN_TEMPLATE_DOC;
 }
 
-/**
- * Resolve vendor template configuration
- * Merges base template config with vendor customizations
- */
-export async function resolveVendorTemplate(
-  vendorId: string,
-  payload: Payload
-): Promise<ResolvedTemplate> {
-  const vendor = await payload.findByID({
-    collection: "vendors",
-    id: vendorId,
-    depth: 1, // Include template relationship
-  });
-
-  // Get template (either from relationship or default)
-  let template;
-  if (vendor.selectedTemplate) {
-    if (typeof vendor.selectedTemplate === "string") {
-      template = await payload.findByID({
-        collection: "vendor-templates",
-        id: vendor.selectedTemplate,
-      });
-    } else {
-      template = vendor.selectedTemplate;
-    }
-  } else {
-    template = await getDefaultTemplate(payload);
+async function loadVendorTemplate(
+  payload: Payload,
+  selectedTemplate: string | VendorTemplateDoc | null | undefined
+): Promise<VendorTemplateDoc> {
+  if (!selectedTemplate) {
+    return getDefaultTemplate(payload);
   }
 
-  // Get customization (default to empty object)
-  const customization: TemplateCustomization = (vendor.templateCustomization as TemplateCustomization) || {};
+  try {
+    let template: VendorTemplateDoc | null = null;
 
-  // Merge template config with customizations
-  const templateConfig = template.templateConfig as any;
-  const mergedConfig = {
-    colors: {
-      ...templateConfig.colors,
-      ...customization.colors,
-    },
-    fonts: {
-      ...templateConfig.fonts,
-      ...customization.fonts,
-    },
-    spacing: {
-      ...templateConfig.spacing,
-      ...customization.spacing,
-    },
-    layout: {
-      ...templateConfig.layout,
-      ...customization.layout,
-    },
-    components: {
-      heroBanner: {
-        ...templateConfig.components.heroBanner,
-        ...customization.components?.heroBanner,
-      },
-      productCard: {
-        ...templateConfig.components.productCard,
-        ...customization.components?.productCard,
-      },
-      navigation: {
-        ...templateConfig.components.navigation,
-        ...customization.components?.navigation,
-      },
-    },
-    backgroundStyle: templateConfig.backgroundStyle 
-      ? {
-          ...templateConfig.backgroundStyle,
-          ...customization.backgroundStyle,
-        }
-      : {
-          // Fallback to mesh-gradient if not defined in template
-          type: "mesh-gradient",
-          animation: {
-            enabled: true,
-            duration: "15s",
-            easing: "ease",
-          },
-        },
-    textStyles: {
-      ...templateConfig.textStyles,
-      ...customization.textStyles,
-    },
-  };
+    if (typeof selectedTemplate === "string") {
+      template = (await payload.findByID({
+        collection: "vendor-templates",
+        id: selectedTemplate,
+      })) as VendorTemplateDoc;
+    } else {
+      template = selectedTemplate;
+    }
 
-  // Generate CSS variables from merged config (mergedConfig already includes customizations)
+    if (template?.isActive !== false && template?.templateConfig) {
+      return template;
+    }
+  } catch (error) {
+    console.error("Error loading vendor selected template:", error);
+  }
+
+  return getDefaultTemplate(payload);
+}
+
+function buildResolvedTemplateFromDoc(
+  template: VendorTemplateDoc,
+  customization: TemplateCustomization
+): ResolvedTemplate {
+  const mergedConfig = mergeTemplateWithCustomization(
+    template.templateConfig as Partial<TemplateConfig>,
+    customization
+  );
   const cssVariables = generateCSSVariables(mergedConfig);
 
-  const componentMapping = (template.componentMapping as any) || {};
-  const layout: string =
+  const componentMapping =
+    (template.componentMapping as ResolvedTemplate["componentMapping"]) ?? {};
+  const layout =
     typeof componentMapping.layout === "string" && componentMapping.layout
       ? componentMapping.layout
       : "default";
@@ -137,6 +107,65 @@ export async function resolveVendorTemplate(
     customization,
     cssVariables,
     layout,
-    componentMapping,
+    componentMapping: {
+      layout,
+      heroBanner: componentMapping.heroBanner ?? "full-width",
+      productCard: componentMapping.productCard ?? "detailed",
+      navigation: componentMapping.navigation ?? "top",
+      footer: componentMapping.footer ?? "default",
+    },
   };
+}
+
+/**
+ * Resolve the site-wide default template (no vendor customization).
+ * Used by marketplace pages — homepage, category, search, etc.
+ * Never returns null — falls back to the built-in template on any failure.
+ */
+export async function resolveSiteTemplate(payload: Payload): Promise<ResolvedTemplate> {
+  try {
+    const template = await getDefaultTemplate(payload);
+    return buildResolvedTemplateFromDoc(template, {});
+  } catch (error) {
+    console.error("Failed to resolve site template, using built-in fallback:", error);
+    return buildFallbackResolvedTemplate();
+  }
+}
+
+/**
+ * CSS variables for marketplace pages: template tokens plus shadcn mappings.
+ */
+export function resolveSiteRootCSSVariables(
+  resolvedTemplate: ResolvedTemplate
+): Record<string, string> {
+  return generateSiteRootCSSVariables(resolvedTemplate.templateConfig);
+}
+
+/**
+ * Resolve vendor template configuration.
+ * Merges base template config with vendor customizations.
+ * Never returns null — falls back to the built-in template on any failure.
+ */
+export async function resolveVendorTemplate(
+  vendorId: string,
+  payload: Payload
+): Promise<ResolvedTemplate> {
+  let customization: TemplateCustomization = {};
+
+  try {
+    const vendor = await payload.findByID({
+      collection: "vendors",
+      id: vendorId,
+      depth: 1,
+    });
+
+    customization = (vendor.templateCustomization as TemplateCustomization) || {};
+
+    const template = await loadVendorTemplate(payload, vendor.selectedTemplate);
+
+    return buildResolvedTemplateFromDoc(template, customization);
+  } catch (error) {
+    console.error("Failed to resolve vendor template, using built-in fallback:", error);
+    return buildFallbackResolvedTemplate(customization);
+  }
 }
