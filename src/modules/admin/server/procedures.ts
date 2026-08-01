@@ -1,8 +1,17 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import type { Sort, Where } from 'payload';
-import type { Product, Vendor } from '@/payload-types';
-import { createTRPCRouter, staffProcedure } from '@/trpc/init';
+import type { Product, User, Vendor } from '@/payload-types';
+import { createLocalReq, getFieldsToSign, jwtSign } from 'payload';
+import { addSessionToUser } from 'payload/shared';
+import { adminProcedure, baseProcedure, createTRPCRouter, staffProcedure } from '@/trpc/init';
+import {
+  clearImpersonatorCookie,
+  generateAuthCookie,
+  getAuthCookie,
+  getImpersonatorCookie,
+  setImpersonatorCookie,
+} from '@/modules/auth/utils';
 import {
   processProductCreateInput,
   staffProductCreateInputSchema,
@@ -78,6 +87,145 @@ function flagsToStatus(isPrivate?: boolean | null, isArchived?: boolean | null):
 }
 
 export const adminRouter = createTRPCRouter({
+  users: createTRPCRouter({
+    list: staffProcedure
+      .input(
+        z.object({
+          search: z.string().optional(),
+          limit: z.number().min(1).max(200).default(50),
+          page: z.number().min(1).default(1),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const where: Where = {};
+        const search = input.search?.trim();
+
+        if (search) {
+          where.or = [
+            { email: { contains: search } },
+            { username: { contains: search } },
+            { name: { contains: search } },
+          ];
+        }
+
+        const result = await ctx.db.find({
+          collection: 'users',
+          where,
+          limit: input.limit,
+          page: input.page,
+          sort: '-createdAt',
+          depth: 0,
+          overrideAccess: true,
+        });
+
+        return {
+          users: result.docs.map((user: User) => ({
+            id: user.id,
+            email: user.email,
+            username: user.username ?? null,
+            name: user.name ?? null,
+            role: user.role ?? null,
+            createdAt: user.createdAt,
+          })),
+          totalPages: result.totalPages,
+          totalDocs: result.totalDocs,
+          page: result.page ?? input.page,
+        };
+      }),
+
+    impersonate: adminProcedure
+      .input(z.object({ userId: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        if (input.userId === ctx.session.user.id) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'You are already signed in as this user',
+          });
+        }
+
+        const targetUser = await ctx.db
+          .findByID({
+            collection: 'users',
+            id: input.userId,
+            depth: 0,
+            overrideAccess: true,
+          })
+          .catch(() => null);
+
+        if (!targetUser) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+        }
+
+        const cookiePrefix = ctx.db.config.cookiePrefix;
+        const adminToken = await getAuthCookie({ prefix: cookiePrefix });
+
+        if (!adminToken) {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Missing admin session token',
+          });
+        }
+
+        // Keep the first (real admin) token so nested impersonation still returns home.
+        const existingImpersonator = await getImpersonatorCookie();
+        if (!existingImpersonator) {
+          await setImpersonatorCookie(adminToken);
+        }
+
+        const collectionConfig = ctx.db.collections.users.config;
+        const req = await createLocalReq({}, ctx.db);
+        const { sid } = await addSessionToUser({
+          collectionConfig,
+          payload: ctx.db,
+          req,
+          user: targetUser,
+        });
+
+        const { token } = await jwtSign({
+          fieldsToSign: getFieldsToSign({
+            collectionConfig,
+            email: targetUser.email,
+            sid,
+            user: targetUser,
+          }),
+          secret: ctx.db.secret,
+          tokenExpiration: collectionConfig.auth.tokenExpiration,
+        });
+
+        await generateAuthCookie({ prefix: cookiePrefix, value: token });
+
+        return { success: true };
+      }),
+
+    stopImpersonating: baseProcedure.mutation(async ({ ctx }) => {
+      const impersonatorToken = await getImpersonatorCookie();
+
+      if (!impersonatorToken) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Not impersonating',
+        });
+      }
+
+      await generateAuthCookie({
+        prefix: ctx.db.config.cookiePrefix,
+        value: impersonatorToken,
+      });
+      await clearImpersonatorCookie();
+
+      return { success: true };
+    }),
+
+    impersonationStatus: baseProcedure.query(async () => {
+      const impersonatorToken = await getImpersonatorCookie();
+
+      return {
+        impersonating: Boolean(impersonatorToken),
+        originalPresent: Boolean(impersonatorToken),
+      };
+    }),
+  }),
+
   vendors: createTRPCRouter({
     listOptions: staffProcedure.query(async ({ ctx }) => {
       const result = await ctx.db.find({

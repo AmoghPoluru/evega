@@ -63,6 +63,46 @@ export const generateAuthCookie = async ({
   });
 };
 
+export const IMPERSONATOR_COOKIE_NAME = "impersonator-token";
+
+/** Current Payload auth token from the `${prefix}-token` cookie. */
+export const getAuthCookie = async ({ prefix }: { prefix: string }) => {
+  const cookies = await getCookies();
+  return cookies.get(`${prefix}-token`)?.value ?? null;
+};
+
+/** Stores the admin's own token while they impersonate another user. */
+export const setImpersonatorCookie = async (value: string) => {
+  const cookies = await getCookies();
+
+  cookies.set({
+    name: IMPERSONATOR_COOKIE_NAME,
+    value,
+    httpOnly: true,
+    path: "/",
+    ...(process.env.NODE_ENV !== "development"
+      ? getProductionCookieOptions()
+      : {}),
+  });
+};
+
+export const getImpersonatorCookie = async () => {
+  const cookies = await getCookies();
+  return cookies.get(IMPERSONATOR_COOKIE_NAME)?.value ?? null;
+};
+
+export const clearImpersonatorCookie = async () => {
+  const cookies = await getCookies();
+
+  cookies.delete({
+    name: IMPERSONATOR_COOKIE_NAME,
+    path: "/",
+    ...(process.env.NODE_ENV !== "development"
+      ? getProductionCookieOptions()
+      : {}),
+  });
+};
+
 export const clearAuthCookie = async ({
   prefix,
 }: {
