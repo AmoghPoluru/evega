@@ -4,6 +4,7 @@ import { baseProcedure, createTRPCRouter } from "@/trpc/init";
 
 import { generateAuthCookie, clearAuthCookie } from "../utils";
 import { loginSchema, registerSchema } from "../schemas";
+import { linkGuestOrdersToUser } from "@/modules/orders/server/link-guest-orders";
 
 export const authRouter = createTRPCRouter({
   session: baseProcedure.query(async ({ ctx }) => {
@@ -56,7 +57,7 @@ export const authRouter = createTRPCRouter({
       }
 
       // Create user
-      await ctx.db.create({
+      const createdUser = await ctx.db.create({
         collection: "users",
         data: {
           email: input.email,
@@ -66,6 +67,12 @@ export const authRouter = createTRPCRouter({
           oauthProvider: "email",
         },
       });
+
+      try {
+        await linkGuestOrdersToUser(ctx.db, createdUser.id, input.email);
+      } catch (error) {
+        console.error("Failed to link guest orders on register:", error);
+      }
 
       const data = await ctx.db.login({
         collection: "users",

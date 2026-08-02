@@ -116,12 +116,24 @@ export const Orders: CollectionConfig = {
         // Send order confirmation email when order is created
         if (operation === "create" && doc.status === "payment_done") {
           try {
-            // Fetch user to get email
-            const user = await req.payload.findByID({
-              collection: "users",
-              id: typeof doc.user === "string" ? doc.user : doc.user.id,
-              depth: 0,
-            });
+            const userId =
+              typeof doc.user === "string"
+                ? doc.user
+                : doc.user && typeof doc.user === "object" && "id" in doc.user
+                  ? doc.user.id
+                  : null;
+
+            const user = userId
+              ? await req.payload.findByID({
+                  collection: "users",
+                  id: userId,
+                  depth: 0,
+                })
+              : null;
+
+            const confirmationEmail =
+              user?.email ||
+              (typeof doc.guestEmail === "string" ? doc.guestEmail : null);
 
             // Fetch product to get name
             const product = await req.payload.findByID({
@@ -130,10 +142,10 @@ export const Orders: CollectionConfig = {
               depth: 0,
             });
 
-            if (user.email) {
+            if (confirmationEmail) {
               const { sendOrderConfirmationEmail } = await import("@/lib/email");
               await sendOrderConfirmationEmail(
-                user.email,
+                confirmationEmail,
                 doc.orderNumber,
                 doc.total,
                 [
@@ -157,7 +169,12 @@ export const Orders: CollectionConfig = {
                 productName: product.name || "Product",
                 quantity: doc.quantity || 1,
                 total: doc.total,
-                customerName: user.name || user.email || "Customer",
+                customerName:
+                  user?.name ||
+                  user?.email ||
+                  (typeof doc.guestEmail === "string" ? doc.guestEmail : null) ||
+                  doc.shippingAddress?.fullName ||
+                  "Customer",
                 orderUrl: `${process.env.NEXT_PUBLIC_APP_URL}/vendor/orders/${doc.id}`,
                 imageUrl,
               });
@@ -173,15 +190,24 @@ export const Orders: CollectionConfig = {
         // Send order status update email when status changes
         if (operation === "update" && previousDoc && doc.status !== previousDoc.status) {
           try {
-            const user = await req.payload.findByID({
-              collection: "users",
-              id: typeof doc.user === "string" ? doc.user : doc.user.id,
-              depth: 0,
-            });
+            const userId =
+              typeof doc.user === "string"
+                ? doc.user
+                : doc.user && typeof doc.user === "object" && "id" in doc.user
+                  ? doc.user.id
+                  : null;
 
-            if (user.email) {
-              // Status update emails can be added here if needed
-              // For now, we only send confirmation on creation
+            if (userId) {
+              const user = await req.payload.findByID({
+                collection: "users",
+                id: userId,
+                depth: 0,
+              });
+
+              if (user.email) {
+                // Status update emails can be added here if needed
+                // For now, we only send confirmation on creation
+              }
             }
           } catch (error) {
             console.error("Failed to send order status update email:", error);

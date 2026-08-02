@@ -3,6 +3,7 @@ import { authConfig } from "@/lib/auth.config";
 import { getPayload } from "payload";
 import config from "@payload-config";
 import { generateAuthCookie } from "@/modules/auth/utils";
+import { linkGuestOrdersToUser } from "@/modules/orders/server/link-guest-orders";
 
 // Mark this route as dynamic to prevent build-time analysis
 export const dynamic = 'force-dynamic';
@@ -108,6 +109,12 @@ function getNextAuthHandlers() {
             data: oauthData,
           });
 
+          try {
+            await linkGuestOrdersToUser(payload, existingUser.id, user.email!);
+          } catch (linkError) {
+            console.error("Failed to link guest orders on OAuth sign-in:", linkError);
+          }
+
           // Always log in the user with Payload CMS after OAuth authentication
           const loginData = await payload.login({
             collection: "users",
@@ -155,7 +162,7 @@ function getNextAuthHandlers() {
 
           const randomPassword = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}-${Math.random().toString(36).substring(2, 15)}`;
 
-          await payload.create({
+          const createdUser = await payload.create({
             collection: "users",
             data: {
               email: user.email!,
@@ -171,6 +178,12 @@ function getNextAuthHandlers() {
               ...(user.image ? { avatar: user.image } : {}),
             },
           });
+
+          try {
+            await linkGuestOrdersToUser(payload, createdUser.id, user.email!);
+          } catch (linkError) {
+            console.error("Failed to link guest orders on OAuth sign-up:", linkError);
+          }
 
           // Generate Payload auth token
           const loginData = await payload.login({
