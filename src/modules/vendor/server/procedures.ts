@@ -38,7 +38,7 @@ export const vendorRouter = createTRPCRouter({
     const user = await ctx.db.findByID({
       collection: "users",
       id: ctx.session.user.id,
-      depth: 2, // Populate vendor with full details
+      depth: 2,
     });
 
     const vendor = user.vendor;
@@ -50,9 +50,31 @@ export const vendorRouter = createTRPCRouter({
       };
     }
 
-    const vendorDoc = typeof vendor === "string"
-      ? await ctx.db.findByID({ collection: "vendors", id: vendor, depth: 0 })
-      : vendor;
+    const vendorId = typeof vendor === "string" ? vendor : vendor.id;
+
+    let vendorDoc;
+    try {
+      vendorDoc =
+        typeof vendor === "string"
+          ? await ctx.db.findByID({ collection: "vendors", id: vendorId, depth: 0 })
+          : vendor;
+    } catch (error) {
+      const isNotFound =
+        typeof error === "object" &&
+        error !== null &&
+        "status" in error &&
+        (error as { status: number }).status === 404;
+
+      if (isNotFound) {
+        return {
+          hasVendor: false,
+          status: "none" as const,
+          isActive: false,
+        };
+      }
+
+      throw error;
+    }
 
     return {
       hasVendor: true,
