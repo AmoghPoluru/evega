@@ -61,7 +61,12 @@ export function TemplateLivePreview({
           maxHeight,
         }}
       >
-        <style>{buildTemplateGlobalStyles(cssVariablesString)}</style>
+        <style>
+          {buildTemplateGlobalStyles(
+            cssVariablesString,
+            resolved.layout === "modular" ? resolved.templateConfig : undefined,
+          )}
+        </style>
         <VendorStorefront vendor={vendor} template={resolved} products={PREVIEW_PRODUCTS} />
       </div>
     </div>

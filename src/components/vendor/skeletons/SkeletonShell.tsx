@@ -18,7 +18,7 @@ export function SkeletonShell({ vendor, template, products, className }: Skeleto
       className={`flex min-h-screen flex-col vendor-page-template ${className ?? ""}`}
       style={{ ...(template.cssVariables as React.CSSProperties) }}
     >
-      <style>{buildTemplateGlobalStyles(cssVariables)}</style>
+      <style>{buildTemplateGlobalStyles(cssVariables, template.templateConfig)}</style>
       <SectionRenderer sections={sections} vendor={vendor} products={products} template={template} />
     </div>
   );

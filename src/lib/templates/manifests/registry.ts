@@ -3,6 +3,7 @@ import { templateSeeds } from "../seed-templates";
 import { generateCSSVariables } from "../css-variables";
 import { resolveSkeletonFromLayout } from "./skeletons";
 import { THEME_META } from "./theme-meta";
+import { THEME_CATALOG } from "./theme-catalog";
 import type { ThemeManifest, ThemeManifestMeta } from "./types";
 
 function buildManifestFromSeed(
@@ -17,8 +18,8 @@ function buildManifestFromSeed(
   };
 }
 
-/** All curated theme manifests derived from seed data + metadata. */
-export function getThemeManifests(): ThemeManifest[] {
+/** Legacy themes: manifests reconstructed from the original hand-written seeds. */
+function getLegacyThemeManifests(): ThemeManifest[] {
   return templateSeeds.map((seed) => {
     const meta = THEME_META[seed.slug];
     if (!meta) {
@@ -35,6 +36,14 @@ export function getThemeManifests(): ThemeManifest[] {
     }
     return buildManifestFromSeed(seed, meta);
   });
+}
+
+/** All curated theme manifests: legacy seeds plus the data-driven catalog. */
+export function getThemeManifests(): ThemeManifest[] {
+  const legacy = getLegacyThemeManifests();
+  const legacySlugs = new Set(legacy.map((manifest) => manifest.slug));
+
+  return [...legacy, ...THEME_CATALOG.filter((manifest) => !legacySlugs.has(manifest.slug))];
 }
 
 export function getThemeManifestBySlug(slug: string): ThemeManifest | undefined {

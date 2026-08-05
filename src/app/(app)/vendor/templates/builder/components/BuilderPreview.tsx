@@ -77,7 +77,7 @@ export function BuilderPreview({
         className="vendor-page-template max-h-[70vh] overflow-y-auto"
         style={cssVariables as React.CSSProperties}
       >
-        <style>{buildTemplateGlobalStyles("")}</style>
+        <style>{buildTemplateGlobalStyles("", config)}</style>
         <SectionRenderer
           sections={sections}
           vendor={vendor}

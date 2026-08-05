@@ -32,6 +32,34 @@ export const googleFonts: FontOption[] = [
   { value: "Nunito, sans-serif", label: "Nunito", googleFamily: "Nunito" },
 ];
 
+/** Curated editorial, display and premium-retail families used by catalog themes. */
+export const editorialFonts: FontOption[] = [
+  {
+    value: '"Cormorant Garamond", serif',
+    label: "Cormorant Garamond",
+    googleFamily: "Cormorant+Garamond",
+  },
+  { value: '"EB Garamond", serif', label: "EB Garamond", googleFamily: "EB+Garamond" },
+  { value: '"DM Serif Display", serif', label: "DM Serif Display", googleFamily: "DM+Serif+Display" },
+  { value: '"Bodoni Moda", serif', label: "Bodoni Moda", googleFamily: "Bodoni+Moda" },
+  { value: '"Libre Baskerville", serif', label: "Libre Baskerville", googleFamily: "Libre+Baskerville" },
+  { value: "Marcellus, serif", label: "Marcellus", googleFamily: "Marcellus" },
+  { value: "Fraunces, serif", label: "Fraunces", googleFamily: "Fraunces" },
+  { value: "Cardo, serif", label: "Cardo", googleFamily: "Cardo" },
+  { value: '"Instrument Serif", serif', label: "Instrument Serif", googleFamily: "Instrument+Serif" },
+  { value: '"Space Grotesk", sans-serif', label: "Space Grotesk", googleFamily: "Space+Grotesk" },
+  { value: "Manrope, sans-serif", label: "Manrope", googleFamily: "Manrope" },
+  { value: '"Work Sans", sans-serif', label: "Work Sans", googleFamily: "Work+Sans" },
+  { value: "Outfit, sans-serif", label: "Outfit", googleFamily: "Outfit" },
+  { value: "Jost, sans-serif", label: "Jost", googleFamily: "Jost" },
+  { value: "Sora, sans-serif", label: "Sora", googleFamily: "Sora" },
+  { value: "Archivo, sans-serif", label: "Archivo", googleFamily: "Archivo" },
+  { value: "Karla, sans-serif", label: "Karla", googleFamily: "Karla" },
+  { value: "Rubik, sans-serif", label: "Rubik", googleFamily: "Rubik" },
+  { value: '"Bebas Neue", sans-serif', label: "Bebas Neue", googleFamily: "Bebas+Neue" },
+  { value: "Syne, sans-serif", label: "Syne", googleFamily: "Syne" },
+];
+
 /** Fonts with strong support for South Asian scripts (Google Fonts). */
 export const southAsianFonts: FontOption[] = [
   {
@@ -141,12 +169,14 @@ export const southAsianFonts: FontOption[] = [
 export const fontGroups = [
   { id: "system", label: "System", fonts: systemFonts },
   { id: "popular", label: "Popular", fonts: googleFonts },
+  { id: "editorial", label: "Editorial & display", fonts: editorialFonts },
   { id: "south-asian", label: "South Asian", fonts: southAsianFonts },
 ] as const;
 
 export const allTemplateFonts: FontOption[] = [
   ...systemFonts,
   ...googleFonts,
+  ...editorialFonts,
   ...southAsianFonts,
 ];
 
