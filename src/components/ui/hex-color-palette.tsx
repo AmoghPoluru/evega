@@ -57,6 +57,53 @@ function normalizeHex(color: string): string {
   return color.trim().toLowerCase();
 }
 
+function hexToRgb(hex: string): [number, number, number] | null {
+  const normalized = expandShortHex(hex).replace("#", "");
+  if (normalized.length !== 6) return null;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+  return [r, g, b];
+}
+
+function colorDistance(a: [number, number, number], b: [number, number, number]): number {
+  const dr = a[0] - b[0];
+  const dg = a[1] - b[1];
+  const db = a[2] - b[2];
+  return dr * dr + dg * dg + db * db;
+}
+
+/** Pick the palette swatch nearest to a target hex (exact match when available). */
+export function findClosestSwatchColor(
+  targetHex: string,
+  swatches: HexColorSwatch[],
+): string | undefined {
+  if (swatches.length === 0) return undefined;
+
+  const normalized = normalizeHex(toDisplayHex(targetHex));
+  const exact = swatches.find((swatch) => normalizeHex(swatch.color) === normalized);
+  if (exact) return exact.color;
+
+  const targetRgb = hexToRgb(normalized);
+  if (!targetRgb) return swatches[0]?.color;
+
+  let closest = swatches[0];
+  let bestDistance = Infinity;
+
+  for (const swatch of swatches) {
+    const rgb = hexToRgb(swatch.color);
+    if (!rgb) continue;
+    const distance = colorDistance(targetRgb, rgb);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      closest = swatch;
+    }
+  }
+
+  return closest.color;
+}
+
 /** Flat-top axial hex → pixel center. */
 function axialToPixel(q: number, r: number, size: number): { x: number; y: number } {
   return {
@@ -127,7 +174,10 @@ export function HexColorPalette({
 }: HexColorPaletteProps) {
   const maxRing = expanded ? 4 : compact ? 3 : 4;
   const swatches = useMemo(() => buildHoneycombPalette(maxRing), [maxRing]);
-  const selected = value ? normalizeHex(toDisplayHex(value)) : undefined;
+  const highlightedColor = useMemo(
+    () => (value ? findClosestSwatchColor(value, swatches) : undefined),
+    [value, swatches],
+  );
   const hexRadius = expanded
     ? EXPANDED_HEX_RADIUS
     : compact
@@ -168,7 +218,9 @@ export function HexColorPalette({
         )}
       >
         {layout.positioned.map((swatch) => {
-          const isSelected = selected === normalizeHex(swatch.color);
+          const isSelected =
+            highlightedColor !== undefined &&
+            normalizeHex(swatch.color) === normalizeHex(highlightedColor);
 
           return (
             <g key={`${swatch.q}-${swatch.r}`}>
@@ -176,9 +228,10 @@ export function HexColorPalette({
                 points={hexPoints(swatch.x, swatch.y, layout.drawRadius)}
                 fill={swatch.color}
                 stroke={isSelected ? "#111827" : "rgba(255,255,255,0.65)"}
-                strokeWidth={isSelected ? 2.8 : 1.2}
+                strokeWidth={isSelected ? 3.2 : 1.2}
                 className={cn(
-                  "transition-[stroke-width,stroke]",
+                  "transition-[stroke-width,stroke,filter]",
+                  isSelected && "drop-shadow-[0_0_6px_rgba(0,0,0,0.35)]",
                   interactive
                     ? "cursor-pointer hover:stroke-gray-900 focus-visible:outline-none"
                     : "pointer-events-none",

@@ -3,8 +3,36 @@ import type {
   TemplateConfig,
   TemplateCustomization,
 } from "@/types/template-customization";
-import { DEFAULT_SECTIONS } from "@/types/template-sections";
+import { DEFAULT_SECTIONS, normalizeStorefrontSections } from "@/types/template-sections";
 import { generateCSSVariables } from "./css-variables";
+import { mergeStorefrontChrome } from "./storefront-chrome";
+
+function omitNullish<T extends Record<string, unknown>>(value: T | null | undefined): Partial<T> {
+  if (!value) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== null && entry !== undefined),
+  ) as Partial<T>;
+}
+
+function mergeTypographyAreas(
+  base: TemplateConfig["typography"] | undefined,
+  override: TemplateCustomization["typography"] | undefined,
+): TemplateConfig["typography"] | undefined {
+  const areas = ["vendor", "hero", "product", "price"] as const;
+  const merged: NonNullable<TemplateConfig["typography"]> = {};
+
+  for (const area of areas) {
+    const next = {
+      ...omitNullish(base?.[area] as Record<string, unknown> | undefined),
+      ...omitNullish(override?.[area] as Record<string, unknown> | undefined),
+    };
+    if (Object.keys(next).length > 0) {
+      merged[area] = next as NonNullable<TemplateConfig["typography"]>[typeof area];
+    }
+  }
+
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
 
 /** Mirrors the seeded "Fun" template — guaranteed valid in-code fallback. */
 export const BUILTIN_TEMPLATE_CONFIG: TemplateConfig = {
@@ -31,7 +59,7 @@ export const BUILTIN_TEMPLATE_CONFIG: TemplateConfig = {
     productGridColumns: 4,
     showBanner: true,
     showCategories: true,
-    showFilters: true,
+    showFilters: false,
     showReviews: true,
   },
   components: {
@@ -127,6 +155,8 @@ export function mergeTemplateWithCustomization(
       ...(templateConfig.fonts ?? {}),
       ...(customization.fonts ?? {}),
     },
+    typography: mergeTypographyAreas(templateConfig.typography, customization.typography),
+    chrome: mergeStorefrontChrome(templateConfig.chrome, customization.chrome),
     spacing: {
       ...(templateConfig.spacing ?? {}),
       ...(customization.spacing ?? {}),
@@ -167,10 +197,12 @@ export function mergeTemplateWithCustomization(
       ...(customization.textStyles ?? {}),
     },
     tokens: {
-      ...(templateConfig.tokens ?? {}),
-      ...(customization.tokens ?? {}),
+      ...omitNullish(templateConfig.tokens),
+      ...omitNullish(customization.tokens),
     },
-    sections: customization.sections ?? templateConfig.sections ?? DEFAULT_SECTIONS,
+    sections: normalizeStorefrontSections(
+      customization.sections ?? templateConfig.sections ?? DEFAULT_SECTIONS,
+    ),
   } as TemplateConfig;
 }
 

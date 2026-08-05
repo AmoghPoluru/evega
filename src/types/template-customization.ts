@@ -1,6 +1,43 @@
 import { z } from "zod";
 
 import { storefrontSectionsSchema } from "./template-sections";
+import { storefrontChromeSchema } from "@/lib/templates/storefront-chrome";
+
+/** Coerce null/empty to undefined — Payload JSON often stores null for absent fields. */
+const optionalString = z.preprocess(
+  (val) => (val === null || val === "" ? undefined : val),
+  z.string().optional(),
+);
+
+const typographyAreaSchema = z.object({
+  font: optionalString,
+  color: optionalString,
+});
+
+const typographyPriceSchema = typographyAreaSchema.extend({
+  backgroundColor: optionalString,
+});
+
+const typographySchema = z.object({
+  vendor: typographyAreaSchema.optional(),
+  hero: typographyAreaSchema.optional(),
+  product: typographyAreaSchema.optional(),
+  price: typographyPriceSchema.optional(),
+});
+
+const backgroundStyleTypeSchema = z.enum([
+  "light-tint",
+  "dark-obsidian",
+  "monochrome-wash",
+  "linear-gradient",
+  "mesh-gradient",
+  "modal-overlay",
+  "semantic-tint",
+  "solid",
+  "gradient",
+  "pattern",
+  "image",
+]);
 
 /**
  * Template Customization Schema
@@ -25,6 +62,8 @@ export const templateCustomizationSchema = z.object({
       body: z.string().optional(),
     })
     .optional(),
+  typography: typographySchema.optional(),
+  chrome: storefrontChromeSchema.optional(),
   textStyles: z
     .object({
       heading1: z.object({
@@ -100,7 +139,7 @@ export const templateCustomizationSchema = z.object({
     .optional(),
   backgroundStyle: z
     .object({
-      type: z.enum(["solid", "gradient", "mesh-gradient", "pattern", "image"]).optional(),
+      type: backgroundStyleTypeSchema.optional(),
       value: z.string().optional(),
       animation: z
         .object({
@@ -115,7 +154,7 @@ export const templateCustomizationSchema = z.object({
   tokens: z
     .object({
       contrast: z.enum(["light", "dark", "high-contrast"]).optional(),
-      displayFont: z.string().optional(),
+      displayFont: optionalString,
       typeScale: z
         .object({
           base: z.string().optional(),
@@ -167,6 +206,8 @@ export const templateConfigSchema = z.object({
     heading: z.string(),
     body: z.string(),
   }),
+  typography: typographySchema.optional(),
+  chrome: storefrontChromeSchema.optional(),
   textStyles: z.object({
     heading1: z.object({
       fontSize: z.string().optional(),
@@ -226,19 +267,19 @@ export const templateConfigSchema = z.object({
     }),
   }),
   backgroundStyle: z.object({
-    type: z.enum(["solid", "gradient", "mesh-gradient", "pattern", "image"]),
-    value: z.string().optional(), // CSS value for solid/gradient/pattern/image
+    type: backgroundStyleTypeSchema,
+    value: z.string().optional(),
     animation: z.object({
       enabled: z.boolean(),
-      duration: z.string().optional(), // e.g., "15s"
-      easing: z.string().optional(), // e.g., "ease"
+      duration: z.string().optional(),
+      easing: z.string().optional(),
     }).optional(),
   }),
   sections: storefrontSectionsSchema.optional(),
   tokens: z
     .object({
       contrast: z.enum(["light", "dark", "high-contrast"]).optional(),
-      displayFont: z.string().optional(),
+      displayFont: optionalString,
       typeScale: z.object({
         base: z.string().optional(),
         ratio: z.string().optional(),

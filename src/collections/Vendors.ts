@@ -858,6 +858,17 @@ export const Vendors: CollectionConfig = {
       },
     },
     {
+      name: "selectedTemplateSlug",
+      type: "text",
+      index: true,
+      admin: {
+        description:
+          "Slug of the selected template — used to recover selection if the template ID changes after re-seed",
+        position: "sidebar",
+        readOnly: true,
+      },
+    },
+    {
       name: "templateCustomization",
       type: "json",
       defaultValue: {},

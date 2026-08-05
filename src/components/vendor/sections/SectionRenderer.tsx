@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { getSection } from "@/lib/templates/component-registry";
 import type { VendorLayoutProps } from "@/components/vendor/layouts/types";
-import { DEFAULT_SECTIONS, type StorefrontSection } from "@/types/template-sections";
+import { DEFAULT_SECTIONS, normalizeStorefrontSections, type StorefrontSection } from "@/types/template-sections";
 
 interface SectionRendererProps extends VendorLayoutProps {
   sections?: StorefrontSection[] | null;
@@ -20,7 +20,7 @@ export function SectionRenderer({
   template,
   preview,
 }: SectionRendererProps) {
-  const list = sections && sections.length > 0 ? sections : DEFAULT_SECTIONS;
+  const list = normalizeStorefrontSections(sections);
 
   const ordered = [...list]
     .filter((section) => section.enabled)

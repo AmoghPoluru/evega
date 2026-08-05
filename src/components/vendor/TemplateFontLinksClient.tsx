@@ -7,15 +7,18 @@ import { buildGoogleFontsHref } from "@/lib/templates/template-fonts";
 interface TemplateFontLinksClientProps {
   headingFont?: string | null;
   bodyFont?: string | null;
+  /** Additional section-specific font stacks (vendor, hero, product, price). */
+  extraFonts?: Array<string | null | undefined>;
 }
 
 /** Client-side Google Fonts loader for live template previews. */
 export function TemplateFontLinksClient({
   headingFont,
   bodyFont,
+  extraFonts = [],
 }: TemplateFontLinksClientProps) {
   useEffect(() => {
-    const href = buildGoogleFontsHref([headingFont, bodyFont]);
+    const href = buildGoogleFontsHref([headingFont, bodyFont, ...extraFonts]);
     const linkId = "evega-template-fonts-preview";
 
     if (!href) {
@@ -34,7 +37,7 @@ export function TemplateFontLinksClient({
     if (link.href !== href) {
       link.href = href;
     }
-  }, [headingFont, bodyFont]);
+  }, [headingFont, bodyFont, extraFonts.join("|")]);
 
   return null;
 }

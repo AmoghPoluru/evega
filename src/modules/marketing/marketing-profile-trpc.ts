@@ -77,6 +77,11 @@ export function toMarketingProfileResponse(vendor: Vendor) {
   return {
     logoId,
     logoUrl,
+    name: vendor.name,
+    slug: vendor.slug,
+    email: vendor.email ?? "",
+    phone: vendor.phone ?? "",
+    website: vendor.website ?? "",
     socialChannels: {
       socialInstagram: vendor.socialChannels?.socialInstagram ?? "",
       socialFacebook: vendor.socialChannels?.socialFacebook ?? "",

@@ -67,23 +67,11 @@ export function VendorInfoSection({ settings, vendor, products, preview }: Secti
                     </span>
                   </div>
                 )}
-                <h1
-                  className="text-base font-bold"
-                  style={{
-                    color: "var(--template-text)",
-                    fontFamily: "var(--template-font-heading)",
-                  }}
-                >
+                <h1 className="template-type-vendor text-base font-bold">
                   {vendor.name}
                 </h1>
                 {totalDocs > 0 && (
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full font-medium"
-                    style={{
-                      backgroundColor: "var(--template-accent)",
-                      color: "var(--template-text)",
-                    }}
-                  >
+                  <span className="template-type-vendor template-vendor-meta text-xs px-2 py-0.5 rounded-full font-medium">
                     {totalDocs} {totalDocs === 1 ? "Product" : "Products"}
                   </span>
                 )}
@@ -95,10 +83,7 @@ export function VendorInfoSection({ settings, vendor, products, preview }: Secti
                   {vendor.email && (
                     <a
                       href={`mailto:${vendor.email}`}
-                      className="hover:underline whitespace-nowrap"
-                      style={{
-                        color: "var(--template-primary)",
-                      }}
+                      className="template-type-vendor hover:underline whitespace-nowrap"
                     >
                       {vendor.email}
                     </a>
@@ -106,10 +91,7 @@ export function VendorInfoSection({ settings, vendor, products, preview }: Secti
                   {vendor.phone && (
                     <a
                       href={`tel:${vendor.phone}`}
-                      className="hover:underline whitespace-nowrap"
-                      style={{
-                        color: "var(--template-primary)",
-                      }}
+                      className="template-type-vendor hover:underline whitespace-nowrap"
                     >
                       {vendor.phone}
                     </a>
@@ -123,10 +105,7 @@ export function VendorInfoSection({ settings, vendor, products, preview }: Secti
                       }
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="hover:underline whitespace-nowrap"
-                      style={{
-                        color: "var(--template-primary)",
-                      }}
+                      className="template-type-vendor hover:underline whitespace-nowrap"
                     >
                       Website
                     </a>

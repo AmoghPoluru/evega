@@ -1,12 +1,19 @@
 "use client";
 
 import Image from "next/image";
-import { Suspense } from "react";
 import { VendorHeroBannersSection } from "@/components/vendor-hero-banners-section";
 import { getDescriptionText, getMediaUrl } from "@/components/vendor/layouts/utils";
+import { HeroCarouselPeek } from "./HeroCarouselPeek";
 import type { SectionProps } from "./types";
 
-type HeroVariant = "full-bleed" | "full-width" | "split-media" | "split" | "minimal-type" | "minimal";
+type HeroVariant =
+  | "full-bleed"
+  | "full-width"
+  | "split-media"
+  | "split"
+  | "minimal-type"
+  | "minimal"
+  | "carousel-peek";
 
 function resolveHeroVariant(settings: Record<string, unknown>, template: SectionProps["template"]): HeroVariant {
   const fromSettings = settings.variant;
@@ -17,25 +24,24 @@ function resolveHeroVariant(settings: Record<string, unknown>, template: Section
   return "full-bleed";
 }
 
-/**
- * HeroSection with variant branches driven by settings.variant or components.heroBanner.style.
- */
-export function HeroSection({ settings, vendor, products, template, preview }: SectionProps) {
-  const variant = resolveHeroVariant(settings, template);
-  const useVendorBanners = settings.useVendorBanners !== false && !preview;
-  const height =
-    typeof settings.height === "string"
-      ? settings.height
-      : template.templateConfig.components?.heroBanner?.height ?? "400px";
-
-  const title = typeof settings.title === "string" && settings.title ? settings.title : vendor.name;
-  const subtitle =
-    typeof settings.subtitle === "string" && settings.subtitle
-      ? settings.subtitle
-      : getDescriptionText(vendor.description);
-
-  const backgroundImageUrl = getMediaUrl(vendor.coverImage) ?? getMediaUrl(vendor.logo);
-  const featuredProducts = products.slice(0, 6);
+function renderTemplateHero({
+  variant,
+  template,
+  title,
+  subtitle,
+  backgroundImageUrl,
+  height,
+}: {
+  variant: HeroVariant;
+  template: SectionProps["template"];
+  title: string;
+  subtitle: string | null;
+  backgroundImageUrl: string | null;
+  height: string;
+}) {
+  if (variant === "carousel-peek") {
+    return <HeroCarouselPeek template={template} title={title} subtitle={subtitle ?? undefined} />;
+  }
 
   if (variant === "minimal-type" || variant === "minimal") {
     return (
@@ -44,12 +50,10 @@ export function HeroSection({ settings, vendor, products, template, preview }: S
         style={{ maxWidth: "var(--template-container-width)" }}
       >
         <h1
-          className="font-bold"
+          className="template-type-hero font-bold"
           style={{
-            fontFamily: "var(--template-font-heading)",
             fontSize: "var(--template-hero-title-size, 3rem)",
             fontWeight: "var(--template-hero-title-weight, 700)",
-            color: "var(--template-text)",
             textTransform: "var(--template-h1-transform, none)" as React.CSSProperties["textTransform"],
           }}
         >
@@ -57,11 +61,10 @@ export function HeroSection({ settings, vendor, products, template, preview }: S
         </h1>
         {subtitle ? (
           <p
-            className="mx-auto mt-4 max-w-2xl"
+            className="template-type-hero mx-auto mt-4 max-w-2xl"
             style={{
-              fontFamily: "var(--template-font-body)",
-              color: "var(--template-text-secondary)",
               fontSize: "var(--template-hero-subtitle-size, 1.25rem)",
+              opacity: 0.9,
             }}
           >
             {subtitle}
@@ -90,23 +93,14 @@ export function HeroSection({ settings, vendor, products, template, preview }: S
           className="flex flex-col justify-center px-8 py-12 md:px-16"
           style={{ backgroundColor: "var(--template-card-bg)" }}
         >
-          <h1
-            className="text-3xl font-bold md:text-5xl"
-            style={{ fontFamily: "var(--template-font-heading)", color: "var(--template-text)" }}
-          >
-            {title}
-          </h1>
-          {subtitle ? (
-            <p className="mt-4 text-lg" style={{ color: "var(--template-text-secondary)" }}>
-              {subtitle}
-            </p>
-          ) : null}
+          <h1 className="template-type-hero text-3xl font-bold md:text-5xl">{title}</h1>
+          {subtitle ? <p className="template-type-hero mt-4 text-lg opacity-90">{subtitle}</p> : null}
         </div>
       </section>
     );
   }
 
-  const fallbackBanner = (
+  return (
     <div className="relative w-full overflow-hidden">
       {backgroundImageUrl ? (
         <div className="relative" style={{ height }}>
@@ -146,17 +140,46 @@ export function HeroSection({ settings, vendor, products, template, preview }: S
       )}
     </div>
   );
+}
 
-  if (!useVendorBanners) {
-    return fallbackBanner;
+/**
+ * HeroSection with variant branches driven by settings.variant or components.heroBanner.style.
+ * Vendor-created hero banners take precedence on the live storefront when any are active.
+ */
+export function HeroSection({ settings, vendor, template, preview }: SectionProps) {
+  const variant = resolveHeroVariant(settings, template);
+  const preferVendorBanners = settings.useVendorBanners !== false;
+  const height =
+    typeof settings.height === "string"
+      ? settings.height
+      : template.templateConfig.components?.heroBanner?.height ?? "400px";
+
+  const title = typeof settings.title === "string" && settings.title ? settings.title : vendor.name;
+  const subtitle =
+    typeof settings.subtitle === "string" && settings.subtitle
+      ? settings.subtitle
+      : getDescriptionText(vendor.description);
+
+  const backgroundImageUrl = getMediaUrl(vendor.coverImage) ?? getMediaUrl(vendor.logo);
+
+  const templateHero = renderTemplateHero({
+    variant,
+    template,
+    title,
+    subtitle,
+    backgroundImageUrl,
+    height,
+  });
+
+  if (preview) {
+    return templateHero;
   }
 
   return (
-    <>
-      <Suspense fallback={fallbackBanner}>
-        <VendorHeroBannersSection vendorSlug={vendor.slug} />
-      </Suspense>
-      {!backgroundImageUrl && featuredProducts.length === 0 && fallbackBanner}
-    </>
+    <VendorHeroBannersSection
+      vendorSlug={vendor.slug}
+      fallback={templateHero}
+      preferVendorBanners={preferVendorBanners}
+    />
   );
 }

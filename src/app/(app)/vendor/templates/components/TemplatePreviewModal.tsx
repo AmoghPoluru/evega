@@ -10,17 +10,19 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, Pencil } from "lucide-react";
 import { TemplateLivePreview } from "@/components/vendor/TemplateLivePreview";
 import type { VendorTemplate } from "@/payload-types";
 
-type TemplateListItem = VendorTemplate & { isSelected?: boolean };
+type TemplateListItem = VendorTemplate & { isSelected?: boolean; isOwned?: boolean };
 
 interface TemplatePreviewModalProps {
   template: TemplateListItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: () => void;
+  builderHref?: string;
 }
 
 function getMediaUrl(media: VendorTemplate["previewImage"]): string | undefined {
@@ -33,6 +35,7 @@ export function TemplatePreviewModal({
   open,
   onOpenChange,
   onSelect,
+  builderHref,
 }: TemplatePreviewModalProps) {
   const previewImageUrl = template ? getMediaUrl(template.previewImage) : undefined;
 
@@ -82,10 +85,18 @@ export function TemplatePreviewModal({
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-0">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Close
               </Button>
+              {builderHref ? (
+                <Button variant="outline" asChild>
+                  <Link href={builderHref}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Update
+                  </Link>
+                </Button>
+              ) : null}
               {!template.isSelected && (
                 <Button onClick={onSelect}>Use This Template</Button>
               )}

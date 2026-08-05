@@ -5,37 +5,46 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { HexColorPalette, normalizeHex } from "@/components/ui/hex-color-palette";
+import { normalizeHex } from "@/components/ui/hex-color-palette";
+import { AdvancedColorPicker } from "@/components/ui/advanced-color-picker";
+import { toPickerHex } from "@/lib/color-utils";
 
-function expandShortHex(hex: string): string {
-  if (hex.length !== 4 || !hex.startsWith("#")) return hex;
-  const [, r, g, b] = hex;
-  return `#${r}${r}${g}${g}${b}${b}`;
+interface ColorSwatchProps {
+  value: string;
+  size?: "md" | "lg";
+  className?: string;
 }
 
-/** Best-effort conversion so the visual picker can edit seeded rgba/transparent values. */
-export function toPickerHex(value: string | undefined, fallback = "#000000"): string {
-  if (!value || value === "transparent") return fallback;
+/** Visible color preview — replaces raw hex in the collapsed field. */
+function ColorSwatch({ value, size = "md", className }: ColorSwatchProps) {
+  const isTransparent = value === "transparent";
+  const displayHex = isTransparent ? "transparent" : toPickerHex(value);
+  const dimensions = size === "lg" ? "h-16 w-16" : "h-11 w-11";
 
-  if (value.startsWith("#")) {
-    return expandShortHex(value.toLowerCase());
-  }
-
-  const rgbMatch = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
-  if (rgbMatch) {
-    const [, r, g, b] = rgbMatch;
-    const toByte = (channel: string) => Number(channel).toString(16).padStart(2, "0");
-    return `#${toByte(r)}${toByte(g)}${toByte(b)}`;
-  }
-
-  return fallback;
-}
-
-function formatReadonlyValue(value: string): string {
-  if (value === "transparent") return "transparent";
-  if (value.startsWith("#")) return expandShortHex(value).toUpperCase();
-  return value;
+  return (
+    <div
+      className={cn(
+        "relative shrink-0 overflow-hidden rounded-lg border border-border shadow-inner",
+        dimensions,
+        className,
+      )}
+      aria-hidden
+    >
+      {isTransparent ? (
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)",
+            backgroundSize: "10px 10px",
+            backgroundPosition: "0 0, 0 5px, 5px -5px, -5px 0",
+          }}
+        />
+      ) : (
+        <div className="absolute inset-0" style={{ backgroundColor: displayHex }} />
+      )}
+    </div>
+  );
 }
 
 interface VisualColorPickerFieldProps {
@@ -57,7 +66,6 @@ export function VisualColorPickerField({
     () => (isTransparent ? "#ffffff" : toPickerHex(value)),
     [isTransparent, value],
   );
-  const displayValue = formatReadonlyValue(isTransparent ? "transparent" : value);
 
   useEffect(() => {
     if (!expanded) return;
@@ -72,37 +80,25 @@ export function VisualColorPickerField({
 
   const handleSelect = (color: string) => {
     onChange(normalizeHex(color));
-    setExpanded(false);
   };
 
   return (
     <>
       <div className={cn("space-y-2", className)}>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            aria-label="Open color palette"
-            onClick={() => setExpanded(true)}
-            className="group min-w-0 flex-1 overflow-hidden rounded-md border border-border bg-background p-2 text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <HexColorPalette
-              compact
-              interactive={false}
-              value={pickerValue}
-              className="pointer-events-none transition-transform duration-200 group-hover:scale-[1.02]"
-            />
-            <span className="mt-1 block text-center text-[10px] text-muted-foreground">
-              Tap to expand palette
-            </span>
-          </button>
-
-          <Input
-            readOnly
-            value={displayValue}
-            aria-label="Selected color value"
-            className="h-10 w-30 shrink-0 font-mono text-xs uppercase"
-          />
-        </div>
+        <button
+          type="button"
+          aria-label="Open color picker"
+          onClick={() => setExpanded(true)}
+          className="flex w-full items-center gap-3 rounded-md border border-border bg-background p-2 text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ColorSwatch value={value} />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">Choose color</p>
+            <p className="text-xs text-muted-foreground font-mono uppercase">
+              {isTransparent ? "Transparent" : pickerValue}
+            </p>
+          </div>
+        </button>
 
         {allowTransparent && (
           <Button
@@ -124,42 +120,36 @@ export function VisualColorPickerField({
           role="presentation"
         >
           <div
-            className="relative w-full max-w-md rounded-xl border border-border bg-background p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-border bg-background p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(event) => event.stopPropagation()}
             role="dialog"
             aria-modal="true"
-            aria-label="Color palette"
+            aria-label="Color picker"
           >
             <button
               type="button"
-              aria-label="Close color palette"
+              aria-label="Close color picker"
               onClick={() => setExpanded(false)}
-              className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute right-3 top-3 z-10 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <X className="size-5" />
             </button>
 
-            <div className="pt-6 pb-2">
-              <HexColorPalette
-                expanded
-                value={pickerValue}
-                onChange={handleSelect}
-              />
+            <div className="mb-4 pt-2">
+              <p className="text-sm font-semibold">Pick a color</p>
+              <p className="text-xs text-muted-foreground">
+                Drag on the plane, use the hue slider, type a hex code, or pick a preset.
+              </p>
             </div>
 
-            <Input
-              readOnly
-              value={displayValue}
-              aria-label="Selected color value"
-              className="mt-3 font-mono text-sm uppercase"
-            />
+            <AdvancedColorPicker value={pickerValue} onChange={handleSelect} />
 
             {allowTransparent && (
               <Button
                 type="button"
                 variant={isTransparent ? "default" : "outline"}
                 size="sm"
-                className="mt-3 w-full"
+                className="mt-4 w-full"
                 onClick={() => {
                   onChange("transparent");
                   setExpanded(false);

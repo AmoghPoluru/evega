@@ -38,30 +38,41 @@ export const SECTION_LABELS: Record<StorefrontSectionType, string> = {
   "vendor-info": "Vendor Info",
 };
 
+/** Canonical vendor storefront — hero, vendor bar, then product list. */
+export const CORE_STOREFRONT_SECTION_TYPES = [
+  "hero",
+  "vendor-info",
+  "product-grid",
+] as const satisfies readonly StorefrontSectionType[];
+
+export type CoreStorefrontSectionType = (typeof CORE_STOREFRONT_SECTION_TYPES)[number];
+
 /**
- * Default section stack — reproduces the structure of `DefaultLayout`:
- * vendor info bar, hero banner carousel, then the filterable product grid.
+ * Default section stack for every vendor storefront:
+ * 1. Hero banner
+ * 2. Vendor info (breadcrumb + contact bar)
+ * 3. Product list
  */
 export const DEFAULT_SECTIONS: StorefrontSection[] = [
-  {
-    id: "vendor-info-1",
-    type: "vendor-info",
-    enabled: true,
-    order: 0,
-    settings: {
-      showBreadcrumb: true,
-      showContact: true,
-      sticky: true,
-    },
-  },
   {
     id: "hero-1",
     type: "hero",
     enabled: true,
-    order: 1,
+    order: 0,
     settings: {
       useVendorBanners: true,
       height: "480px",
+    },
+  },
+  {
+    id: "vendor-info-1",
+    type: "vendor-info",
+    enabled: true,
+    order: 1,
+    settings: {
+      showBreadcrumb: true,
+      showContact: true,
+      sticky: true,
     },
   },
   {
@@ -75,6 +86,47 @@ export const DEFAULT_SECTIONS: StorefrontSection[] = [
     },
   },
 ];
+
+/**
+ * Collapse any template section list to the three core storefront sections
+ * in canonical order (hero → vendor → products).
+ */
+export function normalizeStorefrontSections(
+  sections: StorefrontSection[] | undefined | null,
+): StorefrontSection[] {
+  const source = sections && sections.length > 0 ? sections : DEFAULT_SECTIONS;
+  const byType = new Map<CoreStorefrontSectionType, StorefrontSection>();
+
+  for (const section of source) {
+    if (!CORE_STOREFRONT_SECTION_TYPES.includes(section.type as CoreStorefrontSectionType)) {
+      continue;
+    }
+
+    const type = section.type as CoreStorefrontSectionType;
+    const existing = byType.get(type);
+
+    if (!existing) {
+      byType.set(type, { ...section, type });
+      continue;
+    }
+
+    byType.set(type, {
+      ...existing,
+      ...section,
+      type,
+      settings: { ...existing.settings, ...section.settings },
+      enabled: section.enabled !== false,
+    });
+  }
+
+  return CORE_STOREFRONT_SECTION_TYPES.map((type, order) => {
+    const found = byType.get(type);
+    if (found) {
+      return { ...found, order, enabled: found.enabled !== false };
+    }
+    return createDefaultSection(type, order);
+  });
+}
 
 /** Fresh section with sensible defaults for the builder's "add section" action. */
 export function createDefaultSection(

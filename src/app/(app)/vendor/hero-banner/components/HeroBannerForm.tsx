@@ -65,7 +65,8 @@ export function HeroBannerForm({ banner, onSuccess, onCancel }: HeroBannerFormPr
   const createMutation = trpc.vendor.heroBanners.create.useMutation({
     onSuccess: () => {
       toast.success("Hero banner created successfully!");
-      utils.vendor.heroBanners.list.invalidate();
+      void utils.vendor.heroBanners.list.invalidate();
+      void utils.vendorHeroBanners.invalidate();
       onSuccess?.();
     },
     onError: (error) => {
@@ -82,7 +83,8 @@ export function HeroBannerForm({ banner, onSuccess, onCancel }: HeroBannerFormPr
   const updateMutation = trpc.vendor.heroBanners.update.useMutation({
     onSuccess: () => {
       toast.success("Hero banner updated successfully!");
-      utils.vendor.heroBanners.list.invalidate();
+      void utils.vendor.heroBanners.list.invalidate();
+      void utils.vendorHeroBanners.invalidate();
       onSuccess?.();
     },
     onError: (error) => {

@@ -1,3 +1,5 @@
+import { TYPOGRAPHY_CATALOG_FONTS } from "./typography-catalog";
+
 export interface FontOption {
   value: string;
   label: string;
@@ -58,6 +60,9 @@ export const editorialFonts: FontOption[] = [
   { value: "Rubik, sans-serif", label: "Rubik", googleFamily: "Rubik" },
   { value: '"Bebas Neue", sans-serif', label: "Bebas Neue", googleFamily: "Bebas+Neue" },
   { value: "Syne, sans-serif", label: "Syne", googleFamily: "Syne" },
+  { value: "Anton, sans-serif", label: "Anton", googleFamily: "Anton" },
+  { value: '"Archivo Black", sans-serif', label: "Archivo Black", googleFamily: "Archivo+Black" },
+  { value: "Archivo, sans-serif", label: "Archivo", googleFamily: "Archivo" },
 ];
 
 /** Fonts with strong support for South Asian scripts (Google Fonts). */
@@ -171,6 +176,7 @@ export const fontGroups = [
   { id: "popular", label: "Popular", fonts: googleFonts },
   { id: "editorial", label: "Editorial & display", fonts: editorialFonts },
   { id: "south-asian", label: "South Asian", fonts: southAsianFonts },
+  { id: "storefront", label: "Storefront catalog", fonts: TYPOGRAPHY_CATALOG_FONTS },
 ] as const;
 
 export const allTemplateFonts: FontOption[] = [
@@ -178,6 +184,7 @@ export const allTemplateFonts: FontOption[] = [
   ...googleFonts,
   ...editorialFonts,
   ...southAsianFonts,
+  ...TYPOGRAPHY_CATALOG_FONTS,
 ];
 
 const fontsByValue = new Map(allTemplateFonts.map((font) => [font.value, font]));

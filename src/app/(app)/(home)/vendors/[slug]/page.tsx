@@ -7,6 +7,7 @@ import { buildFallbackResolvedTemplate } from "@/lib/templates/default-template"
 import { cssVariablesToString } from "@/lib/templates/css-variables";
 import { VendorStorefront } from "@/components/vendor/VendorStorefront";
 import { TemplateFontLinks } from "@/components/vendor/TemplateFontLinks";
+import { collectTemplateFontStacks } from "@/lib/templates/template-font-stacks";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -66,6 +67,7 @@ export default async function VendorPage({ params }: Props) {
       <TemplateFontLinks
         headingFont={resolvedTemplate.templateConfig.fonts?.heading}
         bodyFont={resolvedTemplate.templateConfig.fonts?.body}
+        extraFonts={collectTemplateFontStacks(resolvedTemplate.templateConfig)}
       />
       <style>{`:root {
           ${cssVariables}

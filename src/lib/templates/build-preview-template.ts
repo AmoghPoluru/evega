@@ -2,7 +2,7 @@ import { generateCSSVariables } from "./css-variables";
 import { getThemeManifestBySlug } from "./manifests/registry";
 import { resolveSkeletonFromLayout } from "./manifests/skeletons";
 import type { ResolvedTemplate, TemplateConfig } from "@/types/template-customization";
-import { DEFAULT_SECTIONS, type StorefrontSection } from "@/types/template-sections";
+import { DEFAULT_SECTIONS, normalizeStorefrontSections, type StorefrontSection } from "@/types/template-sections";
 
 export interface VendorTemplatePreviewDoc {
   id: string;
@@ -18,10 +18,11 @@ export function buildPreviewResolvedTemplate(
   doc: VendorTemplatePreviewDoc,
 ): ResolvedTemplate {
   const templateConfig = (doc.templateConfig ?? {}) as TemplateConfig;
-  const sections =
+  const sections = normalizeStorefrontSections(
     (doc.sections as StorefrontSection[] | undefined) ??
-    templateConfig.sections ??
-    DEFAULT_SECTIONS;
+      templateConfig.sections ??
+      DEFAULT_SECTIONS,
+  );
 
   const config: TemplateConfig = { ...templateConfig, sections };
   const storedCssVariables =

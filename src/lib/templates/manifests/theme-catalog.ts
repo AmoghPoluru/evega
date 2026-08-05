@@ -7,17 +7,21 @@
  * variants, which is how Shopify's Horizon collection and Squarespace 7.1 ship
  * many "templates" from one engine.
  *
- * To add a theme: append one spec below. Nothing else needs to change.
+ * To add a theme: create `manifests/themes/your-theme.theme.ts` and register in
+ * `manifests/themes/index.ts`. Legacy specs below remain until migrated.
  */
 
 import { derivePalette, type ContrastIntent } from "../derive-palette";
 import { generateCSSVariables } from "../css-variables";
+import type { StorefrontChrome } from "../storefront-chrome";
+import { modularThemeSpecs } from "./themes";
 import type { TemplateSeedData } from "../seed-templates";
 import type { TemplateConfig } from "@/types/template-customization";
 import type { StorefrontSection, StorefrontSectionType } from "@/types/template-sections";
+import { normalizeStorefrontSections } from "@/types/template-sections";
 import type { StorefrontSkeleton, ThemeManifest, ThemeMood } from "./types";
 
-type HeroVariant = "full-bleed" | "split-media" | "minimal-type";
+type HeroVariant = "full-bleed" | "split-media" | "minimal-type" | "carousel-peek";
 type GridVariant = "standard" | "dense-compact" | "editorial-rows";
 type CardStyle = TemplateSeedData["templateConfig"]["components"]["productCard"]["style"];
 type NavStyle = TemplateSeedData["templateConfig"]["components"]["navigation"]["style"];
@@ -64,8 +68,16 @@ interface ThemeSpec {
   navStyle?: NavStyle;
   footer?: string;
   background?: BackgroundStyle;
+  /** Triumph-style utility bar, nav, hero carousel chrome — editable in builder. */
+  chrome?: StorefrontChrome;
   sections: SectionSpec[];
+  /** Surfaces at the top of the builder theme starter picker. */
+  featured?: boolean;
+  /** Override label on the builder starter card. */
+  starterLabel?: string;
 }
+
+export type { ThemeSpec };
 
 const RHYTHM_SECTION: Record<Rhythm, string> = {
   compact: "48px 0",
@@ -136,13 +148,15 @@ function buildTextStyles(
 }
 
 function buildSections(spec: ThemeSpec): StorefrontSection[] {
-  return spec.sections.map((section, index) => ({
+  const raw = spec.sections.map((section, index) => ({
     id: `${spec.slug}-${section.type}-${index + 1}`,
     type: section.type,
     enabled: section.enabled !== false,
     order: index,
     settings: section.settings ?? {},
   }));
+
+  return normalizeStorefrontSections(raw);
 }
 
 /** Expand a compact spec into a complete, seedable theme manifest. */
@@ -167,7 +181,7 @@ export function buildThemeManifest(spec: ThemeSpec): ThemeManifest {
       productGridColumns: spec.gridColumns ?? 4,
       showBanner: true,
       showCategories: true,
-      showFilters: spec.skeleton !== "editorial",
+      showFilters: false,
       showReviews: true,
     },
     components: {
@@ -178,7 +192,7 @@ export function buildThemeManifest(spec: ThemeSpec): ThemeManifest {
             : spec.heroVariant === "minimal-type"
               ? "minimal"
               : "full-width",
-        height: spec.heroHeight ?? "520px",
+        height: spec.heroHeight ?? (spec.heroVariant === "carousel-peek" ? "660px" : "520px"),
       },
       productCard: {
         style: spec.cardStyle ?? "detailed",
@@ -196,7 +210,7 @@ export function buildThemeManifest(spec: ThemeSpec): ThemeManifest {
     backgroundStyle: spec.background ?? { type: "solid", value: colors.background },
     tokens: {
       contrast,
-      displayFont: spec.fonts.display,
+      ...(spec.fonts.display ? { displayFont: spec.fonts.display } : {}),
       typeScale: {
         base: rem(spec.typeScale?.base ?? 1),
         ratio: String(spec.typeScale?.ratio ?? 1.25),
@@ -217,6 +231,7 @@ export function buildThemeManifest(spec: ThemeSpec): ThemeManifest {
       motion: spec.motion ?? "subtle",
     },
     sections,
+    ...(spec.chrome ? { chrome: spec.chrome } : {}),
   };
 
   return {
@@ -263,7 +278,7 @@ function vendorInfo(overrides: Record<string, unknown> = {}): SectionSpec {
   };
 }
 
-export const THEME_CATALOG_SPECS: ThemeSpec[] = [
+const INLINE_THEME_CATALOG_SPECS: ThemeSpec[] = [
   {
     name: "Atelier",
     slug: "atelier",
@@ -721,36 +736,17 @@ export const THEME_CATALOG_SPECS: ThemeSpec[] = [
       },
     ],
   },
-  {
-    name: "Kirana",
-    slug: "kirana",
-    description:
-      "Ultra-compact, low-bandwidth storefront for neighbourhood stores. Static rhythm, no motion, contact details pinned high — designed to be usable on a slow 3G connection.",
-    category: "classic",
-    niche: "Neighbourhood retail",
-    mood: "catalog",
-    tags: ["low-bandwidth", "compact", "local", "contact-first"],
-    skeleton: "dense",
-    seedColors: { primary: "#0F766E", secondary: "#115E59", accent: "#F97316", background: "#FFFFFF" },
-    fonts: { heading: "Hind, sans-serif", body: "Hind, sans-serif" },
-    typeScale: { base: 0.9375, ratio: 1.2 },
-    rhythm: { section: "compact", gap: "compact" },
-    containerWidth: "1200px",
-    shape: { radiusScale: "soft", borderWidth: "1px", shadowScale: "none" },
-    surface: { cardTreatment: "flat", imageAspect: "1 / 1" },
-    motion: "none",
-    gridColumns: 4,
-    heroVariant: "minimal-type",
-    gridVariant: "dense-compact",
-    cardStyle: "compact",
-    navStyle: "top",
-    sections: [
-      vendorInfo({ showContact: true, sticky: true }),
-      { type: "hero", settings: { variant: "minimal-type", useVendorBanners: false } },
-      { type: "product-grid", settings: { variant: "dense-compact", title: "Available now", showCount: true } },
-    ],
-  },
 ];
+
+function mergeThemeSpecs(legacy: ThemeSpec[], modular: ThemeSpec[]): ThemeSpec[] {
+  const modularSlugs = new Set(modular.map((spec) => spec.slug));
+  return [...modular, ...legacy.filter((spec) => !modularSlugs.has(spec.slug))];
+}
+
+export const THEME_CATALOG_SPECS: ThemeSpec[] = mergeThemeSpecs(
+  INLINE_THEME_CATALOG_SPECS,
+  modularThemeSpecs,
+);
 
 /** Fully expanded catalog manifests — appended to the legacy seed-derived themes. */
 export const THEME_CATALOG: ThemeManifest[] = THEME_CATALOG_SPECS.map(buildThemeManifest);

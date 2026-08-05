@@ -585,6 +585,10 @@ export interface Vendor {
    */
   selectedTemplate?: (string | null) | VendorTemplate;
   /**
+   * Slug of the selected template — used to recover selection if the template ID changes after re-seed
+   */
+  selectedTemplateSlug?: string | null;
+  /**
    * Vendor-specific template customizations (colors, fonts, layout, etc.)
    */
   templateCustomization?:
@@ -2192,6 +2196,7 @@ export interface VendorsSelect<T extends boolean = true> {
         id?: T;
       };
   selectedTemplate?: T;
+  selectedTemplateSlug?: T;
   templateCustomization?: T;
   updatedAt?: T;
   createdAt?: T;

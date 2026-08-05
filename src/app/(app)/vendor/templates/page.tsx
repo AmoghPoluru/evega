@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, Eye, Loader2, Plus } from "lucide-react";
+import { CheckCircle2, Eye, Loader2, Pencil, Plus, Sparkles } from "lucide-react";
 import { TemplatePreviewModal } from "./components/TemplatePreviewModal";
 import { toast } from "sonner";
 import type { VendorTemplate } from "@/payload-types";
@@ -23,10 +23,18 @@ import { getAllMoods, getAllNiches } from "@/lib/templates/manifests/registry";
 
 type TemplateListItem = VendorTemplate & {
   isSelected?: boolean;
+  isOwned?: boolean;
   niche?: string | null;
   mood?: string | null;
   skeleton?: string | null;
 };
+
+function getBuilderHref(template: TemplateListItem): string {
+  if (template.isOwned) {
+    return `/vendor/templates/builder?edit=${template.id}`;
+  }
+  return `/vendor/templates/builder?source=${template.id}`;
+}
 
 function getThumbnailUrl(template: TemplateListItem): string | undefined {
   const media = template.thumbnailImage;
@@ -94,6 +102,12 @@ export default function TemplatesPage() {
             Select a template that matches your brand identity. You can customize it later.
           </p>
         </div>
+        <Button asChild variant="outline">
+          <Link href="/vendor/templates/builder?preset=kirana">
+            <Sparkles className="h-4 w-4 mr-2" />
+            Triumph-style builder
+          </Link>
+        </Button>
         <Button asChild>
           <Link href="/vendor/templates/builder">
             <Plus className="h-4 w-4 mr-2" />
@@ -215,21 +229,34 @@ export default function TemplatesPage() {
                 ) : null}
               </CardHeader>
               <CardContent>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPreviewTemplate(template)}
-                    className="flex-1"
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Preview
-                  </Button>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPreviewTemplate(template)}
+                      className="flex-1"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Preview
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                      className="flex-1"
+                    >
+                      <Link href={getBuilderHref(template)}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Update
+                      </Link>
+                    </Button>
+                  </div>
                   <Button
                     size="sm"
                     onClick={() => handleSelectTemplate(template.id)}
                     disabled={template.isSelected || selectTemplate.isPending}
-                    className="flex-1"
+                    className="w-full"
                   >
                     {selectTemplate.isPending ? (
                       <>
@@ -260,6 +287,7 @@ export default function TemplatesPage() {
       <TemplatePreviewModal
         template={previewTemplate}
         open={!!previewTemplate}
+        builderHref={previewTemplate ? getBuilderHref(previewTemplate) : undefined}
         onOpenChange={(open) => {
           if (!open) {
             setPreviewTemplate(null);

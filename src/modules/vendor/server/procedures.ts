@@ -34,6 +34,7 @@ const builderTemplateInputSchema = z.object({
   name: z.string().min(2, "Template name is required"),
   description: z.string().optional(),
   category: z.enum(["minimal", "elegant", "bold", "colorful", "classic"]),
+  skeleton: z.enum(["classic", "editorial", "showcase", "dense"]).optional(),
   templateConfig: templateConfigSchema,
 });
 
@@ -3304,10 +3305,68 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
         });
 
         return {
-          docs: templates.docs.map((template: any) => ({
-            ...template,
-            isSelected: template.id === vendor.selectedTemplate,
-          })),
+          docs: templates.docs.map((template: any) => {
+            const ownerId =
+              typeof template.owner === "string" ? template.owner : template.owner?.id;
+            return {
+              ...template,
+              isSelected: template.id === vendor.selectedTemplate,
+              isOwned: ownerId === vendorId,
+            };
+          }),
+        };
+      }),
+
+    // Load a template into the builder (global catalog or vendor-owned).
+    getForBuilder: vendorProcedure
+      .input(z.object({ templateId: z.string() }))
+      .query(async ({ ctx, input }) => {
+        const vendorId = typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+        let template;
+        try {
+          template = await ctx.db.findByID({
+            collection: "vendor-templates",
+            id: input.templateId,
+            depth: 0,
+          });
+        } catch {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Template not found",
+          });
+        }
+
+        if (!template.isActive) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Template is not available",
+          });
+        }
+
+        const ownerId =
+          typeof template.owner === "string" ? template.owner : template.owner?.id;
+        const isOwned = ownerId === vendorId;
+
+        if (!isOwned) {
+          const isGlobal =
+            !ownerId &&
+            (template.status === "approved" || template.status == null) &&
+            (template.catalogStatus === "active" || template.catalogStatus == null);
+
+          if (!isGlobal) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "You cannot customize this template",
+            });
+          }
+        }
+
+        return {
+          ...template,
+          isOwned,
         };
       }),
 
@@ -3360,6 +3419,7 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
           id: vendorId,
           data: {
             selectedTemplate: input.templateId,
+            selectedTemplateSlug: template.slug,
             templateCustomization: {}, // Reset to defaults
           },
         });
@@ -3506,6 +3566,7 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
             slug,
             description: input.description,
             category: input.category,
+            skeleton: input.skeleton ?? "classic",
             owner: vendorId,
             status: "draft",
             isActive: true,
@@ -3567,6 +3628,7 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
             slug,
             description: input.description,
             category: input.category,
+            skeleton: input.skeleton ?? existing.skeleton ?? "classic",
             templateConfig: input.templateConfig,
             sections: input.templateConfig.sections ?? [],
             cssVariables: generateCSSVariables(input.templateConfig),

@@ -1,5 +1,10 @@
 import type { TemplateConfig, TemplateCustomization } from "@/types/template-customization";
 import { mergeWithDerivedPalette, type ContrastIntent } from "./derive-palette";
+import {
+  normalizeBackgroundStyleType,
+  resolveBackgroundTreatment,
+} from "./background-style-treatments";
+import { applyChromeCSSVariables, resolveStorefrontChrome } from "./storefront-chrome";
 
 const RHYTHM_SECTION: Record<string, string> = {
   compact: "48px 0",
@@ -65,6 +70,26 @@ export function generateCSSVariables(
   // Fonts
   variables["--template-font-heading"] = config.fonts?.heading || "Inter, system-ui, sans-serif";
   variables["--template-font-body"] = config.fonts?.body || "Inter, system-ui, sans-serif";
+  variables["--template-font-vendor"] =
+    config.typography?.vendor?.font || config.fonts?.heading || "Inter, system-ui, sans-serif";
+  variables["--template-font-hero"] =
+    config.typography?.hero?.font || config.fonts?.heading || "Inter, system-ui, sans-serif";
+  variables["--template-font-product"] =
+    config.typography?.product?.font || config.fonts?.heading || "Inter, system-ui, sans-serif";
+  variables["--template-font-price"] =
+    config.typography?.price?.font || config.fonts?.body || "Inter, system-ui, sans-serif";
+
+  variables["--template-color-vendor"] =
+    config.typography?.vendor?.color || derived.text;
+  variables["--template-color-hero"] =
+    config.typography?.hero?.color || derived.text;
+  variables["--template-color-product"] =
+    config.typography?.product?.color || derived.text;
+  variables["--template-color-price"] =
+    config.typography?.price?.color || derived.primary;
+  variables["--template-price-background"] =
+    config.typography?.price?.backgroundColor || derived.accent;
+
   if (tokens?.displayFont) {
     variables["--template-font-display"] = tokens.displayFont;
   }
@@ -133,6 +158,11 @@ export function generateCSSVariables(
     variables["--template-hero-text-shadow"] = textStyles.heroBanner.textShadow || "2px 2px 4px rgba(0, 0, 0, 0.5)";
   }
 
+  const chrome = resolveStorefrontChrome(config);
+  if (chrome.enabled === true) {
+    Object.assign(variables, applyChromeCSSVariables(chrome));
+  }
+
   return variables;
 }
 
@@ -193,77 +223,52 @@ export function cssVariablesToStyle(variables: Record<string, string>): React.CS
  * Generate background CSS from template backgroundStyle configuration
  */
 export function generateBackgroundCSS(
-  backgroundStyle: any,
-  cssVariables: Record<string, string>
+  backgroundStyle: TemplateConfig["backgroundStyle"] | undefined,
+  cssVariables: Record<string, string>,
 ): string {
-  if (!backgroundStyle || !backgroundStyle.type) {
+  if (!backgroundStyle?.type) {
     return "";
   }
 
-  const primary = cssVariables["--template-primary"] || "#000000";
-  const secondary = cssVariables["--template-secondary"] || "#666666";
-  const accent = cssVariables["--template-accent"] || "#000000";
+  const seed =
+    backgroundStyle.value ||
+    cssVariables["--template-primary"] ||
+    cssVariables["--template-background"] ||
+    "#501313";
 
-  switch (backgroundStyle.type) {
-    case "mesh-gradient": {
-      const animation = backgroundStyle.animation;
-      const duration = animation?.duration || "15s";
-      const easing = animation?.easing || "ease";
-      const animationEnabled = animation?.enabled !== false;
+  const category = normalizeBackgroundStyleType(backgroundStyle.type);
+  const treatment = resolveBackgroundTreatment(seed, category);
 
-      let css = `background-color: var(--template-primary) !important;
-background-image: 
-  radial-gradient(at 0% 0%, var(--template-secondary) 0px, transparent 50%),
-  radial-gradient(at 100% 0%, var(--template-accent) 0px, transparent 50%),
-  radial-gradient(at 100% 100%, var(--template-primary) 0px, transparent 50%),
-  radial-gradient(at 0% 100%, var(--template-secondary) 0px, transparent 50%);
+  if (category === "mesh-gradient" && backgroundStyle.animation?.enabled === false) {
+    return `background-color: ${treatment.backgroundColor} !important;
+background-image:
+  radial-gradient(at 12% 18%, ${treatment.secondary} 0px, transparent 52%),
+  radial-gradient(at 88% 12%, ${treatment.accent} 0px, transparent 48%),
+  radial-gradient(at 92% 88%, ${treatment.backgroundColor} 0px, transparent 50%),
+  radial-gradient(at 8% 82%, ${treatment.secondary} 0px, transparent 46%) !important;
 background-attachment: fixed;
 background-size: 200% 200%;`;
-
-      if (animationEnabled) {
-        css += `
-animation: gradientMove ${duration} ${easing} infinite;`;
-      }
-
-      return css;
-    }
-
-    case "gradient": {
-      const value = backgroundStyle.value || `linear-gradient(to right, ${primary}, ${secondary})`;
-      return `background: ${value} !important;`;
-    }
-
-    case "solid": {
-      const value = backgroundStyle.value || primary;
-      return `background-color: ${value} !important;`;
-    }
-
-    case "pattern": {
-      const value = backgroundStyle.value || "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.05) 10px, rgba(0,0,0,0.05) 20px)";
-      return `background: ${value} !important;`;
-    }
-
-    case "image": {
-      const value = backgroundStyle.value || "";
-      if (!value) return "";
-      return `background-image: url(${value}) !important; background-size: cover; background-position: center;`;
-    }
-
-    default:
-      return "";
   }
+
+  return treatment.pageBackgroundCss;
 }
 
 /**
  * Generate background animation keyframes CSS
  */
-export function generateBackgroundKeyframes(backgroundStyle: any): string {
-  if (!backgroundStyle || backgroundStyle.type !== "mesh-gradient") {
+export function generateBackgroundKeyframes(
+  backgroundStyle: TemplateConfig["backgroundStyle"] | undefined,
+): string {
+  if (!backgroundStyle?.type) {
     return "";
   }
 
-  const animation = backgroundStyle.animation;
-  if (animation?.enabled === false) {
+  const category = normalizeBackgroundStyleType(backgroundStyle.type);
+  if (category !== "mesh-gradient") {
+    return "";
+  }
+
+  if (backgroundStyle.animation?.enabled === false) {
     return "";
   }
 

@@ -58,9 +58,10 @@ export async function getDefaultTemplate(payload: Payload): Promise<VendorTempla
 
 async function loadVendorTemplate(
   payload: Payload,
-  selectedTemplate: string | VendorTemplateDoc | null | undefined
+  selectedTemplate: string | VendorTemplateDoc | null | undefined,
+  selectedTemplateSlug?: string | null
 ): Promise<VendorTemplateDoc> {
-  if (!selectedTemplate) {
+  if (!selectedTemplate && !selectedTemplateSlug) {
     return getDefaultTemplate(payload);
   }
 
@@ -72,7 +73,7 @@ async function loadVendorTemplate(
         collection: "vendor-templates",
         id: selectedTemplate,
       })) as VendorTemplateDoc;
-    } else {
+    } else if (selectedTemplate) {
       template = selectedTemplate;
     }
 
@@ -80,7 +81,27 @@ async function loadVendorTemplate(
       return template;
     }
   } catch (error) {
-    console.error("Error loading vendor selected template:", error);
+    console.error("Error loading vendor selected template by ID:", error);
+  }
+
+  // Recover after re-seed when the relationship ID is stale but slug is stored
+  if (selectedTemplateSlug) {
+    try {
+      const bySlug = await payload.find({
+        collection: "vendor-templates",
+        where: {
+          slug: { equals: selectedTemplateSlug },
+          isActive: { equals: true },
+        },
+        limit: 1,
+      });
+
+      if (bySlug.docs.length > 0) {
+        return bySlug.docs[0] as VendorTemplateDoc;
+      }
+    } catch (error) {
+      console.error("Error loading vendor selected template by slug:", error);
+    }
   }
 
   return getDefaultTemplate(payload);
@@ -171,7 +192,11 @@ export async function resolveVendorTemplate(
 
     customization = (vendor.templateCustomization as TemplateCustomization) || {};
 
-    const template = await loadVendorTemplate(payload, vendor.selectedTemplate);
+    const template = await loadVendorTemplate(
+      payload,
+      vendor.selectedTemplate,
+      (vendor as { selectedTemplateSlug?: string | null }).selectedTemplateSlug
+    );
 
     return buildResolvedTemplateFromDoc(template, customization);
   } catch (error) {

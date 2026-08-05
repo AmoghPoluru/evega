@@ -910,40 +910,58 @@ export const templateSeeds: TemplateSeedData[] = [
 ];
 
 /**
- * Seed templates into the database
+ * Seed templates into the database (upsert by slug — preserves IDs and vendor selections).
  */
 export async function seedTemplates(payload: Payload): Promise<void> {
   console.log("🌱 Seeding vendor templates...");
 
-  // First, delete all existing templates
-  console.log("🗑️  Removing existing templates...");
-  const existingTemplates = await payload.find({
-    collection: "vendor-templates",
-    limit: 100,
-  });
-
-  for (const template of existingTemplates.docs) {
-    await payload.delete({
-      collection: "vendor-templates",
-      id: template.id,
-    });
-    console.log(`  ❌ Deleted: ${template.name}`);
-  }
-
-  // Now create new templates from theme manifests
   const manifests = getThemeManifests();
+  const manifestSlugs = new Set(manifests.map((manifest) => manifest.slug));
+
   for (const manifest of manifests) {
     try {
       const payloadData = manifestToSeedPayload(manifest);
-      const template = await payload.create({
+
+      const existing = await payload.find({
         collection: "vendor-templates",
-        draft: false,
-        data: payloadData,
+        where: { slug: { equals: manifest.slug } },
+        limit: 1,
       });
 
-      console.log(`✅ Created template: ${manifest.name} (${template.id})`);
+      if (existing.docs.length > 0) {
+        const template = await payload.update({
+          collection: "vendor-templates",
+          id: existing.docs[0].id,
+          data: payloadData,
+        });
+        console.log(`✅ Updated template: ${manifest.name} (${template.id})`);
+      } else {
+        const template = await payload.create({
+          collection: "vendor-templates",
+          draft: false,
+          data: payloadData,
+        });
+        console.log(`✅ Created template: ${manifest.name} (${template.id})`);
+      }
     } catch (error) {
-      console.error(`❌ Error creating template "${manifest.name}":`, error);
+      console.error(`❌ Error seeding template "${manifest.name}":`, error);
+    }
+  }
+
+  // Remove orphaned catalog templates not in the manifest set
+  const allTemplates = await payload.find({
+    collection: "vendor-templates",
+    where: { owner: { exists: false } },
+    limit: 100,
+  });
+
+  for (const template of allTemplates.docs) {
+    if (!manifestSlugs.has(template.slug)) {
+      await payload.delete({
+        collection: "vendor-templates",
+        id: template.id,
+      });
+      console.log(`  🗑️  Removed orphaned template: ${template.name}`);
     }
   }
 

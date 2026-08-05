@@ -142,11 +142,33 @@ export function buildTemplateGlobalStyles(cssVariables: string, config?: StyleCo
 
     ${motionStyles}
 
-    /* Apply template styles to all elements on vendor page */
-    .vendor-page-template * {
-      font-family: var(--template-font-body) !important;
+    /* Per-area typography from the builder (must come after generic heading rules) */
+    .vendor-page-template .template-type-vendor {
+      color: var(--template-color-vendor) !important;
+      font-family: var(--template-font-vendor) !important;
     }
-    .vendor-page-template h1 {
+    .vendor-page-template .template-type-hero {
+      color: var(--template-color-hero) !important;
+      font-family: var(--template-font-hero) !important;
+    }
+    .vendor-page-template .template-type-product {
+      color: var(--template-color-product) !important;
+      font-family: var(--template-font-product) !important;
+    }
+    .vendor-page-template .template-type-price {
+      color: var(--template-color-price) !important;
+      font-family: var(--template-font-price) !important;
+      background-color: var(--template-price-background) !important;
+    }
+
+    /* Default body typography — exclude explicitly typed storefront elements */
+    .vendor-page-template :where(p, span, div, li, a, button, label):not(.template-type-vendor):not(.template-type-hero):not(.template-type-product):not(.template-type-price) {
+      font-size: var(--template-body-size, 1rem);
+      font-weight: var(--template-body-weight, 400);
+      letter-spacing: var(--template-body-spacing, 0);
+      line-height: var(--template-body-height, 1.6);
+    }
+    .vendor-page-template h1:not(.template-type-vendor):not(.template-type-hero):not(.template-type-product) {
       font-family: var(--template-font-heading) !important;
       color: var(--template-text) !important;
       font-size: var(--template-h1-size, 2.5rem) !important;
@@ -155,7 +177,7 @@ export function buildTemplateGlobalStyles(cssVariables: string, config?: StyleCo
       line-height: var(--template-h1-height, 1.2) !important;
       text-transform: var(--template-h1-transform, none) !important;
     }
-    .vendor-page-template h2 {
+    .vendor-page-template h2:not(.template-type-product):not(.template-type-hero) {
       font-family: var(--template-font-heading) !important;
       color: var(--template-text) !important;
       font-size: var(--template-h2-size, 2rem) !important;
@@ -164,35 +186,27 @@ export function buildTemplateGlobalStyles(cssVariables: string, config?: StyleCo
       line-height: var(--template-h2-height, 1.3) !important;
       text-transform: var(--template-h2-transform, none) !important;
     }
-    .vendor-page-template h3,
-    .vendor-page-template h4,
-    .vendor-page-template h5,
-    .vendor-page-template h6 {
+    .vendor-page-template h3:not(.template-type-product),
+    .vendor-page-template h4:not(.template-type-product),
+    .vendor-page-template h5:not(.template-type-product),
+    .vendor-page-template h6:not(.template-type-product) {
       font-family: var(--template-font-heading) !important;
       color: var(--template-text) !important;
     }
-    .vendor-page-template p,
-    .vendor-page-template span,
-    .vendor-page-template div {
-      font-size: var(--template-body-size, 1rem) !important;
-      font-weight: var(--template-body-weight, 400) !important;
-      letter-spacing: var(--template-body-spacing, 0) !important;
-      line-height: var(--template-body-height, 1.6) !important;
-    }
 
-    /* Hero banner text must stay white and legible over imagery */
-    .vendor-page-template [class*="hero"] h1,
-    .vendor-page-template [class*="banner"] h1 {
+    /* Full-bleed imagery heroes stay light-on-dark; typed hero text keeps custom colors */
+    .vendor-page-template [class*="hero"] h1:not(.template-type-hero),
+    .vendor-page-template [class*="banner"] h1:not(.template-type-hero) {
       color: white !important;
       font-size: var(--template-hero-title-size, 3rem) !important;
       font-weight: var(--template-hero-title-weight, 700) !important;
       text-shadow: var(--template-hero-text-shadow, 2px 2px 4px rgba(0, 0, 0, 0.7), 0 0 8px rgba(0, 0, 0, 0.5)) !important;
     }
-    .vendor-page-template [class*="hero"] h2,
-    .vendor-page-template [class*="hero"] p,
-    .vendor-page-template [class*="banner"] h2,
-    .vendor-page-template [class*="banner"] p,
-    .vendor-page-template [class*="text-white"] {
+    .vendor-page-template [class*="hero"] h2:not(.template-type-hero),
+    .vendor-page-template [class*="hero"] p:not(.template-type-hero),
+    .vendor-page-template [class*="banner"] h2:not(.template-type-hero),
+    .vendor-page-template [class*="banner"] p:not(.template-type-hero),
+    .vendor-page-template [class*="text-white"]:not(.template-type-hero) {
       color: white !important;
       font-size: var(--template-hero-subtitle-size, 1.5rem) !important;
       font-weight: var(--template-hero-subtitle-weight, 400) !important;
@@ -203,6 +217,14 @@ export function buildTemplateGlobalStyles(cssVariables: string, config?: StyleCo
     }
     .vendor-page-template a:hover {
       color: var(--template-secondary) !important;
+    }
+    .vendor-page-template a.template-type-vendor,
+    .vendor-page-template a.template-type-vendor:hover {
+      color: var(--template-color-vendor) !important;
+      font-family: var(--template-font-vendor) !important;
+    }
+    .vendor-page-template .template-vendor-meta {
+      background-color: color-mix(in srgb, var(--template-color-vendor) 12%, transparent);
     }
     .vendor-page-template [class*="text-gray"] {
       color: var(--template-text-secondary) !important;
