@@ -1,5 +1,18 @@
-import type { CollectionConfig } from "payload";
-import { isSuperAdmin } from "@/lib/access";
+import type { CollectionConfig, Where } from "payload";
+import { getVendorId, isSuperAdmin } from "@/lib/access";
+
+/**
+ * Vendors may only mutate templates they own that have not been approved yet.
+ * Approved templates are global assets and stay super-admin only.
+ */
+function ownedEditableTemplatesWhere(vendorId: string): Where {
+  return {
+    and: [
+      { owner: { equals: vendorId } },
+      { status: { not_equals: "approved" } },
+    ],
+  };
+}
 
 export const VendorTemplates: CollectionConfig = {
   slug: "vendor-templates",
@@ -10,9 +23,17 @@ export const VendorTemplates: CollectionConfig = {
   },
   access: {
     read: () => true, // Public read - vendors need to see available templates
-    create: ({ req: { user } }) => isSuperAdmin(user),
-    update: ({ req: { user } }) => isSuperAdmin(user),
-    delete: ({ req: { user } }) => isSuperAdmin(user),
+    create: ({ req: { user } }) => isSuperAdmin(user) || Boolean(getVendorId(user)),
+    update: ({ req: { user } }) => {
+      if (isSuperAdmin(user)) return true;
+      const vendorId = getVendorId(user);
+      return vendorId ? ownedEditableTemplatesWhere(vendorId) : false;
+    },
+    delete: ({ req: { user } }) => {
+      if (isSuperAdmin(user)) return true;
+      const vendorId = getVendorId(user);
+      return vendorId ? ownedEditableTemplatesWhere(vendorId) : false;
+    },
   },
   hooks: {
     beforeValidate: [
@@ -149,6 +170,32 @@ export const VendorTemplates: CollectionConfig = {
       },
     },
     {
+      name: "owner",
+      type: "relationship",
+      relationTo: "vendors",
+      index: true,
+      admin: {
+        description:
+          "Vendor who created this template. Empty means the template is global and selectable by every vendor.",
+      },
+    },
+    {
+      name: "status",
+      type: "select",
+      options: [
+        { label: "Draft", value: "draft" },
+        { label: "Pending Approval", value: "pending" },
+        { label: "Approved", value: "approved" },
+        { label: "Rejected", value: "rejected" },
+      ],
+      defaultValue: "draft",
+      index: true,
+      admin: {
+        description:
+          "Approval state. Only approved templates without an owner are offered to all vendors.",
+      },
+    },
+    {
       name: "isDefault",
       type: "checkbox",
       defaultValue: false,
@@ -195,6 +242,14 @@ export const VendorTemplates: CollectionConfig = {
       required: true,
       admin: {
         description: "CSS custom properties/variables for the template",
+      },
+    },
+    {
+      name: "sections",
+      type: "json",
+      admin: {
+        description:
+          "Ordered storefront sections for modular templates (mirrors templateConfig.sections)",
       },
     },
     {

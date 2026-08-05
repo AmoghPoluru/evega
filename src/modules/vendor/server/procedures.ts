@@ -19,6 +19,9 @@ import { createManualOrder } from "@/modules/orders/create-manual-order";
 import { manualOrderCreateInputSchema } from "@/modules/orders/manual-order-schema";
 import { payloadReqFromUser } from "@/lib/payload-req";
 import { toMarketingProfileResponse, updateVendorMarketingProfile, marketingProfileUpdateBodySchema } from "@/modules/marketing/marketing-profile-trpc";
+import { generateCSSVariables } from "@/lib/templates/css-variables";
+import { BUILTIN_COMPONENT_MAPPING } from "@/lib/templates/default-template";
+import { templateConfigSchema } from "@/types/template-customization";
 import type { Vendor } from "@/payload-types";
 
 /** Treat empty strings as undefined so optional URL fields don't fail Zod in production. */
@@ -26,6 +29,44 @@ const optionalUrl = z.preprocess(
   (val) => (val === "" || val === null ? undefined : val),
   z.string().url().optional(),
 );
+
+const builderTemplateInputSchema = z.object({
+  name: z.string().min(2, "Template name is required"),
+  description: z.string().optional(),
+  category: z.enum(["minimal", "elegant", "bold", "colorful", "classic"]),
+  templateConfig: templateConfigSchema,
+});
+
+/** Slugify a template name and suffix it until no other template uses the slug. */
+async function generateUniqueTemplateSlug(
+  db: { find: (args: { collection: "vendor-templates"; where: Where; limit: number }) => Promise<{ docs: unknown[] }> },
+  name: string,
+  excludeId?: string,
+): Promise<string> {
+  const base =
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || "template";
+
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const slug = attempt === 0 ? base : `${base}-${attempt + 1}`;
+    const existing = await db.find({
+      collection: "vendor-templates" as const,
+      where: {
+        slug: { equals: slug },
+        ...(excludeId ? { id: { not_equals: excludeId } } : {}),
+      },
+      limit: 1,
+    });
+
+    if (existing.docs.length === 0) {
+      return slug;
+    }
+  }
+
+  return `${base}-${Date.now()}`;
+}
 
 const vendorRegistrationSchema = z.object({
   businessName: z.string().min(2, "Business name is required"),
@@ -3198,20 +3239,41 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
           depth: 0,
         });
 
-        const where: Where = {
-          isActive: { equals: true },
+        // Global templates (no owner, approved — legacy docs predate `status`)
+        // plus every template this vendor created.
+        const visibility: Where = {
+          or: [
+            {
+              and: [
+                { owner: { exists: false } },
+                {
+                  or: [
+                    { status: { equals: "approved" } },
+                    { status: { exists: false } },
+                  ],
+                },
+              ],
+            },
+            { owner: { equals: vendorId } },
+          ],
         };
 
+        const conditions: Where[] = [{ isActive: { equals: true } }, visibility];
+
         if (input.category) {
-          where.category = { equals: input.category };
+          conditions.push({ category: { equals: input.category } });
         }
 
         if (input.search) {
-          where.or = [
-            { name: { contains: input.search } },
-            { description: { contains: input.search } },
-          ];
+          conditions.push({
+            or: [
+              { name: { contains: input.search } },
+              { description: { contains: input.search } },
+            ],
+          });
         }
+
+        const where: Where = { and: conditions };
 
         const templates = await ctx.db.find({
           collection: "vendor-templates",
@@ -3377,6 +3439,162 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
         });
 
         return { customization: updatedCustomization };
+      }),
+
+    // Get a template owned by the current vendor (for editing in the builder)
+    getOwned: vendorProcedure
+      .input(z.object({ templateId: z.string() }))
+      .query(async ({ ctx, input }) => {
+        const vendorId = typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+        const template = await ctx.db.findByID({
+          collection: "vendor-templates",
+          id: input.templateId,
+          depth: 0,
+        });
+
+        const ownerId = typeof template.owner === "string" ? template.owner : template.owner?.id;
+
+        if (ownerId !== vendorId) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You can only edit templates you created",
+          });
+        }
+
+        return template;
+      }),
+
+    // Create a vendor-owned modular template from the builder
+    create: vendorProcedure
+      .input(builderTemplateInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const vendorId = typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+        const slug = await generateUniqueTemplateSlug(ctx.db, input.name);
+
+        const template = await ctx.db.create({
+          collection: "vendor-templates",
+          data: {
+            name: input.name,
+            slug,
+            description: input.description,
+            category: input.category,
+            owner: vendorId,
+            status: "draft",
+            isActive: true,
+            isDefault: false,
+            author: "Vendor",
+            templateConfig: input.templateConfig,
+            sections: input.templateConfig.sections ?? [],
+            cssVariables: generateCSSVariables(input.templateConfig),
+            componentMapping: {
+              ...BUILTIN_COMPONENT_MAPPING,
+              layout: "modular",
+            },
+          },
+        });
+
+        return { id: template.id, slug: template.slug };
+      }),
+
+    // Update a vendor-owned template that has not been approved yet
+    update: vendorProcedure
+      .input(builderTemplateInputSchema.extend({ templateId: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const vendorId = typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+        const existing = await ctx.db.findByID({
+          collection: "vendor-templates",
+          id: input.templateId,
+          depth: 0,
+        });
+
+        const ownerId = typeof existing.owner === "string" ? existing.owner : existing.owner?.id;
+
+        if (ownerId !== vendorId) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You can only edit templates you created",
+          });
+        }
+
+        if (existing.status === "approved") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Approved templates can no longer be edited",
+          });
+        }
+
+        const slug =
+          existing.name === input.name
+            ? existing.slug
+            : await generateUniqueTemplateSlug(ctx.db, input.name, input.templateId);
+
+        const template = await ctx.db.update({
+          collection: "vendor-templates",
+          id: input.templateId,
+          data: {
+            name: input.name,
+            slug,
+            description: input.description,
+            category: input.category,
+            templateConfig: input.templateConfig,
+            sections: input.templateConfig.sections ?? [],
+            cssVariables: generateCSSVariables(input.templateConfig),
+            componentMapping: {
+              ...BUILTIN_COMPONENT_MAPPING,
+              layout: "modular",
+            },
+          },
+        });
+
+        return { id: template.id, slug: template.slug };
+      }),
+
+    // Ask an admin to promote an owned template to a global one
+    submitForApproval: vendorProcedure
+      .input(z.object({ templateId: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const vendorId = typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+        const existing = await ctx.db.findByID({
+          collection: "vendor-templates",
+          id: input.templateId,
+          depth: 0,
+        });
+
+        const ownerId = typeof existing.owner === "string" ? existing.owner : existing.owner?.id;
+
+        if (ownerId !== vendorId) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You can only submit templates you created",
+          });
+        }
+
+        if (existing.status === "approved") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This template is already approved",
+          });
+        }
+
+        await ctx.db.update({
+          collection: "vendor-templates",
+          id: input.templateId,
+          data: { status: "pending" },
+        });
+
+        return { success: true };
       }),
   }),
 });

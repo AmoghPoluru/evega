@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { storefrontSectionsSchema } from "./template-sections";
+
 /**
  * Template Customization Schema
  * Defines the structure for vendor-specific template customizations
@@ -109,6 +111,7 @@ export const templateCustomizationSchema = z.object({
         .optional(),
     })
     .optional(),
+  sections: storefrontSectionsSchema.optional(),
 });
 
 export type TemplateCustomization = z.infer<typeof templateCustomizationSchema>;
@@ -199,6 +202,7 @@ export const templateConfigSchema = z.object({
       easing: z.string().optional(), // e.g., "ease"
     }).optional(),
   }),
+  sections: storefrontSectionsSchema.optional(),
 });
 
 export type TemplateConfig = z.infer<typeof templateConfigSchema>;

@@ -13,6 +13,7 @@ import {
   UserPlus,
   UserCog,
   Store,
+  LayoutTemplate,
 } from "lucide-react";
 
 function isNavItemActive(href: string, pathname: string): boolean {
@@ -27,6 +28,7 @@ const navItems = [
   { href: "/staff/orders", label: "Orders", icon: ShoppingCart },
   { href: "/staff/customers", label: "Customers", icon: Users },
   { href: "/staff/users", label: "Users", icon: UserCog },
+  { href: "/staff/templates", label: "Templates", icon: LayoutTemplate },
 ];
 
 export function AdminSidebar() {

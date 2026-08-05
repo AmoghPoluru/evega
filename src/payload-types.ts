@@ -897,6 +897,14 @@ export interface VendorTemplate {
    */
   category: 'minimal' | 'elegant' | 'bold' | 'colorful' | 'classic';
   /**
+   * Vendor who created this template. Empty means the template is global and selectable by every vendor.
+   */
+  owner?: (string | null) | Vendor;
+  /**
+   * Approval state. Only approved templates without an owner are offered to all vendors.
+   */
+  status?: ('draft' | 'pending' | 'approved' | 'rejected') | null;
+  /**
    * Site-wide default template for new vendors. Only one template can be default; checking this unchecks any other default.
    */
   isDefault?: boolean | null;
@@ -928,6 +936,18 @@ export interface VendorTemplate {
    * CSS custom properties/variables for the template
    */
   cssVariables:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Ordered storefront sections for modular templates (mirrors templateConfig.sections)
+   */
+  sections?:
     | {
         [k: string]: unknown;
       }
@@ -2283,12 +2303,15 @@ export interface VendorTemplatesSelect<T extends boolean = true> {
   previewImage?: T;
   thumbnailImage?: T;
   category?: T;
+  owner?: T;
+  status?: T;
   isDefault?: T;
   isActive?: T;
   version?: T;
   author?: T;
   templateConfig?: T;
   cssVariables?: T;
+  sections?: T;
   componentMapping?: T;
   updatedAt?: T;
   createdAt?: T;

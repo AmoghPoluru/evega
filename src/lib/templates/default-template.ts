@@ -3,6 +3,7 @@ import type {
   TemplateConfig,
   TemplateCustomization,
 } from "@/types/template-customization";
+import { DEFAULT_SECTIONS } from "@/types/template-sections";
 import { generateCSSVariables } from "./css-variables";
 
 /** Mirrors the seeded "Fun" template — guaranteed valid in-code fallback. */
@@ -87,6 +88,7 @@ export const BUILTIN_TEMPLATE_CONFIG: TemplateConfig = {
       easing: "ease",
     },
   },
+  sections: DEFAULT_SECTIONS,
 };
 
 export const BUILTIN_COMPONENT_MAPPING: ResolvedTemplate["componentMapping"] = {
@@ -164,6 +166,7 @@ export function mergeTemplateWithCustomization(
       ...(templateConfig.textStyles ?? {}),
       ...(customization.textStyles ?? {}),
     },
+    sections: customization.sections ?? templateConfig.sections ?? DEFAULT_SECTIONS,
   } as TemplateConfig;
 }
 

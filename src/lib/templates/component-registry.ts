@@ -9,7 +9,15 @@ import { DefaultLayout } from "@/components/vendor/layouts/DefaultLayout";
 import { ReloopLayout } from "@/components/vendor/layouts/ReloopLayout";
 import { EmporiumLayout } from "@/components/vendor/layouts/EmporiumLayout";
 import { RunwayLayout } from "@/components/vendor/layouts/RunwayLayout";
+import { ModularLayout } from "@/components/vendor/layouts/ModularLayout";
 import type { VendorLayoutProps } from "@/components/vendor/layouts/types";
+import { HeroSection } from "@/components/vendor/sections/HeroSection";
+import { ProductGridSection } from "@/components/vendor/sections/ProductGridSection";
+import { TestimonialsSection } from "@/components/vendor/sections/TestimonialsSection";
+import { RichTextSection } from "@/components/vendor/sections/RichTextSection";
+import { VendorInfoSection } from "@/components/vendor/sections/VendorInfoSection";
+import type { SectionProps } from "@/components/vendor/sections/types";
+import type { StorefrontSectionType } from "@/types/template-sections";
 
 /**
  * Structural layout registry
@@ -20,7 +28,35 @@ const layoutRegistry: Record<string, ComponentType<VendorLayoutProps>> = {
   reloop: ReloopLayout,
   emporium: EmporiumLayout,
   runway: RunwayLayout,
+  modular: ModularLayout,
 };
+
+/**
+ * Modular section registry
+ * Maps a storefront section `type` to the component that renders it.
+ */
+const sectionRegistry: Record<StorefrontSectionType, ComponentType<SectionProps>> = {
+  hero: HeroSection,
+  "product-grid": ProductGridSection,
+  testimonials: TestimonialsSection,
+  "rich-text": RichTextSection,
+  "vendor-info": VendorInfoSection,
+};
+
+/**
+ * Get a storefront section component by its `type`.
+ * Returns null for unknown types so the renderer can skip them.
+ */
+export function getSection(type: string): ComponentType<SectionProps> | null {
+  return sectionRegistry[type as StorefrontSectionType] ?? null;
+}
+
+/**
+ * List all registered section types.
+ */
+export function getSectionTypes(): StorefrontSectionType[] {
+  return Object.keys(sectionRegistry) as StorefrontSectionType[];
+}
 
 /**
  * Get a storefront layout component by its `layout` identifier.

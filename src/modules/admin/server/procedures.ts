@@ -1,7 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import type { Sort, Where } from 'payload';
-import type { Product, User, Vendor } from '@/payload-types';
+import type { Product, User, Vendor, VendorTemplate } from '@/payload-types';
 import { createLocalReq, getFieldsToSign, jwtSign } from 'payload';
 import { addSessionToUser } from 'payload/shared';
 import { adminProcedure, baseProcedure, createTRPCRouter, staffProcedure } from '@/trpc/init';
@@ -1248,6 +1248,64 @@ export const adminRouter = createTRPCRouter({
         );
 
         return { success: true, count: ids.length };
+      }),
+  }),
+
+  templates: createTRPCRouter({
+    /** Vendor-built templates awaiting a decision. */
+    listPending: staffProcedure.query(async ({ ctx }) => {
+      const result = await ctx.db.find({
+        collection: 'vendor-templates',
+        where: {
+          status: { equals: 'pending' },
+        },
+        sort: '-updatedAt',
+        depth: 1,
+        limit: 100,
+        overrideAccess: true,
+      });
+
+      return {
+        docs: result.docs.map((template: VendorTemplate) => ({
+          id: template.id,
+          name: template.name,
+          slug: template.slug,
+          description: template.description ?? null,
+          category: template.category,
+          status: template.status,
+          updatedAt: template.updatedAt,
+          sectionCount: Array.isArray(template.sections) ? template.sections.length : 0,
+          owner:
+            template.owner && typeof template.owner === 'object'
+              ? { id: template.owner.id, name: template.owner.name }
+              : null,
+        })),
+      };
+    }),
+
+    /**
+     * Approve a pending template — clearing `owner` promotes it to a global
+     * template selectable by every vendor — or reject it back to its author.
+     */
+    review: staffProcedure
+      .input(
+        z.object({
+          templateId: z.string(),
+          decision: z.enum(['approved', 'rejected']),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        await ctx.db.update({
+          collection: 'vendor-templates',
+          id: input.templateId,
+          data:
+            input.decision === 'approved'
+              ? { status: 'approved', owner: null }
+              : { status: 'rejected' },
+          overrideAccess: true,
+        });
+
+        return { success: true };
       }),
   }),
 });

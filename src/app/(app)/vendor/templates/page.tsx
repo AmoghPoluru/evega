@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { trpc } from "@/trpc/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, Eye, Loader2 } from "lucide-react";
+import { CheckCircle2, Eye, Loader2, Plus } from "lucide-react";
 import { TemplatePreviewModal } from "./components/TemplatePreviewModal";
 import { toast } from "sonner";
 
@@ -54,11 +55,19 @@ export default function TemplatesPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Choose Your Template</h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Select a template that matches your brand identity. You can customize it later.
-        </p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Choose Your Template</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Select a template that matches your brand identity. You can customize it later.
+          </p>
+        </div>
+        <Button asChild>
+          <Link href="/vendor/templates/builder">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Template
+          </Link>
+        </Button>
       </div>
 
       {/* Filters */}
