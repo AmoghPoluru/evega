@@ -3,8 +3,13 @@
 import { useMemo } from "react";
 
 import { SectionRenderer } from "@/components/vendor/sections/SectionRenderer";
+import { TemplateFontLinksClient } from "@/components/vendor/TemplateFontLinksClient";
 import { buildTemplateGlobalStyles } from "@/components/vendor/layouts/global-styles";
 import { generateCSSVariables } from "@/lib/templates/css-variables";
+import {
+  getCategoryComponentMapping,
+  type TemplateCategory,
+} from "@/lib/templates/category-presets";
 import type { ResolvedTemplate, TemplateConfig } from "@/types/template-customization";
 import type { StorefrontSection } from "@/types/template-sections";
 
@@ -12,6 +17,7 @@ interface BuilderPreviewProps {
   config: TemplateConfig;
   sections: StorefrontSection[];
   vendorName: string;
+  category: TemplateCategory;
 }
 
 const PREVIEW_PRODUCTS = [
@@ -24,8 +30,17 @@ const PREVIEW_PRODUCTS = [
  * Renders the in-progress template with the real section components so the
  * vendor sees the actual storefront structure while editing.
  */
-export function BuilderPreview({ config, sections, vendorName }: BuilderPreviewProps) {
+export function BuilderPreview({
+  config,
+  sections,
+  vendorName,
+  category,
+}: BuilderPreviewProps) {
   const cssVariables = useMemo(() => generateCSSVariables(config), [config]);
+  const componentMapping = useMemo(
+    () => getCategoryComponentMapping(category),
+    [category],
+  );
 
   const template = useMemo<ResolvedTemplate>(
     () => ({
@@ -34,16 +49,10 @@ export function BuilderPreview({ config, sections, vendorName }: BuilderPreviewP
       templateConfig: { ...config, sections },
       customization: {},
       cssVariables,
-      layout: "modular",
-      componentMapping: {
-        layout: "modular",
-        heroBanner: "full-width",
-        productCard: "detailed",
-        navigation: "top",
-        footer: "default",
-      },
+      layout: componentMapping.layout ?? "modular",
+      componentMapping,
     }),
-    [config, sections, cssVariables],
+    [config, sections, cssVariables, componentMapping],
   );
 
   const vendor = useMemo(
@@ -58,11 +67,15 @@ export function BuilderPreview({ config, sections, vendorName }: BuilderPreviewP
 
   return (
     <div className="overflow-hidden rounded-lg border">
+      <TemplateFontLinksClient
+        headingFont={config.fonts?.heading}
+        bodyFont={config.fonts?.body}
+      />
       <div
+        key={category}
         className="vendor-page-template max-h-[70vh] overflow-y-auto"
         style={cssVariables as React.CSSProperties}
       >
-        {/* Variables stay inline on the container so the builder chrome is unaffected. */}
         <style>{buildTemplateGlobalStyles("")}</style>
         <SectionRenderer
           sections={sections}

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { ArrowLeft, Loader2, Plus, Save, Send } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,7 +20,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { BUILTIN_TEMPLATE_CONFIG } from "@/lib/templates/default-template";
+import {
+  getCategoryStarterConfig,
+  mergeCategoryWithCustomization,
+  type TemplateCategory,
+} from "@/lib/templates/category-presets";
 import type { TemplateConfig, TemplateCustomization } from "@/types/template-customization";
 import {
   DEFAULT_SECTIONS,
@@ -40,7 +44,7 @@ const CATEGORIES = [
   { value: "bold", label: "Bold" },
   { value: "colorful", label: "Colorful" },
   { value: "classic", label: "Classic" },
-] as const;
+] as const satisfies ReadonlyArray<{ value: TemplateCategory; label: string }>;
 
 const SECTION_TYPES = Object.keys(SECTION_LABELS) as StorefrontSectionType[];
 
@@ -49,7 +53,7 @@ export default function TemplateBuilderPage() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<(typeof CATEGORIES)[number]["value"]>("minimal");
+  const [category, setCategory] = useState<TemplateCategory>("minimal");
   const [sections, setSections] = useState<StorefrontSection[]>(() =>
     DEFAULT_SECTIONS.map((section) => ({ ...section })),
   );
@@ -57,23 +61,30 @@ export default function TemplateBuilderPage() {
   const [templateId, setTemplateId] = useState<string | null>(null);
 
   const form = useForm<TemplateCustomization>({
-    defaultValues: {
-      colors: { ...BUILTIN_TEMPLATE_CONFIG.colors },
-      fonts: { ...BUILTIN_TEMPLATE_CONFIG.fonts },
-    },
+    defaultValues: {},
   });
 
-  const watched = form.watch();
+  const colorOverrides = useWatch({ control: form.control, name: "colors" });
+  const fontOverrides = useWatch({ control: form.control, name: "fonts" });
+  const categoryStarter = useMemo(
+    () => getCategoryStarterConfig(category),
+    [category],
+  );
 
   const config = useMemo<TemplateConfig>(
-    () => ({
-      ...BUILTIN_TEMPLATE_CONFIG,
-      colors: { ...BUILTIN_TEMPLATE_CONFIG.colors, ...watched.colors },
-      fonts: { ...BUILTIN_TEMPLATE_CONFIG.fonts, ...watched.fonts },
-      sections,
-    }),
-    [watched.colors, watched.fonts, sections],
+    () =>
+      mergeCategoryWithCustomization(
+        category,
+        { colors: colorOverrides, fonts: fontOverrides },
+        sections,
+      ),
+    [category, colorOverrides, fontOverrides, sections],
   );
+
+  const handleCategoryChange = (value: TemplateCategory) => {
+    setCategory(value);
+    form.reset({});
+  };
 
   const createTemplate = trpc.vendor.templates.create.useMutation();
   const updateTemplate = trpc.vendor.templates.update.useMutation();
@@ -193,9 +204,7 @@ export default function TemplateBuilderPage() {
                 <Label className="text-xs">Category</Label>
                 <Select
                   value={category}
-                  onValueChange={(value) =>
-                    setCategory(value as (typeof CATEGORIES)[number]["value"])
-                  }
+                  onValueChange={(value) => handleCategoryChange(value as TemplateCategory)}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -258,7 +267,12 @@ export default function TemplateBuilderPage() {
               <CardTitle className="text-base">Live preview</CardTitle>
             </CardHeader>
             <CardContent>
-              <BuilderPreview config={config} sections={sections} vendorName={name} />
+              <BuilderPreview
+                config={config}
+                sections={sections}
+                vendorName={name}
+                category={category}
+              />
             </CardContent>
           </Card>
         </div>
@@ -270,7 +284,7 @@ export default function TemplateBuilderPage() {
               <CardTitle className="text-base">Typography</CardTitle>
             </CardHeader>
             <CardContent>
-              <FontSelector form={form} />
+              <FontSelector form={form} baseFonts={categoryStarter.fonts} />
             </CardContent>
           </Card>
 
@@ -279,7 +293,7 @@ export default function TemplateBuilderPage() {
               <CardTitle className="text-base">Colors</CardTitle>
             </CardHeader>
             <CardContent>
-              <ColorPicker form={form} />
+              <ColorPicker form={form} baseColors={categoryStarter.colors} />
             </CardContent>
           </Card>
         </div>

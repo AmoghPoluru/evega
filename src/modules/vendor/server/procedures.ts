@@ -3279,6 +3279,7 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
           collection: "vendor-templates",
           where,
           sort: "-createdAt",
+          depth: 1,
         });
 
         return {

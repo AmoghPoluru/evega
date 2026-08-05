@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { generateCSSVariables, cssVariablesToString } from "@/lib/templates/css-variables";
+import { TemplateFontLinksClient } from "@/components/vendor/TemplateFontLinksClient";
 import type { ResolvedTemplate, TemplateCustomization } from "@/types/template-customization";
 
 interface LivePreviewProps {
@@ -53,8 +54,13 @@ export function LivePreview({ template, customization }: LivePreviewProps) {
     setCSSVariables(variables);
   }, [template, customization]);
 
+  const headingFont =
+    customization.fonts?.heading ?? template.templateConfig.fonts?.heading;
+  const bodyFont = customization.fonts?.body ?? template.templateConfig.fonts?.body;
+
   return (
     <div className="border rounded-lg overflow-hidden">
+      <TemplateFontLinksClient headingFont={headingFont} bodyFont={bodyFont} />
       <div
         className="p-8 min-h-[400px]"
         style={cssVariables as React.CSSProperties}

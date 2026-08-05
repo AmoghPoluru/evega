@@ -18,11 +18,30 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle2, Eye, Loader2, Plus } from "lucide-react";
 import { TemplatePreviewModal } from "./components/TemplatePreviewModal";
 import { toast } from "sonner";
+import type { VendorTemplate } from "@/payload-types";
+
+type TemplateListItem = VendorTemplate & { isSelected?: boolean };
+
+function getThumbnailUrl(template: TemplateListItem): string | undefined {
+  const media = template.thumbnailImage;
+  if (!media || typeof media === "string") return undefined;
+  return media.url ?? undefined;
+}
+
+function getTemplateColors(template: TemplateListItem): { primary: string; secondary: string } {
+  const config = template.templateConfig as
+    | { colors?: { primary?: string; secondary?: string } }
+    | undefined;
+  return {
+    primary: config?.colors?.primary ?? "#6366f1",
+    secondary: config?.colors?.secondary ?? "#8b5cf6",
+  };
+}
 
 export default function TemplatesPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("all");
-  const [previewTemplate, setPreviewTemplate] = useState<any>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<TemplateListItem | null>(null);
 
   const { data, isLoading } = trpc.vendor.templates.list.useQuery({
     search: search || undefined,
@@ -109,18 +128,30 @@ export default function TemplatesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {data?.docs?.map((template: any) => (
+          {data?.docs?.map((template: TemplateListItem) => {
+            const thumbnailUrl = getThumbnailUrl(template);
+            const colors = getTemplateColors(template);
+
+            return (
             <Card key={template.id} className="overflow-hidden">
               <div className="relative">
-                {template.thumbnailImage?.url ? (
+                {thumbnailUrl ? (
                   <img
-                    src={template.thumbnailImage.url}
+                    src={thumbnailUrl}
                     alt={template.name}
                     className="w-full h-48 object-cover"
                   />
                 ) : (
-                  <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
-                    <span className="text-gray-400">No preview</span>
+                  <div
+                    className="flex h-48 w-full flex-col items-center justify-center p-4 text-center"
+                    style={{
+                      background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`,
+                    }}
+                  >
+                    <span className="text-lg font-semibold text-white drop-shadow-sm">
+                      {template.name}
+                    </span>
+                    <span className="mt-1 text-sm text-white/85">Tap Preview to see storefront</span>
                   </div>
                 )}
                 {template.isSelected && (
@@ -172,7 +203,8 @@ export default function TemplatesPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 

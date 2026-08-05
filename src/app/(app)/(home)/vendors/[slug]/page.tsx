@@ -6,6 +6,7 @@ import { resolveVendorTemplate } from "@/lib/templates/template-engine";
 import { buildFallbackResolvedTemplate } from "@/lib/templates/default-template";
 import { cssVariablesToString } from "@/lib/templates/css-variables";
 import { VendorStorefront } from "@/components/vendor/VendorStorefront";
+import { TemplateFontLinks } from "@/components/vendor/TemplateFontLinks";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -62,6 +63,10 @@ export default async function VendorPage({ params }: Props) {
 
   return (
     <>
+      <TemplateFontLinks
+        headingFont={resolvedTemplate.templateConfig.fonts?.heading}
+        bodyFont={resolvedTemplate.templateConfig.fonts?.body}
+      />
       <style>{`:root {
           ${cssVariables}
         }`}</style>
