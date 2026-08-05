@@ -1,4 +1,6 @@
 import { generateCSSVariables } from "./css-variables";
+import { getThemeManifestBySlug } from "./manifests/registry";
+import { resolveSkeletonFromLayout } from "./manifests/skeletons";
 import type { ResolvedTemplate, TemplateConfig } from "@/types/template-customization";
 import { DEFAULT_SECTIONS, type StorefrontSection } from "@/types/template-sections";
 
@@ -34,6 +36,7 @@ export function buildPreviewResolvedTemplate(
     typeof componentMapping.layout === "string" && componentMapping.layout
       ? componentMapping.layout
       : "default";
+  const manifest = getThemeManifestBySlug(doc.slug);
 
   return {
     templateId: doc.id,
@@ -41,9 +44,10 @@ export function buildPreviewResolvedTemplate(
     templateConfig: config,
     customization: {},
     cssVariables,
-    layout,
+    layout: manifest ? manifest.legacyLayout : layout,
+    skeleton: manifest?.skeleton ?? resolveSkeletonFromLayout(layout),
     componentMapping: {
-      layout,
+      layout: manifest ? manifest.legacyLayout : layout,
       heroBanner: componentMapping.heroBanner ?? "full-width",
       productCard: componentMapping.productCard ?? "detailed",
       navigation: componentMapping.navigation ?? "top",

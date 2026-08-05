@@ -8,6 +8,9 @@ import { getDescriptionText, getMediaUrl } from "./utils";
  * RunwayLayout
  * An editorial fashion lookbook: a full-bleed hero banner followed by oversized
  * alternating product tiles for a magazine-style, image-led presentation.
+ *
+ * Preserved as a legacy layout — Runway theme uses `preserveLegacyLayout: true`
+ * in its theme manifest and always renders through this component.
  */
 export function RunwayLayout({ vendor, template, products }: VendorLayoutProps) {
   const tagline = getDescriptionText(vendor.description);

@@ -166,6 +166,10 @@ export function mergeTemplateWithCustomization(
       ...(templateConfig.textStyles ?? {}),
       ...(customization.textStyles ?? {}),
     },
+    tokens: {
+      ...(templateConfig.tokens ?? {}),
+      ...(customization.tokens ?? {}),
+    },
     sections: customization.sections ?? templateConfig.sections ?? DEFAULT_SECTIONS,
   } as TemplateConfig;
 }
@@ -186,6 +190,7 @@ export function buildFallbackResolvedTemplate(
     customization,
     cssVariables,
     layout: BUILTIN_COMPONENT_MAPPING.layout ?? "default",
+    skeleton: "classic",
     componentMapping: BUILTIN_COMPONENT_MAPPING,
   };
 }

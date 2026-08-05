@@ -6,6 +6,8 @@ import {
   buildFallbackResolvedTemplate,
   mergeTemplateWithCustomization,
 } from "./default-template";
+import { getThemeManifestBySlug, resolveThemeLayout } from "./manifests/registry";
+import { resolveSkeletonFromLayout } from "./manifests/skeletons";
 
 type VendorTemplateDoc = {
   id: string;
@@ -13,6 +15,7 @@ type VendorTemplateDoc = {
   isActive?: boolean | null;
   templateConfig?: unknown;
   componentMapping?: unknown;
+  skeleton?: string | null;
 };
 
 /**
@@ -95,10 +98,16 @@ function buildResolvedTemplateFromDoc(
 
   const componentMapping =
     (template.componentMapping as ResolvedTemplate["componentMapping"]) ?? {};
-  const layout =
-    typeof componentMapping.layout === "string" && componentMapping.layout
+  const manifest = getThemeManifestBySlug(template.slug);
+  const layout = manifest
+    ? resolveThemeLayout(manifest)
+    : typeof componentMapping.layout === "string" && componentMapping.layout
       ? componentMapping.layout
       : "default";
+  const skeleton =
+    template.skeleton ??
+    manifest?.skeleton ??
+    resolveSkeletonFromLayout(layout);
 
   return {
     templateId: template.id,
@@ -107,6 +116,7 @@ function buildResolvedTemplateFromDoc(
     customization,
     cssVariables,
     layout,
+    skeleton,
     componentMapping: {
       layout,
       heroBanner: componentMapping.heroBanner ?? "full-width",

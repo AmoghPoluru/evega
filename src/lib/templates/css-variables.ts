@@ -1,39 +1,110 @@
 import type { TemplateConfig, TemplateCustomization } from "@/types/template-customization";
+import { mergeWithDerivedPalette, type ContrastIntent } from "./derive-palette";
+
+const RHYTHM_SECTION: Record<string, string> = {
+  compact: "48px 0",
+  normal: "80px 0",
+  airy: "120px 0",
+};
+
+const RHYTHM_GAP: Record<string, string> = {
+  compact: "16px",
+  normal: "24px",
+  airy: "40px",
+};
+
+const SHAPE_RADIUS: Record<string, string> = {
+  sharp: "0px",
+  soft: "8px",
+  pill: "999px",
+};
+
+const MOTION_DURATION: Record<string, string> = {
+  none: "0ms",
+  subtle: "200ms",
+  expressive: "400ms",
+};
+
+function resolveContrastIntent(templateConfig: TemplateConfig | Record<string, unknown>): ContrastIntent {
+  const tokens = (templateConfig as TemplateConfig).tokens;
+  return tokens?.contrast ?? "light";
+}
 
 /**
- * Generate CSS custom properties from template configuration
- * Merges vendor customizations with template defaults
+ * Generate CSS custom properties from template configuration.
+ * Merges vendor customizations with template defaults and expanded design tokens.
  */
 export function generateCSSVariables(
-  templateConfig: TemplateConfig | any
+  templateConfig: TemplateConfig | Record<string, unknown>
 ): Record<string, string> {
+  const config = templateConfig as TemplateConfig;
   const variables: Record<string, string> = {};
+  const intent = resolveContrastIntent(config);
+  const tokens = config.tokens;
 
-  // Colors (mergedConfig already has customizations applied)
-  variables["--template-primary"] = templateConfig.colors?.primary || "#000000";
-  variables["--template-secondary"] = templateConfig.colors?.secondary || "#666666";
-  variables["--template-accent"] = templateConfig.colors?.accent || "#000000";
-  variables["--template-background"] = templateConfig.colors?.background || "#FFFFFF";
-  variables["--template-text"] = templateConfig.colors?.text || "#1A1A1A";
-  variables["--template-text-secondary"] = templateConfig.colors?.textSecondary || "#666666";
-  variables["--template-border"] = templateConfig.colors?.border || "#E5E5E5";
-  variables["--template-card-bg"] = templateConfig.colors?.cardBackground || "#FFFFFF";
+  const derived = mergeWithDerivedPalette(
+    {
+      primary: config.colors?.primary ?? "#000000",
+      secondary: config.colors?.secondary,
+      accent: config.colors?.accent,
+      background: config.colors?.background,
+    },
+    config.colors ?? {},
+    intent,
+  );
+
+  variables["--template-primary"] = derived.primary;
+  variables["--template-secondary"] = derived.secondary;
+  variables["--template-accent"] = derived.accent;
+  variables["--template-background"] = derived.background;
+  variables["--template-text"] = derived.text;
+  variables["--template-text-secondary"] = derived.textSecondary;
+  variables["--template-border"] = derived.border;
+  variables["--template-card-bg"] = derived.cardBackground;
 
   // Fonts
-  variables["--template-font-heading"] = templateConfig.fonts?.heading || "Inter, system-ui, sans-serif";
-  variables["--template-font-body"] = templateConfig.fonts?.body || "Inter, system-ui, sans-serif";
+  variables["--template-font-heading"] = config.fonts?.heading || "Inter, system-ui, sans-serif";
+  variables["--template-font-body"] = config.fonts?.body || "Inter, system-ui, sans-serif";
+  if (tokens?.displayFont) {
+    variables["--template-font-display"] = tokens.displayFont;
+  }
 
-  // Spacing
-  variables["--template-spacing-section"] = templateConfig.spacing?.sectionPadding || "80px 0";
-  variables["--template-spacing-card-gap"] = templateConfig.spacing?.cardGap || "24px";
-  variables["--template-container-width"] = templateConfig.spacing?.containerMaxWidth || "1200px";
+  // Rhythm
+  const rhythm = tokens?.rhythm?.section ?? "normal";
+  variables["--template-spacing-section"] =
+    config.spacing?.sectionPadding || RHYTHM_SECTION[rhythm] || "80px 0";
+  variables["--template-spacing-card-gap"] =
+    config.spacing?.cardGap || RHYTHM_GAP[tokens?.rhythm?.gap ?? "normal"] || "24px";
+  variables["--template-container-width"] = config.spacing?.containerMaxWidth || "1200px";
+
+  // Shape
+  const radiusScale = tokens?.shape?.radiusScale ?? "soft";
+  variables["--template-card-radius"] =
+    config.components?.productCard?.borderRadius || SHAPE_RADIUS[radiusScale] || "8px";
+  variables["--template-border-width"] = tokens?.shape?.borderWidth ?? "1px";
+  variables["--template-shadow-scale"] = tokens?.shape?.shadowScale ?? "soft";
+
+  // Surface
+  variables["--template-card-treatment"] = tokens?.surface?.cardTreatment ?? "elevated";
+  variables["--template-image-aspect"] = tokens?.surface?.imageAspect ?? "1 / 1";
+
+  // Motion
+  const motion = tokens?.motion ?? "subtle";
+  variables["--template-motion-duration"] = MOTION_DURATION[motion] ?? "200ms";
+
+  // Type scale
+  if (tokens?.typeScale?.base) {
+    variables["--template-type-base"] = tokens.typeScale.base;
+  }
+  if (tokens?.typeScale?.ratio) {
+    variables["--template-type-ratio"] = tokens.typeScale.ratio;
+  }
 
   // Component-specific
-  variables["--template-card-radius"] = templateConfig.components?.productCard?.borderRadius || "8px";
-  variables["--template-banner-height"] = templateConfig.components?.heroBanner?.height || "400px";
+  variables["--template-banner-height"] = config.components?.heroBanner?.height || "400px";
 
   // Text Styles
-  const textStyles = templateConfig.textStyles || {};
+  const textStyles = config.textStyles || {};
   if (textStyles.heading1) {
     variables["--template-h1-size"] = textStyles.heading1.fontSize || "2.5rem";
     variables["--template-h1-weight"] = textStyles.heading1.fontWeight || "700";

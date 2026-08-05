@@ -921,6 +921,46 @@ export interface VendorTemplate {
    */
   author?: string | null;
   /**
+   * Structural page shell for modular themes
+   */
+  skeleton?: ('classic' | 'editorial' | 'showcase' | 'dense') | null;
+  /**
+   * Vendor-facing niche label (e.g. Fashion & apparel)
+   */
+  niche?: string | null;
+  /**
+   * Mood axis for theme library filtering
+   */
+  mood?: ('playful' | 'minimal' | 'luxury' | 'bold' | 'warm' | 'catalog') | null;
+  /**
+   * Searchable tags for the theme catalog
+   */
+  tags?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Named design token bundle identifier
+   */
+  tokenPack?: string | null;
+  /**
+   * Semver version of this theme manifest
+   */
+  themeVersion?: string | null;
+  /**
+   * Minimum storefront engine version required
+   */
+  minEngineVersion?: string | null;
+  /**
+   * Catalog visibility — hidden themes stay on for existing vendors
+   */
+  catalogStatus?: ('active' | 'hidden' | 'retired') | null;
+  /**
    * Template configuration schema (colors, fonts, spacing, layout, components)
    */
   templateConfig:
@@ -2309,6 +2349,14 @@ export interface VendorTemplatesSelect<T extends boolean = true> {
   isActive?: T;
   version?: T;
   author?: T;
+  skeleton?: T;
+  niche?: T;
+  mood?: T;
+  tags?: T;
+  tokenPack?: T;
+  themeVersion?: T;
+  minEngineVersion?: T;
+  catalogStatus?: T;
   templateConfig?: T;
   cssVariables?: T;
   sections?: T;

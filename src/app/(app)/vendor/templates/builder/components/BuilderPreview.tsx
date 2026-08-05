@@ -49,8 +49,9 @@ export function BuilderPreview({
       templateConfig: { ...config, sections },
       customization: {},
       cssVariables,
-      layout: componentMapping.layout ?? "modular",
-      componentMapping,
+      layout: "modular",
+      skeleton: "classic",
+      componentMapping: { ...componentMapping, layout: "modular" },
     }),
     [config, sections, cssVariables, componentMapping],
   );

@@ -82,6 +82,34 @@ export function SectionSettingsEditor({ section, onChange }: SectionSettingsEdit
     );
   }
 
+  if (section.type === "product-lookbook") {
+    return (
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Section label</Label>
+          <Input
+            placeholder="The Collection"
+            value={text(settings.sectionLabel)}
+            onChange={(e) => set("sectionLabel", e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">CTA label</Label>
+          <Input
+            placeholder="Shop the look"
+            value={text(settings.ctaLabel)}
+            onChange={(e) => set("ctaLabel", e.target.value)}
+          />
+        </div>
+        <ToggleRow
+          label="Show index numbers"
+          checked={settings.showIndex !== false}
+          onCheckedChange={(checked) => set("showIndex", checked)}
+        />
+      </div>
+    );
+  }
+
   if (section.type === "product-grid") {
     return (
       <div className="space-y-3">

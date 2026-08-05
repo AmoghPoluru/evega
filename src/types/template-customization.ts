@@ -112,6 +112,38 @@ export const templateCustomizationSchema = z.object({
     })
     .optional(),
   sections: storefrontSectionsSchema.optional(),
+  tokens: z
+    .object({
+      contrast: z.enum(["light", "dark", "high-contrast"]).optional(),
+      displayFont: z.string().optional(),
+      typeScale: z
+        .object({
+          base: z.string().optional(),
+          ratio: z.string().optional(),
+        })
+        .optional(),
+      rhythm: z
+        .object({
+          section: z.enum(["compact", "normal", "airy"]).optional(),
+          gap: z.enum(["compact", "normal", "airy"]).optional(),
+        })
+        .optional(),
+      shape: z
+        .object({
+          radiusScale: z.enum(["sharp", "soft", "pill"]).optional(),
+          borderWidth: z.string().optional(),
+          shadowScale: z.enum(["none", "soft", "elevated"]).optional(),
+        })
+        .optional(),
+      surface: z
+        .object({
+          cardTreatment: z.enum(["flat", "bordered", "elevated", "glass"]).optional(),
+          imageAspect: z.string().optional(),
+        })
+        .optional(),
+      motion: z.enum(["none", "subtle", "expressive"]).optional(),
+    })
+    .optional(),
 });
 
 export type TemplateCustomization = z.infer<typeof templateCustomizationSchema>;
@@ -203,6 +235,30 @@ export const templateConfigSchema = z.object({
     }).optional(),
   }),
   sections: storefrontSectionsSchema.optional(),
+  tokens: z
+    .object({
+      contrast: z.enum(["light", "dark", "high-contrast"]).optional(),
+      displayFont: z.string().optional(),
+      typeScale: z.object({
+        base: z.string().optional(),
+        ratio: z.string().optional(),
+      }).optional(),
+      rhythm: z.object({
+        section: z.enum(["compact", "normal", "airy"]).optional(),
+        gap: z.enum(["compact", "normal", "airy"]).optional(),
+      }).optional(),
+      shape: z.object({
+        radiusScale: z.enum(["sharp", "soft", "pill"]).optional(),
+        borderWidth: z.string().optional(),
+        shadowScale: z.enum(["none", "soft", "elevated"]).optional(),
+      }).optional(),
+      surface: z.object({
+        cardTreatment: z.enum(["flat", "bordered", "elevated", "glass"]).optional(),
+        imageAspect: z.string().optional(),
+      }).optional(),
+      motion: z.enum(["none", "subtle", "expressive"]).optional(),
+    })
+    .optional(),
 });
 
 export type TemplateConfig = z.infer<typeof templateConfigSchema>;
@@ -219,6 +275,8 @@ export interface ResolvedTemplate {
   cssVariables: Record<string, string>;
   /** Structural layout identifier used to pick a storefront layout component. */
   layout: string;
+  /** Structural skeleton for modular themes (classic, editorial, showcase, dense). */
+  skeleton?: string;
   componentMapping: {
     layout?: string;
     heroBanner: string;

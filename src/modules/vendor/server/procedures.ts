@@ -3224,6 +3224,8 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
       .input(
         z.object({
           category: z.string().optional(),
+          niche: z.string().optional(),
+          mood: z.string().optional(),
           search: z.string().optional(),
         })
       )
@@ -3250,6 +3252,8 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
                   or: [
                     { status: { equals: "approved" } },
                     { status: { exists: false } },
+                    // Global catalog themes seeded before status fix
+                    { catalogStatus: { equals: "active" } },
                   ],
                 },
               ],
@@ -3258,10 +3262,27 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
           ],
         };
 
-        const conditions: Where[] = [{ isActive: { equals: true } }, visibility];
+        const conditions: Where[] = [
+          { isActive: { equals: true } },
+          visibility,
+          {
+            or: [
+              { catalogStatus: { equals: "active" } },
+              { catalogStatus: { exists: false } },
+            ],
+          },
+        ];
 
         if (input.category) {
           conditions.push({ category: { equals: input.category } });
+        }
+
+        if (input.niche) {
+          conditions.push({ niche: { equals: input.niche } });
+        }
+
+        if (input.mood) {
+          conditions.push({ mood: { equals: input.mood } });
         }
 
         if (input.search) {

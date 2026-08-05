@@ -16,6 +16,7 @@ import { ProductGridSection } from "@/components/vendor/sections/ProductGridSect
 import { TestimonialsSection } from "@/components/vendor/sections/TestimonialsSection";
 import { RichTextSection } from "@/components/vendor/sections/RichTextSection";
 import { VendorInfoSection } from "@/components/vendor/sections/VendorInfoSection";
+import { ProductLookbookSection } from "@/components/vendor/sections/ProductLookbookSection";
 import type { SectionProps } from "@/components/vendor/sections/types";
 import type { StorefrontSectionType } from "@/types/template-sections";
 
@@ -38,6 +39,7 @@ const layoutRegistry: Record<string, ComponentType<VendorLayoutProps>> = {
 const sectionRegistry: Record<StorefrontSectionType, ComponentType<SectionProps>> = {
   hero: HeroSection,
   "product-grid": ProductGridSection,
+  "product-lookbook": ProductLookbookSection,
   testimonials: TestimonialsSection,
   "rich-text": RichTextSection,
   "vendor-info": VendorInfoSection,

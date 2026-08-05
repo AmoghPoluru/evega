@@ -1,33 +1,12 @@
-import { SectionRenderer } from "@/components/vendor/sections/SectionRenderer";
-import { cssVariablesToString } from "@/lib/templates/css-variables";
-import type { StorefrontSection } from "@/types/template-sections";
-import { buildTemplateGlobalStyles } from "./global-styles";
+import { getSkeleton } from "@/components/vendor/skeletons/skeleton-registry";
 import type { VendorLayoutProps } from "./types";
 
 /**
  * ModularLayout
- * Storefront layout for templates built with the section builder. Injects the
- * same global CSS-variable driven styling as DefaultLayout, then renders the
- * template's ordered sections instead of a fixed structure.
+ * Renders modular storefronts via a structural skeleton + ordered sections.
+ * Legacy layout components (Runway, Default, etc.) remain in layoutRegistry.
  */
 export function ModularLayout({ vendor, template, products }: VendorLayoutProps) {
-  const cssVariables = cssVariablesToString(template.cssVariables);
-  const sections = template.templateConfig.sections as StorefrontSection[] | undefined;
-
-  return (
-    <div
-      className="flex flex-col min-h-screen vendor-page-template"
-      style={{
-        ...(template.cssVariables as React.CSSProperties),
-      }}
-    >
-      <style>{buildTemplateGlobalStyles(cssVariables)}</style>
-      <SectionRenderer
-        sections={sections}
-        vendor={vendor}
-        products={products}
-        template={template}
-      />
-    </div>
-  );
+  const Skeleton = getSkeleton(template.skeleton ?? "classic");
+  return <Skeleton vendor={vendor} template={template} products={products} />;
 }

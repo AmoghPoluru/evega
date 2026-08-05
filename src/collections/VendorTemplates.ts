@@ -229,6 +229,85 @@ export const VendorTemplates: CollectionConfig = {
       },
     },
     {
+      name: "skeleton",
+      type: "select",
+      options: [
+        { label: "Classic", value: "classic" },
+        { label: "Editorial", value: "editorial" },
+        { label: "Showcase", value: "showcase" },
+        { label: "Dense", value: "dense" },
+      ],
+      admin: {
+        description: "Structural page shell for modular themes",
+      },
+    },
+    {
+      name: "niche",
+      type: "text",
+      index: true,
+      admin: {
+        description: "Vendor-facing niche label (e.g. Fashion & apparel)",
+      },
+    },
+    {
+      name: "mood",
+      type: "select",
+      options: [
+        { label: "Playful", value: "playful" },
+        { label: "Minimal", value: "minimal" },
+        { label: "Luxury", value: "luxury" },
+        { label: "Bold", value: "bold" },
+        { label: "Warm", value: "warm" },
+        { label: "Catalog", value: "catalog" },
+      ],
+      admin: {
+        description: "Mood axis for theme library filtering",
+      },
+    },
+    {
+      name: "tags",
+      type: "json",
+      admin: {
+        description: "Searchable tags for the theme catalog",
+      },
+    },
+    {
+      name: "tokenPack",
+      type: "text",
+      admin: {
+        description: "Named design token bundle identifier",
+      },
+    },
+    {
+      name: "themeVersion",
+      type: "text",
+      defaultValue: "1.0.0",
+      admin: {
+        description: "Semver version of this theme manifest",
+      },
+    },
+    {
+      name: "minEngineVersion",
+      type: "text",
+      defaultValue: "1.0.0",
+      admin: {
+        description: "Minimum storefront engine version required",
+      },
+    },
+    {
+      name: "catalogStatus",
+      type: "select",
+      defaultValue: "active",
+      options: [
+        { label: "Active", value: "active" },
+        { label: "Hidden", value: "hidden" },
+        { label: "Retired", value: "retired" },
+      ],
+      admin: {
+        description: "Catalog visibility — hidden themes stay on for existing vendors",
+      },
+    },
+    {
       name: "templateConfig",
       type: "json",
       required: true,

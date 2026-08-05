@@ -19,8 +19,14 @@ import { CheckCircle2, Eye, Loader2, Plus } from "lucide-react";
 import { TemplatePreviewModal } from "./components/TemplatePreviewModal";
 import { toast } from "sonner";
 import type { VendorTemplate } from "@/payload-types";
+import { getAllMoods, getAllNiches } from "@/lib/templates/manifests/registry";
 
-type TemplateListItem = VendorTemplate & { isSelected?: boolean };
+type TemplateListItem = VendorTemplate & {
+  isSelected?: boolean;
+  niche?: string | null;
+  mood?: string | null;
+  skeleton?: string | null;
+};
 
 function getThumbnailUrl(template: TemplateListItem): string | undefined {
   const media = template.thumbnailImage;
@@ -41,11 +47,18 @@ function getTemplateColors(template: TemplateListItem): { primary: string; secon
 export default function TemplatesPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("all");
+  const [niche, setNiche] = useState<string>("all");
+  const [mood, setMood] = useState<string>("all");
   const [previewTemplate, setPreviewTemplate] = useState<TemplateListItem | null>(null);
+
+  const niches = getAllNiches();
+  const moods = getAllMoods();
 
   const { data, isLoading } = trpc.vendor.templates.list.useQuery({
     search: search || undefined,
     category: category !== "all" ? category : undefined,
+    niche: niche !== "all" ? niche : undefined,
+    mood: mood !== "all" ? mood : undefined,
   });
 
   const selectTemplate = trpc.vendor.templates.select.useMutation({
@@ -90,8 +103,8 @@ export default function TemplatesPage() {
       </div>
 
       {/* Filters */}
-      <div className="mb-6 flex gap-4">
-        <div className="flex-1">
+      <div className="mb-6 flex flex-wrap gap-4">
+        <div className="flex-1 min-w-[200px]">
           <Input
             placeholder="Search templates..."
             value={search}
@@ -100,13 +113,39 @@ export default function TemplatesPage() {
           />
         </div>
         <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
             {categories.map((cat) => (
               <SelectItem key={cat.value} value={cat.value}>
                 {cat.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={niche} onValueChange={setNiche}>
+          <SelectTrigger className="w-[220px]">
+            <SelectValue placeholder="Niche" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All niches</SelectItem>
+            {niches.map((item) => (
+              <SelectItem key={item} value={item}>
+                {item}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={mood} onValueChange={setMood}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Mood" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All moods</SelectItem>
+            {moods.map((item) => (
+              <SelectItem key={item} value={item}>
+                {item.charAt(0).toUpperCase() + item.slice(1)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -171,6 +210,9 @@ export default function TemplatesPage() {
                 <CardDescription className="line-clamp-2">
                   {template.description}
                 </CardDescription>
+                {template.niche ? (
+                  <p className="text-xs text-muted-foreground mt-1">{template.niche}</p>
+                ) : null}
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2">

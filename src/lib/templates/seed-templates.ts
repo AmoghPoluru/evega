@@ -6,6 +6,7 @@
  */
 
 import type { Payload } from "payload";
+import { getThemeManifests, manifestToSeedPayload } from "./manifests/registry";
 
 export interface TemplateSeedData {
   name: string;
@@ -929,31 +930,20 @@ export async function seedTemplates(payload: Payload): Promise<void> {
     console.log(`  ❌ Deleted: ${template.name}`);
   }
 
-  // Now create new templates
-  for (const templateData of templateSeeds) {
+  // Now create new templates from theme manifests
+  const manifests = getThemeManifests();
+  for (const manifest of manifests) {
     try {
-      // Create template
+      const payloadData = manifestToSeedPayload(manifest);
       const template = await payload.create({
         collection: "vendor-templates",
         draft: false,
-        data: {
-          name: templateData.name,
-          slug: templateData.slug,
-          description: templateData.description,
-          category: templateData.category,
-          isDefault: templateData.isDefault,
-          isActive: templateData.isActive,
-          version: templateData.version,
-          author: templateData.author,
-          templateConfig: templateData.templateConfig,
-          cssVariables: templateData.cssVariables,
-          componentMapping: templateData.componentMapping,
-        },
+        data: payloadData,
       });
 
-      console.log(`✅ Created template: ${templateData.name} (${template.id})`);
+      console.log(`✅ Created template: ${manifest.name} (${template.id})`);
     } catch (error) {
-      console.error(`❌ Error creating template "${templateData.name}":`, error);
+      console.error(`❌ Error creating template "${manifest.name}":`, error);
     }
   }
 
