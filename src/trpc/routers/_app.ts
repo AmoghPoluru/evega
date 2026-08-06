@@ -261,6 +261,12 @@ export const appRouter = createTRPCRouter({
           : [],
       }));
     }),
+  happyBanner: baseProcedure
+    .input(z.object({ vendorSlug: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const { getResolvedHappyBannerForSlug } = await import("@/lib/happy-banner/resolve");
+      return getResolvedHappyBannerForSlug(ctx.db, input.vendorSlug);
+    }),
 });
 // export type definition of API
 export type AppRouter = typeof appRouter;

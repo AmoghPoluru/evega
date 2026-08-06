@@ -125,6 +125,10 @@ export function generateCSSVariables(
     variables["--template-type-ratio"] = tokens.typeScale.ratio;
   }
 
+  // Product media tokens
+  variables["--pm-mat"] = config.components?.productCard?.matColor ?? "var(--template-card-bg, #fafafa)";
+  variables["--pm-pad"] = config.components?.productCard?.imagePadding ?? "8%";
+
   // Component-specific
   variables["--template-banner-height"] = config.components?.heroBanner?.height || "400px";
 

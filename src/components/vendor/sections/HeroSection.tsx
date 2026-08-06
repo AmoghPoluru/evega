@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { VendorHeroBannersSection } from "@/components/vendor-hero-banners-section";
+import { HappyBanner } from "@/components/happy-banner/HappyBanner";
 import { getDescriptionText, getMediaUrl } from "@/components/vendor/layouts/utils";
 import { HeroCarouselPeek } from "./HeroCarouselPeek";
 import type { SectionProps } from "./types";
@@ -146,7 +147,7 @@ function renderTemplateHero({
  * HeroSection with variant branches driven by settings.variant or components.heroBanner.style.
  * Vendor-created hero banners take precedence on the live storefront when any are active.
  */
-export function HeroSection({ settings, vendor, template, preview }: SectionProps) {
+export function HeroSection({ settings, vendor, template, preview, happyBanner }: SectionProps) {
   const variant = resolveHeroVariant(settings, template);
   const preferVendorBanners = settings.useVendorBanners !== false;
   const height =
@@ -173,6 +174,10 @@ export function HeroSection({ settings, vendor, template, preview }: SectionProp
 
   if (preview) {
     return templateHero;
+  }
+
+  if (happyBanner?.enabled) {
+    return <HappyBanner banner={happyBanner} />;
   }
 
   return (

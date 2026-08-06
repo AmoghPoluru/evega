@@ -57,7 +57,7 @@ const navGroups: NavGroup[] = [
     label: "Support",
     items: [
       { href: "/vendor/templates", label: "Templates", icon: Palette },
-      { href: "/vendor/hero-banner", label: "Hero Banner", icon: Image },
+      { href: "/vendor/hero-banner", label: "Banner Text", icon: Image },
       {
         href: "/vendor/tasks",
         label: "Contact & chat with BDO",

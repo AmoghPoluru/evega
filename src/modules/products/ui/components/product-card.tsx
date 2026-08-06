@@ -8,6 +8,7 @@ import { StarIcon } from "lucide-react";
 
 import { formatCurrency } from "@/lib/utils";
 import { ProductInteractionButtons } from "@/components/product-interaction-buttons";
+import { ProductMedia, ProductMediaSkeleton } from "@/components/product-media";
 
 interface ProductCardProps {
   id: string;
@@ -43,15 +44,17 @@ export const ProductCard = ({
   return (
     <Link href={`/products/${id}`}>
       <div className="hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-shadow border rounded-md bg-white overflow-hidden h-full flex flex-col">
-        <div className="relative aspect-square">
-          <Image
-            alt={name}
-            fill
-            src={imageUrl || "/placeholder.png"}
-            className="object-cover"
-          />
-          <ProductInteractionButtons productId={id} className="absolute top-2 right-2" />
-        </div>
+        <div className="relative">
+        <ProductMedia
+          src={imageUrl}
+          alt={name}
+          ratio="square"
+          fit="cover"
+          mat="blur"
+          sizes="(max-width: 768px) 50vw, 25vw"
+        />
+        <ProductInteractionButtons productId={id} className="absolute top-2 right-2 z-10" />
+      </div>
         <div className="p-4 border-y flex flex-col gap-3 flex-1">
           {vendorName && (
             <div className="flex items-center gap-2">
@@ -108,7 +111,5 @@ export const ProductCard = ({
 };
 
 export const ProductCardSkeleton = () => {
-  return (
-    <div className="w-full aspect-3/4 bg-neutral-200 rounded-lg animate-pulse" />
-  );
+  return <ProductMediaSkeleton ratio="square" />;
 };

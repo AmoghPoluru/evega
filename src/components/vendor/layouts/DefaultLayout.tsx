@@ -10,7 +10,7 @@ import type { VendorLayoutProps } from "./types";
  * Renders the standard three-section vendor storefront:
  * hero banner → vendor info bar → filterable product list.
  */
-export function DefaultLayout({ vendor, template, products }: VendorLayoutProps) {
+export function DefaultLayout({ vendor, template, products, happyBanner }: VendorLayoutProps) {
   const cssVariables = cssVariablesToString(template.cssVariables);
   const chrome = resolveStorefrontChrome(template.templateConfig);
   const useChrome = chrome.enabled === true;
@@ -34,6 +34,7 @@ export function DefaultLayout({ vendor, template, products }: VendorLayoutProps)
         vendor={vendor}
         products={products}
         template={template}
+        happyBanner={happyBanner}
       />
     </div>
   );

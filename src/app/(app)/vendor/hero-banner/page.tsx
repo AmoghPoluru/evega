@@ -1,266 +1,124 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { trpc } from "@/trpc/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Plus, Edit, Trash2, Eye, EyeOff } from "lucide-react";
-import { HeroBannerForm } from "./components/HeroBannerForm";
 import { toast } from "sonner";
-import Image from "next/image";
-import Link from "next/link";
+import { HappyBannerPreview } from "./components/HappyBannerPreview";
 
-export default function VendorHeroBannerPage() {
-  const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [deletingBannerId, setDeletingBannerId] = useState<string | null>(null);
-
+export default function VendorBannerTextPage() {
+  const { data, isLoading } = trpc.vendor.banner.get.useQuery();
   const utils = trpc.useUtils();
-  const { data: banners, isLoading } = trpc.vendor.heroBanners.list.useQuery();
 
-  const deleteMutation = trpc.vendor.heroBanners.delete.useMutation({
+  const [header, setHeader] = useState("");
+  const [tagline, setTagline] = useState("");
+
+  useEffect(() => {
+    if (data) {
+      setHeader(data.header);
+      setTagline(data.tagline ?? "");
+    }
+  }, [data]);
+
+  const updateMutation = trpc.vendor.banner.updateText.useMutation({
     onSuccess: () => {
-      toast.success("Banner deleted successfully");
-      utils.vendor.heroBanners.list.invalidate();
-      setDeletingBannerId(null);
+      toast.success("Banner text saved");
+      void utils.vendor.banner.get.invalidate();
+      if (data?.vendorSlug) void utils.happyBanner.invalidate({ vendorSlug: data.vendorSlug });
     },
     onError: (error) => {
-      console.error("[VendorHeroBannerPage] Delete error:", error);
-      toast.error(error.message || "Failed to delete banner");
-      setDeletingBannerId(null);
+      toast.error(error.message || "Failed to save banner text");
     },
   });
 
-  const handleDeleteClick = (id: string) => {
-    setDeletingBannerId(id);
-  };
-
-  const handleDeleteConfirm = () => {
-    if (deletingBannerId) {
-      deleteMutation.mutate({ id: deletingBannerId });
-    }
-  };
-
-  const handleDeleteCancel = () => {
-    setDeletingBannerId(null);
-  };
-
-  const handleEdit = (id: string) => {
-    setEditingBannerId(id);
-    setShowCreateForm(false);
-  };
-
-  const handleCreate = () => {
-    setEditingBannerId(null);
-    setShowCreateForm(true);
-  };
-
-  const handleCancel = () => {
-    setEditingBannerId(null);
-    setShowCreateForm(false);
-  };
-
-  const handleSuccess = () => {
-    setEditingBannerId(null);
-    setShowCreateForm(false);
-    utils.vendor.heroBanners.list.invalidate();
-  };
+  const previewQuery = trpc.happyBanner.useQuery(
+    { vendorSlug: data?.vendorSlug ?? "" },
+    { enabled: Boolean(data?.vendorSlug) },
+  );
 
   if (isLoading) {
     return (
       <div className="p-6">
-        <div className="mb-6">
-          <Skeleton className="h-8 w-64 mb-2" />
-          <Skeleton className="h-4 w-96" />
-        </div>
+        <Skeleton className="mb-4 h-8 w-64" />
         <Skeleton className="h-96 w-full" />
       </div>
     );
   }
 
-  const bannerToEdit = editingBannerId
-    ? banners?.find((b: any) => b.id === editingBannerId)
-    : null;
-
   return (
     <div className="p-6">
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Hero Banners</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Create and manage multiple hero banners for your vendor page
-          </p>
-        </div>
-        {!showCreateForm && !editingBannerId && (
-          <Button onClick={handleCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Banner
-          </Button>
-        )}
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Banner Text</h1>
+        <p className="mt-1 text-sm text-gray-600">
+          Edit the header and tagline shown on your storefront Happy Banner. Product tiles and motion
+          are configured by platform admins.
+        </p>
       </div>
 
-      {/* Create/Edit Form */}
-      {(showCreateForm || editingBannerId) && (
-        <Card className="mb-6">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
           <CardHeader>
-            <CardTitle>{editingBannerId ? "Edit Banner" : "Create New Banner"}</CardTitle>
+            <CardTitle>Header &amp; Tagline</CardTitle>
             <CardDescription>
-              Configure a hero banner for your vendor page. You can create multiple banners and they will rotate automatically.
-              <br />
-              <strong>Recommended:</strong> Use a background image of 1920x500px for best results. Select 4-6 featured products to display.
+              Header: 2–60 characters. Tagline: up to 90 characters.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <HeroBannerForm
-              banner={bannerToEdit}
-              onSuccess={handleSuccess}
-              onCancel={handleCancel}
-            />
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="header">Header</Label>
+              <Input
+                id="header"
+                value={header}
+                maxLength={60}
+                onChange={(e) => setHeader(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tagline">Tagline</Label>
+              <Textarea
+                id="tagline"
+                value={tagline}
+                maxLength={90}
+                rows={3}
+                onChange={(e) => setTagline(e.target.value)}
+              />
+            </div>
+            <Button
+              disabled={updateMutation.isPending || header.trim().length < 2}
+              onClick={() =>
+                updateMutation.mutate({
+                  header: header.trim(),
+                  tagline: tagline.trim() || null,
+                })
+              }
+            >
+              {updateMutation.isPending ? "Saving…" : "Save"}
+            </Button>
           </CardContent>
         </Card>
-      )}
 
-      {/* Banners List */}
-      {!showCreateForm && !editingBannerId && (
-        <>
-          {!banners || banners.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-gray-500 mb-4">No hero banners created yet.</p>
-                <Button onClick={handleCreate}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Banner
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {banners.map((banner: any) => {
-                const backgroundImageUrl = banner.backgroundImage && typeof banner.backgroundImage === 'object' && banner.backgroundImage.url
-                  ? banner.backgroundImage.url
-                  : null;
-                const productCount = Array.isArray(banner.products) ? banner.products.length : 0;
-
-                return (
-                  <Card key={banner.id} className="overflow-hidden">
-                    <div className="relative h-32 bg-gradient-to-r from-gray-800 to-gray-600">
-                      {backgroundImageUrl ? (
-                        <Image
-                          src={backgroundImageUrl}
-                          alt={banner.title}
-                          fill
-                          className="object-cover"
-                        />
-                      ) : null}
-                      <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent" />
-                      <div className="absolute top-2 right-2 flex gap-2">
-                        {banner.isActive ? (
-                          <span className="bg-green-500 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                            <Eye className="h-3 w-3" />
-                            Active
-                          </span>
-                        ) : (
-                          <span className="bg-gray-500 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                            <EyeOff className="h-3 w-3" />
-                            Inactive
-                          </span>
-                        )}
-                      </div>
-                      <div className="absolute bottom-2 left-2 right-2">
-                        <h3 className="text-white font-semibold text-sm drop-shadow-lg line-clamp-1">
-                          {banner.title}
-                        </h3>
-                        {banner.subtitle && (
-                          <p className="text-white text-xs drop-shadow-lg line-clamp-1">
-                            {banner.subtitle}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <CardContent className="p-4">
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Products:</span>
-                          <span className="font-medium">{productCount}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Order:</span>
-                          <span className="font-medium">{banner.order || 0}</span>
-                        </div>
-                        <div className="flex gap-2 pt-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => handleEdit(banner.id)}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => handleDeleteClick(banner.id)}
-                            disabled={deleteMutation.isPending}
-                          >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deletingBannerId !== null} onOpenChange={(open) => {
-        if (!open) {
-          handleDeleteCancel();
-        }
-      }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Hero Banner</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this hero banner? This action cannot be undone.
-              {deletingBannerId && banners && (
-                <span className="block mt-2 font-medium">
-                  Banner: {banners.find((b: any) => b.id === deletingBannerId)?.title || "Unknown"}
-                </span>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleDeleteCancel} disabled={deleteMutation.isPending}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              disabled={deleteMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <Card>
+          <CardHeader>
+            <CardTitle>Preview</CardTitle>
+            <CardDescription>Matches your live storefront when Happy Banner is enabled.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {previewQuery.data?.enabled ? (
+              <HappyBannerPreview banner={previewQuery.data} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Happy Banner is not enabled globally yet. Your text will appear once an admin enables
+                it.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

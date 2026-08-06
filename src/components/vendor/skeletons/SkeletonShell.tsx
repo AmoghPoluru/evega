@@ -11,7 +11,7 @@ interface SkeletonShellProps extends VendorLayoutProps {
 }
 
 /** Shared shell: injects tokens and renders ordered sections. */
-export function SkeletonShell({ vendor, template, products, className }: SkeletonShellProps) {
+export function SkeletonShell({ vendor, template, products, happyBanner, className }: SkeletonShellProps) {
   const cssVariables = cssVariablesToString(template.cssVariables);
   const sections = template.templateConfig.sections as StorefrontSection[] | undefined;
   const chrome = resolveStorefrontChrome(template.templateConfig);
@@ -30,7 +30,7 @@ export function SkeletonShell({ vendor, template, products, className }: Skeleto
     >
       <style>{buildTemplateGlobalStyles(cssVariables, template.templateConfig)}</style>
       {useChrome ? <StorefrontChromeBar template={template} vendorName={vendor.name} /> : null}
-      <SectionRenderer sections={filteredSections} vendor={vendor} products={products} template={template} />
+      <SectionRenderer sections={filteredSections} vendor={vendor} products={products} template={template} happyBanner={happyBanner} />
     </div>
   );
 }

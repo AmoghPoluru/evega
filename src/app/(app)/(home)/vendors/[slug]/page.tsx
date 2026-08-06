@@ -5,6 +5,7 @@ import type { TemplateCustomization } from "@/types/template-customization";
 import { resolveVendorTemplate } from "@/lib/templates/template-engine";
 import { buildFallbackResolvedTemplate } from "@/lib/templates/default-template";
 import { cssVariablesToString } from "@/lib/templates/css-variables";
+import { getResolvedHappyBannerForSlug } from "@/lib/happy-banner/resolve";
 import { VendorStorefront } from "@/components/vendor/VendorStorefront";
 import { TemplateFontLinks } from "@/components/vendor/TemplateFontLinks";
 import { collectTemplateFontStacks } from "@/lib/templates/template-font-stacks";
@@ -62,6 +63,8 @@ export default async function VendorPage({ params }: Props) {
 
   const cssVariables = cssVariablesToString(resolvedTemplate.cssVariables);
 
+  const happyBanner = await getResolvedHappyBannerForSlug(payload, slug);
+
   return (
     <>
       <TemplateFontLinks
@@ -76,6 +79,7 @@ export default async function VendorPage({ params }: Props) {
         vendor={vendor}
         template={resolvedTemplate}
         products={productsData.docs}
+        happyBanner={happyBanner}
       />
     </>
   );

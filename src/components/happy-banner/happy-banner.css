@@ -1,0 +1,38 @@
+.happy-banner {
+  --hb-gap: 1rem;
+}
+
+.hb-liquid-ribbon .hb-track-row {
+  transform: rotate(-2deg);
+}
+
+.hb-gravity-well .hb-tile {
+  box-shadow: 0 0 24px color-mix(in srgb, var(--template-accent, #6366f1) 40%, transparent);
+}
+
+.hb-confetti-layer {
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.35) 0 2px, transparent 3px),
+    radial-gradient(circle at 80% 40%, rgba(255, 200, 100, 0.4) 0 2px, transparent 3px),
+    radial-gradient(circle at 40% 70%, rgba(120, 200, 255, 0.35) 0 2px, transparent 3px);
+  animation: hb-confetti-drift 12s linear infinite;
+}
+
+@keyframes hb-confetti-drift {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hb-confetti-layer {
+    animation: none;
+  }
+}
+
+.hb-static-tile img {
+  border: 2px solid rgba(255, 255, 255, 0.25);
+}

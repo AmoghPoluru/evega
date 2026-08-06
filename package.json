@@ -24,6 +24,7 @@
     "db:seed:category-variant-config": "npx tsx src/seed/seed-category-variant-config.ts",
     "db:seed:tags": "npx tsx src/seed/seed-tags.ts",
     "db:seed:hero-banners": "npx tsx src/seed/seed-hero-banners.ts",
+    "db:migrate:happy-banner": "npx tsx scripts/migrate-happy-banner.ts",
     "db:seed:variants": "npx tsx src/seed/seed-variants.ts",
     "db:seed:prices": "npx tsx src/seed/seed-prices.ts",
     "db:seed:colors": "npx tsx src/seed/seed-colors.ts",

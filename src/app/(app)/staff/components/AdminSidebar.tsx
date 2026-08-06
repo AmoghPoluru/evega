@@ -29,6 +29,7 @@ const navItems = [
   { href: "/staff/customers", label: "Customers", icon: Users },
   { href: "/staff/users", label: "Users", icon: UserCog },
   { href: "/staff/templates", label: "Templates", icon: LayoutTemplate },
+  { href: "/staff/hero-banners", label: "Happy Banner", icon: Megaphone },
 ];
 
 export function AdminSidebar() {

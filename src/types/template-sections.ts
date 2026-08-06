@@ -7,6 +7,7 @@ import { z } from "zod";
  */
 export const storefrontSectionTypeSchema = z.enum([
   "hero",
+  "happy-banner",
   "product-grid",
   "product-lookbook",
   "testimonials",
@@ -31,6 +32,7 @@ export const storefrontSectionsSchema = z.array(storefrontSectionSchema);
 /** Human readable labels used by the builder UI. */
 export const SECTION_LABELS: Record<StorefrontSectionType, string> = {
   hero: "Hero Banner",
+  "happy-banner": "Happy Banner",
   "product-grid": "Product Grid",
   "product-lookbook": "Product Lookbook",
   testimonials: "Testimonials",
@@ -135,6 +137,7 @@ export function createDefaultSection(
 ): StorefrontSection {
   const settingsByType: Record<StorefrontSectionType, Record<string, unknown>> = {
     hero: { useVendorBanners: true, height: "480px" },
+    "happy-banner": {},
     "product-grid": { title: "Products", showCount: true },
     "product-lookbook": { sectionLabel: "The Collection", showIndex: true, ctaLabel: "Shop the look" },
     testimonials: { title: "What customers say", testimonials: [] },

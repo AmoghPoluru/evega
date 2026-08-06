@@ -129,8 +129,12 @@ export interface Config {
     defaultIDType: string;
   };
   fallbackLocale: null;
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    'hero-banner-config': HeroBannerConfig;
+  };
+  globalsSelect: {
+    'hero-banner-config': HeroBannerConfigSelect<false> | HeroBannerConfigSelect<true>;
+  };
   locale: null;
   user: User & {
     collection: 'users';
@@ -610,6 +614,22 @@ export interface Vendor {
 export interface Media {
   id: string;
   alt: string;
+  /**
+   * Auto-extracted dominant color
+   */
+  dominantColor?: string | null;
+  /**
+   * Auto-extracted color palette
+   */
+  palette?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -1591,33 +1611,29 @@ export interface VendorTaskMessage {
  */
 export interface VendorHeroBanner {
   id: string;
+  vendor?: (string | null) | Vendor;
   /**
-   * The vendor who owns this banner
-   */
-  vendor: string | Vendor;
-  /**
-   * Title for the hero banner section
+   * Vendor-editable banner header
    */
   title: string;
   /**
-   * Optional subtitle text
+   * Vendor-editable banner tagline
    */
   subtitle?: string | null;
   /**
-   * Optional background image for the banner (recommended: 1920x500px)
+   * One canonical banner per vendor drives Happy Banner text
+   */
+  canonical?: boolean | null;
+  archived?: boolean | null;
+  /**
+   * Deprecated — use Hero Banner Config global
    */
   backgroundImage?: (string | null) | Media;
   /**
-   * Select products to display in this hero banner (only your own products)
+   * Deprecated — products come from Happy Banner Config
    */
-  products: (string | Product)[];
-  /**
-   * Only active banners will be displayed on your vendor page
-   */
+  products?: (string | Product)[] | null;
   isActive?: boolean | null;
-  /**
-   * Display order (lower numbers appear first). Leave empty for default ordering.
-   */
   order?: number | null;
   updatedAt: string;
   createdAt: string;
@@ -1914,6 +1930,8 @@ export interface UsersSelect<T extends boolean = true> {
  */
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
+  dominantColor?: T;
+  palette?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -2330,6 +2348,8 @@ export interface VendorHeroBannersSelect<T extends boolean = true> {
   vendor?: T;
   title?: T;
   subtitle?: T;
+  canonical?: T;
+  archived?: T;
   backgroundImage?: T;
   products?: T;
   isActive?: T;
@@ -2472,6 +2492,92 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * Global Happy Banner motion, product source, and per-vendor overrides.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "hero-banner-config".
+ */
+export interface HeroBannerConfig {
+  id: string;
+  enabled?: boolean | null;
+  productSource?: ('all-active' | 'newest' | 'best-sellers' | 'manual') | null;
+  maxTiles?: number | null;
+  shuffleWindow?: boolean | null;
+  preset?: ('marquee-max' | 'kinetic-wall' | 'crossfire' | 'gravity-well' | 'confetti' | 'liquid-ribbon') | null;
+  intensity?: ('calm' | 'lively' | 'showcase') | null;
+  height?: number | null;
+  tileSize?: number | null;
+  speed?: number | null;
+  direction?: ('ltr' | 'rtl') | null;
+  pauseOnHover?: boolean | null;
+  particles?: boolean | null;
+  spotlightEnabled?: boolean | null;
+  spotlightIntervalMs?: number | null;
+  backgroundMode?: ('auto-palette' | 'image' | 'gradient' | 'theme-token') | null;
+  backgroundImage?: (string | null) | Media;
+  gradientFrom?: string | null;
+  gradientTo?: string | null;
+  scrimOpacity?: number | null;
+  vendorEditableFields?: ('header' | 'tagline')[] | null;
+  vendorOverrides?:
+    | {
+        vendor: string | Vendor;
+        enabled?: boolean | null;
+        preset?: ('marquee-max' | 'kinetic-wall' | 'crossfire' | 'gravity-well' | 'confetti' | 'liquid-ribbon') | null;
+        intensity?: ('calm' | 'lively' | 'showcase') | null;
+        productSource?: ('all-active' | 'newest' | 'best-sellers' | 'manual') | null;
+        manualProducts?: (string | Product)[] | null;
+        backgroundImage?: (string | null) | Media;
+        notes?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "hero-banner-config_select".
+ */
+export interface HeroBannerConfigSelect<T extends boolean = true> {
+  enabled?: T;
+  productSource?: T;
+  maxTiles?: T;
+  shuffleWindow?: T;
+  preset?: T;
+  intensity?: T;
+  height?: T;
+  tileSize?: T;
+  speed?: T;
+  direction?: T;
+  pauseOnHover?: T;
+  particles?: T;
+  spotlightEnabled?: T;
+  spotlightIntervalMs?: T;
+  backgroundMode?: T;
+  backgroundImage?: T;
+  gradientFrom?: T;
+  gradientTo?: T;
+  scrimOpacity?: T;
+  vendorEditableFields?: T;
+  vendorOverrides?:
+    | T
+    | {
+        vendor?: T;
+        enabled?: T;
+        preset?: T;
+        intensity?: T;
+        productSource?: T;
+        manualProducts?: T;
+        backgroundImage?: T;
+        notes?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

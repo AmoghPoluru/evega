@@ -3218,6 +3218,93 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
       }),
   },
 
+  banner: createTRPCRouter({
+    get: vendorProcedure.query(async ({ ctx }) => {
+      const vendorId =
+        typeof ctx.session.vendor === "string" ? ctx.session.vendor : ctx.session.vendor.id;
+
+      const vendor = await ctx.db.findByID({
+        collection: "vendors",
+        id: vendorId,
+        depth: 0,
+      });
+
+      const result = await ctx.db.find({
+        collection: "vendor-hero-banners",
+        where: {
+          and: [
+            { vendor: { equals: vendorId } },
+            { canonical: { equals: true } },
+            { archived: { not_equals: true } },
+          ],
+        },
+        limit: 1,
+        depth: 0,
+      });
+
+      const doc = result.docs[0];
+      if (!doc) {
+        return {
+          header: "",
+          tagline: null as string | null,
+          id: null as string | null,
+          vendorSlug: vendor.slug ?? null,
+        };
+      }
+
+      return {
+        id: doc.id,
+        header: doc.title ?? "",
+        tagline: doc.subtitle ?? null,
+        vendorSlug: vendor.slug ?? null,
+      };
+    }),
+
+    updateText: vendorProcedure
+      .input(
+        z.object({
+          header: z.string().trim().min(2).max(60),
+          tagline: z.string().trim().max(90).optional().nullable(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const vendorId =
+          typeof ctx.session.vendor === "string" ? ctx.session.vendor : ctx.session.vendor.id;
+
+        const existing = await ctx.db.find({
+          collection: "vendor-hero-banners",
+          where: {
+            and: [
+              { vendor: { equals: vendorId } },
+              { canonical: { equals: true } },
+            ],
+          },
+          limit: 1,
+        });
+
+        const payload = {
+          vendor: vendorId,
+          title: input.header,
+          subtitle: input.tagline ?? undefined,
+          canonical: true,
+          isActive: true,
+        };
+
+        if (existing.docs[0]) {
+          return ctx.db.update({
+            collection: "vendor-hero-banners",
+            id: existing.docs[0].id,
+            data: payload,
+          });
+        }
+
+        return ctx.db.create({
+          collection: "vendor-hero-banners",
+          data: payload,
+        });
+      }),
+  }),
+
   // Template Management
   templates: createTRPCRouter({
     // List all available templates

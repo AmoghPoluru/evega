@@ -19,6 +19,7 @@ export function SectionRenderer({
   products,
   template,
   preview,
+  happyBanner,
 }: SectionRendererProps) {
   const list = normalizeStorefrontSections(sections);
 
@@ -39,6 +40,7 @@ export function SectionRenderer({
           products,
           template,
           preview,
+          happyBanner,
         });
       })}
     </>

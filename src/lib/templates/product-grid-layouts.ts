@@ -98,3 +98,20 @@ export function gridLayoutToSkeleton(
       return "classic";
   }
 }
+
+/** Map grid layout density to default ProductMedia aspect ratio. */
+export function gridLayoutMediaRatio(
+  layout: EcommerceGridLayout,
+): "portrait" | "square" | "wide" {
+  switch (layout) {
+    case "two-column":
+    case "masonry":
+      return "portrait";
+    case "dense-multi":
+      return "square";
+    case "hybrid-toggle":
+      return "wide";
+    default:
+      return "portrait";
+  }
+}

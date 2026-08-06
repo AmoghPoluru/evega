@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { LayoutGrid, List } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
+import { ProductMedia } from "@/components/product-media";
 import { getMediaUrl } from "@/components/vendor/layouts/utils";
 import type { EcommerceGridLayout } from "@/lib/templates/product-grid-layouts";
+import { gridLayoutMediaRatio } from "@/lib/templates/product-grid-layouts";
 import { cn } from "@/lib/utils";
 
 export interface GridProduct {
@@ -48,11 +49,13 @@ function GridProductCard({
   compact = false,
   featured = false,
   listMode = false,
+  mediaRatio = "portrait" as "portrait" | "square" | "wide",
 }: {
   product: GridProduct;
   compact?: boolean;
   featured?: boolean;
   listMode?: boolean;
+  mediaRatio?: "portrait" | "square" | "wide";
 }) {
   const imageUrl = getImageUrl(product);
   const href = `/products/${product.id}`;
@@ -67,9 +70,15 @@ function GridProductCard({
           borderColor: "var(--template-border)",
         }}
       >
-        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-muted">
-          {imageUrl ? <Image src={imageUrl} alt={product.name} fill className="object-cover" /> : null}
-        </div>
+      <ProductMedia
+        src={imageUrl}
+        alt={product.name}
+        ratio="square"
+        fit="cover"
+        mat="blur"
+        sizes="80px"
+        className="h-20 w-20 shrink-0 rounded-md"
+      />
         <div className="min-w-0 flex-1">
           <p
             className="template-type-product truncate font-medium"
@@ -95,30 +104,24 @@ function GridProductCard({
         borderRadius: featured ? "12px" : "var(--template-card-radius, 8px)",
       }}
     >
-      <div
-        className={cn(
-          "relative bg-muted",
-          compact ? "h-24" : featured ? "aspect-square" : "aspect-[4/5] md:aspect-[3/4]",
-        )}
+      <ProductMedia
+        src={imageUrl}
+        alt={product.name}
+        ratio={mediaRatio}
+        fit="contain"
+        mat="blur"
+        sizes={compact ? "(max-width: 768px) 50vw, 20vw" : "(max-width: 768px) 50vw, 25vw"}
+        className={cn(compact && "max-h-24")}
       >
-        {imageUrl ? (
-          <Image
-            src={imageUrl}
-            alt={product.name}
-            fill
-            sizes="(max-width: 768px) 50vw, 25vw"
-            className="object-cover transition-transform group-hover:scale-[1.02]"
-          />
-        ) : null}
-        {featured && (
+        {featured ? (
           <span
-            className="absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+            className="absolute left-2 top-2 z-10 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
             style={{ backgroundColor: "var(--template-accent)", color: "var(--template-text)" }}
           >
             Featured
           </span>
-        )}
-      </div>
+        ) : null}
+      </ProductMedia>
       <div className={cn("space-y-0.5", compact ? "p-2" : "p-3")}>
         <p
           className={cn("template-type-product truncate font-medium", compact ? "text-xs" : "text-sm")}
@@ -150,7 +153,15 @@ function PromoCard({ label }: { label: string }) {
   );
 }
 
-function HybridGridList({ products, preview }: { products: GridProduct[]; preview?: boolean }) {
+function HybridGridList({
+  products,
+  preview,
+  mediaRatio,
+}: {
+  products: GridProduct[];
+  preview?: boolean;
+  mediaRatio: "portrait" | "square" | "wide";
+}) {
   const [view, setView] = useState<"grid" | "list">("grid");
   const slice = preview ? products.slice(0, 6) : products;
 
@@ -179,13 +190,13 @@ function HybridGridList({ products, preview }: { products: GridProduct[]; previe
       {view === "list" ? (
         <div className="flex flex-col gap-3">
           {slice.map((product) => (
-            <GridProductCard key={product.id} product={product} listMode />
+            <GridProductCard key={product.id} product={product} listMode mediaRatio={mediaRatio} />
           ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {slice.map((product) => (
-            <GridProductCard key={product.id} product={product} />
+            <GridProductCard key={product.id} product={product} mediaRatio={mediaRatio} />
           ))}
         </div>
       )}
@@ -194,10 +205,11 @@ function HybridGridList({ products, preview }: { products: GridProduct[]; previe
 }
 
 export function ProductGridLayout({ products, layout, preview }: ProductGridLayoutProps) {
+  const mediaRatio = gridLayoutMediaRatio(layout);
   const slice = preview ? products.slice(0, layout === "dense-multi" ? 12 : 8) : products;
 
   if (layout === "hybrid-toggle") {
-    return <HybridGridList products={slice} preview={preview} />;
+    return <HybridGridList products={slice} preview={preview} mediaRatio={mediaRatio} />;
   }
 
   if (layout === "masonry") {
@@ -205,7 +217,7 @@ export function ProductGridLayout({ products, layout, preview }: ProductGridLayo
       <div className="columns-2 gap-4 md:columns-3 lg:columns-4">
         {slice.map((product) => (
           <div key={product.id} className="mb-4 break-inside-avoid">
-            <GridProductCard product={product} />
+            <GridProductCard product={product} mediaRatio={mediaRatio} />
           </div>
         ))}
       </div>
@@ -220,7 +232,7 @@ export function ProductGridLayout({ products, layout, preview }: ProductGridLayo
             key={product.id}
             className={cn(index === 0 ? "col-span-2 row-span-2 md:col-span-2 md:row-span-2" : "")}
           >
-            <GridProductCard product={product} featured={index === 0} compact={index > 4} />
+            <GridProductCard product={product} featured={index === 0} compact={index > 4} mediaRatio={mediaRatio} />
           </div>
         ))}
       </div>
@@ -242,7 +254,7 @@ export function ProductGridLayout({ products, layout, preview }: ProductGridLayo
           cell.type === "promo" ? (
             <PromoCard key={`promo-${index}`} label={cell.label} />
           ) : (
-            <GridProductCard key={cell.product.id} product={cell.product} compact />
+            <GridProductCard key={cell.product.id} product={cell.product} compact mediaRatio={mediaRatio} />
           ),
         )}
       </div>
@@ -253,7 +265,7 @@ export function ProductGridLayout({ products, layout, preview }: ProductGridLayo
     return (
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
         {slice.map((product) => (
-          <GridProductCard key={product.id} product={product} />
+          <GridProductCard key={product.id} product={product} mediaRatio={mediaRatio} />
         ))}
       </div>
     );
@@ -263,7 +275,7 @@ export function ProductGridLayout({ products, layout, preview }: ProductGridLayo
     return (
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {slice.map((product) => (
-          <GridProductCard key={product.id} product={product} compact />
+          <GridProductCard key={product.id} product={product} compact mediaRatio={mediaRatio} />
         ))}
       </div>
     );
@@ -272,7 +284,7 @@ export function ProductGridLayout({ products, layout, preview }: ProductGridLayo
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
       {slice.map((product) => (
-        <GridProductCard key={product.id} product={product} />
+        <GridProductCard key={product.id} product={product} mediaRatio={mediaRatio} />
       ))}
     </div>
   );

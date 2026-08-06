@@ -11,6 +11,7 @@ import { Categories } from "./collections/Categories";
 import { Products } from "./collections/Products";
 import { Tags } from "./collections/Tags";
 import { HeroBanners } from "./collections/HeroBanners";
+import { HeroBannerConfig } from "./collections/HeroBannerConfig";
 import { Orders } from "./collections/Orders";
 import { Vendors } from "./collections/Vendors";
 import { VendorTasks } from "./collections/VendorTasks";
@@ -53,6 +54,7 @@ export default buildConfig({
     },
   },
   collections: [Users, Media, Categories, Products, Tags, HeroBanners, Orders, Vendors, Roles, Customers, VariantTypes, VariantOptions, VendorTasks, VendorTaskMessages, VendorHeroBanners, VendorTemplates, PotentialVendorRegions, Favorites, ProductLikes, ProductComments, SocialPosts],
+  globals: [HeroBannerConfig],
   editor: lexicalEditor(),
   // Use placeholder during build (must be at least 32 chars), actual secret at runtime
   secret: payloadSecret || (isBuildTime ? 'build-placeholder-secret-replace-at-runtime-minimum-32-characters-long' : ''),

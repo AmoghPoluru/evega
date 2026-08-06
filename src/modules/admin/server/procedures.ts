@@ -1308,4 +1308,52 @@ export const adminRouter = createTRPCRouter({
         return { success: true };
       }),
   }),
+
+  heroBannerConfig: createTRPCRouter({
+    get: adminProcedure.query(async ({ ctx }) => {
+      const { getHeroBannerConfig } = await import("@/lib/happy-banner/config");
+      return getHeroBannerConfig(ctx.db);
+    }),
+    update: adminProcedure
+      .input(
+        z.object({
+          enabled: z.boolean().optional(),
+          productSource: z
+            .enum(["all-active", "newest", "best-sellers", "manual"])
+            .optional(),
+          maxTiles: z.number().min(4).max(60).optional(),
+          shuffleWindow: z.boolean().optional(),
+          preset: z
+            .enum([
+              "marquee-max",
+              "kinetic-wall",
+              "crossfire",
+              "gravity-well",
+              "confetti",
+              "liquid-ribbon",
+            ])
+            .optional(),
+          height: z.number().min(220).max(640).optional(),
+          tileSize: z.number().min(56).max(200).optional(),
+          intensity: z.enum(["calm", "lively", "showcase"]).optional(),
+          speed: z.number().min(0.25).max(3).optional(),
+          direction: z.enum(["ltr", "rtl"]).optional(),
+          pauseOnHover: z.boolean().optional(),
+          spotlightEnabled: z.boolean().optional(),
+          spotlightIntervalMs: z.number().min(3000).max(30000).optional(),
+          particles: z.boolean().optional(),
+          backgroundMode: z
+            .enum(["auto-palette", "image", "gradient", "theme-token"])
+            .optional(),
+          backgroundImage: z.string().nullable().optional(),
+          gradientFrom: z.string().optional(),
+          gradientTo: z.string().optional(),
+          scrimOpacity: z.number().min(0).max(1).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { updateHeroBannerConfig } = await import("@/lib/happy-banner/config");
+        return updateHeroBannerConfig(ctx.db, input);
+      }),
+  }),
 });
