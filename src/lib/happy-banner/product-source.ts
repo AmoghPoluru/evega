@@ -27,6 +27,7 @@ function toTile(product: Product): HappyBannerTile | null {
   return {
     id: product.id,
     name: product.name,
+    // Product detail routes are keyed by id (`/products/[id]`).
     slug: product.id,
     price: product.price != null ? Number(product.price) : null,
     image,
@@ -68,35 +69,39 @@ export async function fetchHappyBannerProducts(
     return { tiles, total: tiles.length };
   }
 
-  const sort =
-    source === "newest"
-      ? ("-createdAt" as const)
-      : source === "best-sellers"
-        ? ("-createdAt" as const)
-        : ("-createdAt" as const);
+  // `best-sellers` has no order-count aggregation yet and falls back to recency.
+  const sort = "-createdAt" as const;
+
+  const { totalDocs: total } = await payload.count({
+    collection: "products",
+    where: baseWhere,
+    overrideAccess: true,
+  });
+
+  // Rotate the visible window once per day so the whole catalog gets exposure
+  // while keeping the response deterministic — a random window would break
+  // caching and cause SSR/CSR hydration mismatches.
+  const page =
+    shuffleWindow && total > maxTiles ? (dayIndex() % Math.ceil(total / maxTiles)) + 1 : 1;
 
   const result = await payload.find({
     collection: "products",
     where: baseWhere,
     sort,
-    limit: shuffleWindow ? Math.min(maxTiles * 2, 60) : maxTiles,
+    limit: maxTiles,
+    page,
     depth: 1,
     overrideAccess: true,
   });
 
-  let docs = result.docs as Product[];
-  if (shuffleWindow && docs.length > maxTiles) {
-    docs = fisherYatesShuffle([...docs]).slice(0, maxTiles);
-  }
+  const tiles = (result.docs as Product[])
+    .map(toTile)
+    .filter((t): t is HappyBannerTile => t !== null);
 
-  const tiles = docs.map(toTile).filter((t): t is HappyBannerTile => t !== null);
-  return { tiles, total: result.totalDocs };
+  return { tiles, total };
 }
 
-function fisherYatesShuffle<T>(arr: T[]): T[] {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
+/** Whole days since the Unix epoch — stable for a calendar day in UTC. */
+function dayIndex(): number {
+  return Math.floor(Date.now() / 86_400_000);
 }

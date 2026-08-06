@@ -1,13 +1,140 @@
 .happy-banner {
   --hb-gap: 1rem;
+  --hb-px: 0;
+  --hb-py: 0;
+  perspective: 1200px;
 }
 
-.hb-liquid-ribbon .hb-track-row {
-  transform: rotate(-2deg);
+/* ── Field-level parallax tilt ─────────────────────────────────────────── */
+.hb-field {
+  transform: rotateX(calc(var(--hb-py) * -2.5deg)) rotateY(calc(var(--hb-px) * 3deg));
+  transform-style: preserve-3d;
 }
 
-.hb-gravity-well .hb-tile {
-  box-shadow: 0 0 24px color-mix(in srgb, var(--template-accent, #6366f1) 40%, transparent);
+/* ── Per-tile idle life (compositor-driven, never touched by the loop) ─── */
+.hb-tile-slot {
+  animation:
+    hb-bob var(--hb-bob-dur, 4s) var(--hb-bob-delay, 0s) ease-in-out infinite alternate,
+    hb-rot var(--hb-rot-dur, 6s) var(--hb-rot-delay, 0s) ease-in-out infinite alternate,
+    hb-breathe var(--hb-breathe-dur, 7s) var(--hb-breathe-delay, 0s) ease-in-out infinite alternate;
+}
+
+@keyframes hb-bob {
+  from {
+    translate: 0 calc(var(--hb-bob-amp, 6px) * -1);
+  }
+  to {
+    translate: 0 var(--hb-bob-amp, 6px);
+  }
+}
+
+@keyframes hb-rot {
+  from {
+    rotate: calc(var(--hb-rot-amp, 2.5deg) * -1);
+  }
+  to {
+    rotate: var(--hb-rot-amp, 2.5deg);
+  }
+}
+
+@keyframes hb-breathe {
+  from {
+    scale: calc(1 - var(--hb-breathe-amp, 0.02));
+  }
+  to {
+    scale: calc(1 + var(--hb-breathe-amp, 0.02));
+  }
+}
+
+/* ── Hover: overshoot lift, colored halo, name/price pill ──────────────── */
+.hb-tile {
+  transition: transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.hb-tile:hover,
+.hb-tile:focus-visible {
+  transform: translateY(-10px) scale(1.22);
+  z-index: 10;
+}
+
+.hb-tile:hover .hb-tile-face,
+.hb-tile:focus-visible .hb-tile-face {
+  box-shadow: 0 0 32px 2px color-mix(in srgb, var(--hb-tile-color, #6366f1) 70%, transparent);
+}
+
+.hb-tile-pill {
+  opacity: 0;
+  transform: translate(-50%, 6px);
+  transition:
+    opacity 200ms ease 60ms,
+    transform 200ms ease 60ms;
+}
+
+.hb-tile:hover .hb-tile-pill,
+.hb-tile:focus-visible .hb-tile-pill {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.hb-tile-spotlight {
+  transform: scale(1.15);
+}
+
+/* ── Entrance ──────────────────────────────────────────────────────────── */
+.hb-entrance {
+  animation: hb-enter 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hb-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+.hb-spotlight {
+  animation: hb-enter 400ms ease both;
+}
+
+/* ── Atmosphere ────────────────────────────────────────────────────────── */
+.hb-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  opacity: 0.55;
+  animation: hb-drift var(--hb-blob-dur, 24s) var(--hb-blob-delay, 0s) ease-in-out infinite alternate;
+}
+
+@keyframes hb-drift {
+  from {
+    transform: translate3d(-6%, -4%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(8%, 6%, 0) scale(1.15);
+  }
+}
+
+.hb-sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.16) 50%, transparent 65%);
+  animation: hb-sweep 12s linear infinite;
+}
+
+@keyframes hb-sweep {
+  0%,
+  85% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
 }
 
 .hb-confetti-layer {
@@ -27,12 +154,33 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .hb-confetti-layer {
-    animation: none;
-  }
+.hb-liquid-ribbon .hb-track-row {
+  transform: rotate(-2deg);
+}
+
+.hb-gravity-well .hb-tile-face {
+  box-shadow: 0 0 24px color-mix(in srgb, var(--template-accent, #6366f1) 40%, transparent);
 }
 
 .hb-static-tile img {
   border: 2px solid rgba(255, 255, 255, 0.25);
+}
+
+/* ── Suspension: off-screen, hidden tab, or user-paused ────────────────── */
+.happy-banner.hb-offscreen *,
+.happy-banner.hb-paused * {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .happy-banner *,
+  .happy-banner *::before,
+  .happy-banner *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .hb-field {
+    transform: none;
+  }
 }

@@ -48,8 +48,8 @@ export const ProductCard = ({
         <ProductMedia
           src={imageUrl}
           alt={name}
-          ratio="square"
-          fit="cover"
+          ratio="portrait"
+          fit="contain"
           mat="blur"
           sizes="(max-width: 768px) 50vw, 25vw"
         />

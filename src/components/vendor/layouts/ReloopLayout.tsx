@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { formatCurrency } from "@/lib/utils";
+import { ProductMedia } from "@/components/product-media";
 import type { VendorLayoutProps } from "./types";
 import { getDescriptionText, getMediaUrl } from "./utils";
 
@@ -115,20 +116,16 @@ export function ReloopLayout({ vendor, template, products }: VendorLayoutProps) 
                 <Link
                   key={product.id}
                   href={`/products/${product.id}`}
-                  className="group relative block aspect-square overflow-hidden bg-gray-100"
+                  className="group relative block overflow-hidden bg-gray-100"
                 >
-                  {imageUrl ? (
-                    <Image
-                      src={imageUrl}
-                      alt={product.name}
-                      fill
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
-                      No image
-                    </div>
-                  )}
+                  <ProductMedia
+                    src={imageUrl}
+                    alt={product.name}
+                    ratio="square"
+                    fit="contain"
+                    mat="blur"
+                    sizes="(max-width: 640px) 33vw, 20vw"
+                  />
 
                   {/* Price chip */}
                   <span className="absolute bottom-1.5 left-1.5 rounded bg-black/75 px-1.5 py-0.5 text-xs font-semibold text-white">

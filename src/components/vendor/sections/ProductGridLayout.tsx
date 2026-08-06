@@ -74,7 +74,7 @@ function GridProductCard({
         src={imageUrl}
         alt={product.name}
         ratio="square"
-        fit="cover"
+        fit="contain"
         mat="blur"
         sizes="80px"
         className="h-20 w-20 shrink-0 rounded-md"

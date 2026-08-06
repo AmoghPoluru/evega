@@ -127,6 +127,10 @@ export const templateCustomizationSchema = z.object({
           showRating: z.boolean().optional(),
           showDescription: z.boolean().optional(),
           borderRadius: z.string().optional(),
+          /** Backdrop colour behind contained product imagery. */
+          matColor: z.string().optional(),
+          /** Inner padding around contained product imagery, e.g. "8%". */
+          imagePadding: z.string().optional(),
         })
         .optional(),
       navigation: z
@@ -260,6 +264,10 @@ export const templateConfigSchema = z.object({
       showRating: z.boolean(),
       showDescription: z.boolean(),
       borderRadius: z.string(),
+      /** Backdrop colour behind contained product imagery. */
+      matColor: z.string().optional(),
+      /** Inner padding around contained product imagery, e.g. "8%". */
+      imagePadding: z.string().optional(),
     }),
     navigation: z.object({
       style: z.enum(["top", "sidebar", "sticky"]),

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { formatCurrency } from "@/lib/utils";
+import { ProductMedia } from "@/components/product-media";
 import type { VendorLayoutProps } from "./types";
 import { getDescriptionText, getMediaUrl } from "./utils";
 
@@ -79,20 +80,16 @@ export function RunwayLayout({ vendor, template, products }: VendorLayoutProps) 
                   className="group grid items-center gap-8 md:grid-cols-2"
                 >
                   <div
-                    className={`relative aspect-[4/5] overflow-hidden ${reversed ? "md:order-2" : "md:order-1"}`}
+                    className={`relative overflow-hidden ${reversed ? "md:order-2" : "md:order-1"}`}
                   >
-                    {imageUrl ? (
-                      <Image
-                        src={imageUrl}
-                        alt={product.name}
-                        fill
-                        className="object-cover transition-transform duration-700 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gray-200 text-gray-400">
-                        No image
-                      </div>
-                    )}
+                    <ProductMedia
+                      src={imageUrl}
+                      alt={product.name}
+                      ratio="portrait"
+                      fit="contain"
+                      mat="blur"
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                    />
                   </div>
 
                   <div className={`px-2 ${reversed ? "md:order-1 md:text-right" : "md:order-2"}`}>
