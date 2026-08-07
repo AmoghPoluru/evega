@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { RichText } from "@payloadcms/richtext-lexical/react";
 import { TaskReplyForm } from "./reply-form";
 import { CloseTaskButton } from "./close-task-button";
+import { vendorBackLabels } from "@/lib/vendor-portal-labels";
 
 interface Props {
   params: Promise<{
@@ -50,7 +51,7 @@ export default async function VendorTaskDetailPage({ params }: Props) {
           <CloseTaskButton taskId={taskId} taskStatus={statusLabel} />
           <Button asChild variant="ghost">
             <Link href="/vendor/tasks">
-              Back to Tasks
+              {vendorBackLabels.support}
             </Link>
           </Button>
         </div>

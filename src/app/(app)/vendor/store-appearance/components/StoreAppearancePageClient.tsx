@@ -2,20 +2,49 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Palette, Sparkles } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { VendorTemplatesPicker } from "@/app/(app)/vendor/templates/components/VendorTemplatesPicker";
 import { VendorHappyBannerPageClient } from "@/app/(app)/vendor/hero-banner/components/VendorHappyBannerPageClient";
+import { VendorLogoTemplateClient } from "@/app/(app)/vendor/settings/components/VendorLogoTemplateClient";
 import { cn } from "@/lib/utils";
+import { vendorPageTitles } from "@/lib/vendor-portal-labels";
 import { StoreAppearancePreview } from "./StoreAppearancePreview";
 
-const TAB_VALUES = ["template", "banner", "preview"] as const;
+const TAB_VALUES = ["template", "banner", "logo", "preview"] as const;
 type TabValue = (typeof TAB_VALUES)[number];
 
-const appearanceTabClass =
-  "h-auto whitespace-normal px-2 py-2 text-center text-xs font-medium text-white shadow-sm sm:text-sm dark:text-white";
+const APPEARANCE_TABS = [
+  {
+    value: "template" as const,
+    label: "Choose Theme for Your site",
+    bg: "#dc2626",
+    border: "#991b1b",
+  },
+  {
+    value: "banner" as const,
+    label: "Choose Banner for your site",
+    bg: "#16a34a",
+    border: "#166534",
+  },
+  {
+    value: "logo" as const,
+    label: "Choose logo for your site",
+    bg: "#ea580c",
+    border: "#9a3412",
+  },
+  {
+    value: "preview" as const,
+    label: "Preview your site",
+    bg: "#2563eb",
+    border: "#1e40af",
+  },
+] as const;
+
+/** Shared tab shape — same height/border for active and inactive (no “pressed down” shift). */
+const appearanceTabBase =
+  "min-h-[3.25rem] h-auto w-full rounded-lg border-2 px-3 py-2.5 text-center text-xs font-semibold leading-snug text-white sm:text-sm " +
+  "shadow-none transition-[opacity,box-shadow] " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function isTabValue(value: string | null): value is TabValue {
   return TAB_VALUES.includes(value as TabValue);
@@ -25,25 +54,18 @@ export function StoreAppearancePageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const startedParam = searchParams.get("started") === "1";
 
-  const [started, setStarted] = useState(startedParam);
   const [activeTab, setActiveTab] = useState<TabValue>(
     isTabValue(tabParam) ? tabParam : "template",
   );
 
   useEffect(() => {
-    if (isTabValue(tabParam)) {
-      setActiveTab(tabParam);
-      setStarted(true);
+    if (!isTabValue(tabParam)) {
+      router.replace("/vendor/store-appearance?started=1&tab=template", { scroll: false });
+      return;
     }
-  }, [tabParam]);
-
-  const openAppearance = (tab: TabValue = "template") => {
-    setStarted(true);
-    setActiveTab(tab);
-    router.replace(`/vendor/store-appearance?started=1&tab=${tab}`, { scroll: false });
-  };
+    setActiveTab(tabParam);
+  }, [tabParam, router]);
 
   const handleTabChange = (value: string) => {
     if (!isTabValue(value)) return;
@@ -51,91 +73,64 @@ export function StoreAppearancePageClient() {
     router.replace(`/vendor/store-appearance?started=1&tab=${value}`, { scroll: false });
   };
 
-  if (!started) {
-    return (
-      <div className="p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Your Store Appearance</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Configure your storefront template, promotional banner, and preview your live store.
-          </p>
-        </div>
-        <Card className="max-w-2xl border-primary/20 bg-primary/5">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <Palette className="h-5 w-5 text-primary" />
-            Choose your store appearance
-          </CardTitle>
-          <CardDescription>
-            Set up how your storefront looks — pick a template, add a Happy Banner, then preview
-            your live store.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button size="lg" onClick={() => openAppearance("template")}>
-            <Sparkles className="mr-2 h-4 w-4" />
-            Get started
-          </Button>
-        </CardContent>
-      </Card>
-      </div>
-    );
-  }
-
   return (
     <div className={activeTab === "preview" ? "px-6 pb-4 pt-4" : "p-6"}>
       {activeTab !== "preview" ? (
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Your Store Appearance</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Configure your storefront template, promotional banner, and preview your live store.
+          <h1 className="text-2xl font-semibold text-foreground">{vendorPageTitles.storeAppearance}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Configure your storefront template, logo, promotional banner, and preview your live store.
           </p>
         </div>
       ) : null}
 
-    <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-      <TabsList className="grid h-auto w-full max-w-4xl grid-cols-3 gap-2 bg-transparent p-0">
-        <TabsTrigger
-          value="template"
-          className={cn(
-            appearanceTabClass,
-            "bg-red-600 hover:bg-red-700 data-[state=active]:!bg-red-700 data-[state=active]:!text-white data-[state=active]:shadow-md dark:data-[state=active]:!bg-red-700 dark:data-[state=active]:!text-white",
-          )}
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+        {/* Custom nav — avoid TabsList default h-9/inline-flex styles hiding the logo tab */}
+        <div
+          role="tablist"
+          aria-label="Store appearance steps"
+          className="grid w-full grid-cols-2 gap-3 md:grid-cols-4"
         >
-          Choose Theme for Your site
-        </TabsTrigger>
-        <TabsTrigger
-          value="banner"
-          className={cn(
-            appearanceTabClass,
-            "bg-green-600 hover:bg-green-700 data-[state=active]:!bg-green-700 data-[state=active]:!text-white data-[state=active]:shadow-md dark:data-[state=active]:!bg-green-700 dark:data-[state=active]:!text-white",
-          )}
-        >
-          Choose Banner for your site
-        </TabsTrigger>
-        <TabsTrigger
-          value="preview"
-          className={cn(
-            appearanceTabClass,
-            "bg-blue-600 hover:bg-blue-700 data-[state=active]:!bg-blue-700 data-[state=active]:!text-white data-[state=active]:shadow-md dark:data-[state=active]:!bg-blue-700 dark:data-[state=active]:!text-white",
-          )}
-        >
-          Preview your site
-        </TabsTrigger>
-      </TabsList>
+          {APPEARANCE_TABS.map((tab) => {
+            const isActive = activeTab === tab.value;
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => handleTabChange(tab.value)}
+                style={{
+                  backgroundColor: tab.bg,
+                  borderColor: isActive ? "#ffffff" : tab.border,
+                }}
+                className={cn(
+                  appearanceTabBase,
+                  isActive ? "opacity-100 ring-2 ring-white" : "opacity-80 hover:opacity-95",
+                )}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-      <TabsContent value="template" className="mt-0">
-        <VendorTemplatesPicker embedded />
-      </TabsContent>
+        <TabsContent value="template" className="mt-0">
+          <VendorTemplatesPicker embedded />
+        </TabsContent>
 
-      <TabsContent value="banner" className="mt-0">
-        <VendorHappyBannerPageClient embedded />
-      </TabsContent>
+        <TabsContent value="banner" className="mt-0">
+          <VendorHappyBannerPageClient embedded />
+        </TabsContent>
 
-      <TabsContent value="preview" className="mt-0 flex min-h-0 flex-col">
-        <StoreAppearancePreview />
-      </TabsContent>
-    </Tabs>
+        <TabsContent value="logo" className="mt-0">
+          <VendorLogoTemplateClient embedded />
+        </TabsContent>
+
+        <TabsContent value="preview" className="mt-0 flex min-h-0 flex-col">
+          <StoreAppearancePreview />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

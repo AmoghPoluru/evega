@@ -8,6 +8,8 @@ import { cssVariablesToString } from "@/lib/templates/css-variables";
 import type { VendorLayoutProps } from "./types";
 import { getDescriptionText } from "./utils";
 import { VENDOR_HEAD_BANNER_ENABLED } from "@/lib/templates/vendor-storefront-flags";
+import { VendorStoreLogo } from "@/components/vendor-logo/VendorStoreLogo";
+import { getMediaUrl } from "./utils";
 
 /**
  * DefaultLayout
@@ -16,7 +18,7 @@ import { VENDOR_HEAD_BANNER_ENABLED } from "@/lib/templates/vendor-storefront-fl
  * filterable product grid. This is the fallback layout for every template that
  * does not declare a specific structural layout.
  */
-export function DefaultLayout({ vendor, template, products, happyBanner }: VendorLayoutProps) {
+export function DefaultLayout({ vendor, template, products, happyBanner, resolvedLogoTemplate }: VendorLayoutProps) {
   const cssVariables = cssVariablesToString(template.cssVariables);
   const descriptionText = getDescriptionText(vendor.description);
 
@@ -237,25 +239,13 @@ export function DefaultLayout({ vendor, template, products, happyBanner }: Vendo
             <div className="flex items-center justify-between gap-4 py-2">
               {/* Left: Logo and Name */}
               <div className="flex items-center gap-3 flex-shrink-0">
-                {vendor.logo && typeof vendor.logo === "object" && vendor.logo.url ? (
-                  <div className="relative w-10 h-10 rounded overflow-hidden bg-white border border-white shadow-sm">
-                    <Image
-                      src={vendor.logo.url}
-                      alt={vendor.name}
-                      fill
-                      className="object-contain p-1"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-10 h-10 rounded bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center border border-white shadow-sm">
-                    <span
-                      className="text-white text-sm font-bold"
-                      style={{ fontFamily: "var(--template-font-heading)" }}
-                    >
-                      {vendor.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
+                <VendorStoreLogo
+                  vendorName={vendor.name}
+                  uploadUrl={getMediaUrl(vendor.logo)}
+                  templateLogo={resolvedLogoTemplate}
+                  size={40}
+                  preferWideTemplate={Boolean(resolvedLogoTemplate)}
+                />
                 <h1
                   className="text-base font-bold"
                   style={{

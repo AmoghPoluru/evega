@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "@/trpc/client";
+import { vendorNavLabels } from "@/lib/vendor-portal-labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -132,7 +133,7 @@ export default function StripeOnboardingPage() {
                   variant="outline"
                   className="mt-4"
                 >
-                  Go to Dashboard
+                  Go to {vendorNavLabels.dashboard}
                 </Button>
               </div>
             )}
@@ -243,7 +244,7 @@ export default function StripeOnboardingPage() {
                 className="w-full"
                 variant="outline"
               >
-                Go to Dashboard
+                Go to {vendorNavLabels.dashboard}
               </Button>
             </div>
           ) : accountStatus.status === "pending" ? (

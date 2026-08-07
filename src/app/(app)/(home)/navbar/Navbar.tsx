@@ -1,12 +1,13 @@
 "use client"
 
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Poppins } from "next/font/google"
-import Link from "next/link"
+import { vendorNavLabels } from "@/lib/vendor-portal-labels";
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react";
 import NavbarSidebar from "./navbar-sidebar";
-import Logo from "./Logo";
+import { StorefrontNavbarLogo } from "./StorefrontNavbarLogo";
 import { Menu, Heart } from "lucide-react";
 import { trpc } from "@/trpc/client";
 import { CheckoutButton } from "@/modules/checkout/ui/components/checkout-button";
@@ -47,7 +48,7 @@ export function Navbar() {
       hasVendor(sessionUser) ||
       getUserRole(sessionUser) === "vendor")
 
-  if (pathname?.startsWith("/vendor/") && !pathname?.startsWith("/vendors/")) {
+  if (pathname === "/vendor" || (pathname?.startsWith("/vendor/") && !pathname?.startsWith("/vendors/"))) {
     return null
   }
 
@@ -58,7 +59,7 @@ export function Navbar() {
   return (
     <>
       <nav className={`h-20 flex border-b border-gray-700 justify-between font-medium bg-black items-center px-4 ${poppins.className}`}>
-        <Logo />
+        <StorefrontNavbarLogo />
 
         <NavbarSidebar
           items={[]}
@@ -74,7 +75,7 @@ export function Navbar() {
               className="border-gray-600 text-white bg-transparent hover:bg-gray-800 hover:text-white"
             >
               <Link href="/vendor/dashboard">
-                Vendor Dashboard
+                {vendorNavLabels.dashboard}
               </Link>
             </Button>
           )}
@@ -126,7 +127,7 @@ export function Navbar() {
               className="border-gray-600 text-white bg-transparent hover:bg-gray-800 hover:text-white px-3 py-2 text-xs"
             >
               <Link href="/vendor/dashboard">
-                Vendor
+                My Dashboard
               </Link>
             </Button>
           )}

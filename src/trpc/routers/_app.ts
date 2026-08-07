@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { baseProcedure, createTRPCRouter } from '../init';
 import type { Category } from '@/payload-types';
+import { getVendorStorefrontBranding } from '@/lib/vendor-logo/storefront-branding';
 import { authRouter } from '@/modules/auth/server/procedures';
 import { vendorRouter } from '@/modules/vendor/server/procedures';
 import { productsRouter } from '@/modules/products/server/procedures';
@@ -164,6 +165,13 @@ export const appRouter = createTRPCRouter({
   orders: ordersRouter,
   addresses: addressesRouter,
   vendorTasks: vendorTasksRouter,
+  storefront: createTRPCRouter({
+    getVendorBranding: baseProcedure
+      .input(z.object({ slug: z.string().min(1) }))
+      .query(async ({ ctx, input }) => {
+        return getVendorStorefrontBranding(ctx.db, input.slug);
+      }),
+  }),
   heroBanners: baseProcedure
     .query(async ({ ctx }) => {
       const banners = await ctx.db.find({

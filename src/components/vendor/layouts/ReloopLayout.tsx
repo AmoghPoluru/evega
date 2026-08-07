@@ -3,6 +3,7 @@ import Image from "next/image";
 import { formatCurrency } from "@/lib/utils";
 import type { VendorLayoutProps } from "./types";
 import { getDescriptionText, getMediaUrl } from "./utils";
+import { VendorStoreLogo } from "@/components/vendor-logo/VendorStoreLogo";
 
 /**
  * ReloopLayout
@@ -10,10 +11,9 @@ import { getDescriptionText, getMediaUrl } from "./utils";
  * dense, image-first square grid with minimal chrome. Structurally distinct
  * from the default marketplace layout — no hero carousel, no filter sidebar.
  */
-export function ReloopLayout({ vendor, template, products }: VendorLayoutProps) {
+export function ReloopLayout({ vendor, template, products, resolvedLogoTemplate }: VendorLayoutProps) {
   const bio = getDescriptionText(vendor.description);
   const logoUrl = getMediaUrl(vendor.logo);
-  const initial = vendor.name?.charAt(0)?.toUpperCase() ?? "?";
   const totalDocs = products.length;
 
   return (
@@ -33,18 +33,13 @@ export function ReloopLayout({ vendor, template, products }: VendorLayoutProps) 
       >
         <div className="mx-auto max-w-3xl px-4 py-8">
           <div className="flex items-start gap-5">
-            <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-full border" style={{ borderColor: "var(--template-border)" }}>
-              {logoUrl ? (
-                <Image src={logoUrl} alt={vendor.name} fill className="object-cover" />
-              ) : (
-                <div
-                  className="flex h-full w-full items-center justify-center text-2xl font-bold text-white"
-                  style={{ backgroundColor: "var(--template-secondary)" }}
-                >
-                  {initial}
-                </div>
-              )}
-            </div>
+            <VendorStoreLogo
+              vendorName={vendor.name}
+              uploadUrl={logoUrl}
+              templateLogo={resolvedLogoTemplate}
+              size={80}
+              className="rounded-full"
+            />
 
             <div className="min-w-0 flex-1">
               <h1

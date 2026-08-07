@@ -3,6 +3,7 @@
 // Task 5.1.1: Customers list page as client component using tRPC for data fetching with React Query
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { vendorPageTitles } from "@/lib/vendor-portal-labels";
 import { trpc } from "@/trpc/client";
 import { CustomersTable } from "./components/CustomersTable";
 import { Button } from "@/components/ui/button";
@@ -90,7 +91,7 @@ export default function VendorCustomersPage() {
     return (
       <div className="p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{vendorPageTitles.customers}</h1>
           <p className="text-gray-600 mt-1">Manage your customers and view their order history</p>
         </div>
         <Card>
@@ -119,7 +120,7 @@ export default function VendorCustomersPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{vendorPageTitles.customers}</h1>
         <p className="text-gray-600 mt-1">Manage your customers and view their order history</p>
       </div>
 

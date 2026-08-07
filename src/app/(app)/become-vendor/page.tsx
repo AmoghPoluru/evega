@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Store, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { vendorNavLabels } from "@/lib/vendor-portal-labels";
 import { VendorRegistrationForm } from "@/modules/vendor/ui/components/vendor-registration-form";
 import { trpc } from "@/trpc/client";
 
@@ -55,7 +56,7 @@ export default function BecomeVendorPage() {
               href="/vendor/dashboard"
               className="inline-flex items-center justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
             >
-              Go to Vendor Dashboard
+              Go to {vendorNavLabels.dashboard}
             </a>
           </CardContent>
         </Card>

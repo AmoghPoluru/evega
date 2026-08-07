@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Suspense } from "react";
 import { NewTaskForm } from "./task-form";
+import { vendorBackLabels, vendorPageTitles } from "@/lib/vendor-portal-labels";
 
 export default async function NewVendorTaskPage() {
   // Enforce vendor auth + approval; redirects to sign-in/vendor flows if not allowed
@@ -15,14 +16,14 @@ export default async function NewVendorTaskPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">New Support Task</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{vendorPageTitles.newSupportTask}</h1>
           <p className="text-sm text-gray-600 mt-1">
             Tell us what you need help with and our team will respond here.
           </p>
         </div>
         <Button asChild variant="ghost">
           <Link href="/vendor/tasks">
-            Back to Tasks
+            {vendorBackLabels.support}
           </Link>
         </Button>
       </div>

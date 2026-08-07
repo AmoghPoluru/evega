@@ -84,6 +84,7 @@ export interface Config {
     'vendor-hero-banners': VendorHeroBanner;
     'vendor-templates': VendorTemplate;
     'happy-banners': HappyBanner;
+    'vendor-logo-templates': VendorLogoTemplate;
     'potential-vendor-regions': PotentialVendorRegion;
     favorites: Favorite;
     'product-likes': ProductLike;
@@ -117,6 +118,7 @@ export interface Config {
     'vendor-hero-banners': VendorHeroBannersSelect<false> | VendorHeroBannersSelect<true>;
     'vendor-templates': VendorTemplatesSelect<false> | VendorTemplatesSelect<true>;
     'happy-banners': HappyBannersSelect<false> | HappyBannersSelect<true>;
+    'vendor-logo-templates': VendorLogoTemplatesSelect<false> | VendorLogoTemplatesSelect<true>;
     'potential-vendor-regions': PotentialVendorRegionsSelect<false> | PotentialVendorRegionsSelect<true>;
     favorites: FavoritesSelect<false> | FavoritesSelect<true>;
     'product-likes': ProductLikesSelect<false> | ProductLikesSelect<true>;
@@ -327,9 +329,27 @@ export interface Vendor {
     [k: string]: unknown;
   } | null;
   /**
-   * Vendor logo image
+   * Vendor logo image (custom upload)
    */
   logo?: (string | null) | Media;
+  /**
+   * Whether the storefront uses a custom uploaded logo or a logo template
+   */
+  logoSource?: ('upload' | 'template') | null;
+  /**
+   * Vendor-selected logo design and two customizable keywords
+   */
+  logoTemplate?: {
+    selectedTemplate?: (string | null) | VendorLogoTemplate;
+    /**
+     * Primary brand word (e.g. ANAYA, MARUTHI)
+     */
+    word1?: string | null;
+    /**
+     * Tagline word (e.g. SILKS, COLLECTION)
+     */
+    word2?: string | null;
+  };
   /**
    * Vendor cover/banner image (fallback if hero banner not configured)
    */
@@ -640,6 +660,44 @@ export interface Media {
   height?: number | null;
   focalX?: number | null;
   focalY?: number | null;
+}
+/**
+ * South Asian logo designs vendors can customize with two keywords
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendor-logo-templates".
+ */
+export interface VendorLogoTemplate {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  previewImage?: (string | null) | Media;
+  preset: 'lotus-grace' | 'peacock-royal' | 'mandala-gold' | 'silk-emblem' | 'temple-arch';
+  vendorWords?: {
+    word1?: {
+      label?: string | null;
+      hint?: string | null;
+      defaultValue?: string | null;
+    };
+    word2?: {
+      label?: string | null;
+      hint?: string | null;
+      defaultValue?: string | null;
+    };
+  };
+  defaultWord1?: string | null;
+  defaultWord2?: string | null;
+  theme?: {
+    primary?: string | null;
+    secondary?: string | null;
+    accent?: string | null;
+    background?: string | null;
+  };
+  isDefault?: boolean | null;
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * Promotional banner designs vendors can choose from
@@ -1825,6 +1883,10 @@ export interface PayloadLockedDocument {
         value: string | HappyBanner;
       } | null)
     | ({
+        relationTo: 'vendor-logo-templates';
+        value: string | VendorLogoTemplate;
+      } | null)
+    | ({
         relationTo: 'potential-vendor-regions';
         value: string | PotentialVendorRegion;
       } | null)
@@ -2125,6 +2187,14 @@ export interface VendorsSelect<T extends boolean = true> {
   slug?: T;
   description?: T;
   logo?: T;
+  logoSource?: T;
+  logoTemplate?:
+    | T
+    | {
+        selectedTemplate?: T;
+        word1?: T;
+        word2?: T;
+      };
   coverImage?: T;
   happyBanner?:
     | T
@@ -2425,6 +2495,49 @@ export interface HappyBannersSelect<T extends boolean = true> {
         backgroundColor?: T;
         accentYellow?: T;
         accentPink?: T;
+      };
+  isDefault?: T;
+  isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendor-logo-templates_select".
+ */
+export interface VendorLogoTemplatesSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
+  previewImage?: T;
+  preset?: T;
+  vendorWords?:
+    | T
+    | {
+        word1?:
+          | T
+          | {
+              label?: T;
+              hint?: T;
+              defaultValue?: T;
+            };
+        word2?:
+          | T
+          | {
+              label?: T;
+              hint?: T;
+              defaultValue?: T;
+            };
+      };
+  defaultWord1?: T;
+  defaultWord2?: T;
+  theme?:
+    | T
+    | {
+        primary?: T;
+        secondary?: T;
+        accent?: T;
+        background?: T;
       };
   isDefault?: T;
   isActive?: T;

@@ -1,10 +1,10 @@
 import { getVendorStatus } from "@/lib/middleware/vendor-auth";
 import { redirect } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
-import { GoShoppingButton } from "@/components/go-shopping-button";
 import { StatsCards } from "./components/StatsCards";
-import { VendorLogoCard } from "./components/VendorLogoCard";
-import { DigitalMarketingForm } from "./components/DigitalMarketingForm";
+import { DashboardGreeting } from "./components/DashboardGreeting";
+import { RecentOrdersWidget } from "./components/RecentOrdersWidget";
+import { QuickActionsCard } from "./components/QuickActionsCard";
+import { OnboardingChecklist } from "./components/OnboardingChecklist";
 
 export default async function VendorDashboardPage() {
   const vendorStatus = await getVendorStatus();
@@ -13,27 +13,23 @@ export default async function VendorDashboardPage() {
     redirect("/vendor/pending-approval");
   }
 
+  const vendorName = vendorStatus.vendor?.name || "Vendor";
+
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Welcome back, {vendorStatus.vendor?.name || "Vendor"}!
-        </p>
-      </div>
+    <div className="p-6 space-y-6">
+      <DashboardGreeting vendorName={vendorName} />
 
       <StatsCards />
 
-      <div className="mt-6 max-w-2xl space-y-6">
-        <VendorLogoCard />
-        <DigitalMarketingForm />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <RecentOrdersWidget />
+        </div>
+        <div className="space-y-6">
+          <QuickActionsCard />
+          <OnboardingChecklist />
+        </div>
       </div>
-
-      <Card className="mt-6 max-w-2xl bg-accent">
-        <CardContent className="pt-6">
-          <GoShoppingButton size="lg" className="w-full text-base" />
-        </CardContent>
-      </Card>
     </div>
   );
 }

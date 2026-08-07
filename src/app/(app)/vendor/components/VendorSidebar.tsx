@@ -5,6 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
+  vendorNavGroupLabels,
+  vendorNavLabels,
+  vendorPortalBrandLabel,
+  vendorStorefrontHref,
+} from "@/lib/vendor-portal-labels";
+import {
   LayoutDashboard,
   Package,
   ShoppingCart,
@@ -16,7 +22,7 @@ import {
   Bell,
   MessageCircle,
   Palette,
-  Folder,
+  Briefcase,
   ChevronUp,
   type LucideIcon,
 } from "lucide-react";
@@ -31,44 +37,39 @@ type NavItem = {
 
 type NavGroup = {
   label: string;
+  icon: LucideIcon;
   items: NavItem[];
-};
-
-const standaloneItem: NavItem = {
-  href: "/vendor/dashboard",
-  label: "Dashboard",
-  icon: LayoutDashboard,
 };
 
 const navGroups: NavGroup[] = [
   {
-    label: "Sales",
-    items: [{ href: "/vendor/customers", label: "Customers", icon: Users }],
-  },
-  {
-    label: "Inventory",
+    label: vendorNavGroupLabels.business,
+    icon: Briefcase,
     items: [
-      { href: "/vendor/products", label: "Products", icon: Package },
-      { href: "/vendor/orders", label: "Orders", icon: ShoppingCart },
+      { href: "/vendor/customers", label: vendorNavLabels.customers, icon: Users },
+      { href: "/vendor/products", label: vendorNavLabels.products, icon: Package },
+      { href: "/vendor/orders", label: vendorNavLabels.orders, icon: ShoppingCart },
     ],
   },
   {
-    label: "Your Store Appearance",
+    label: vendorNavGroupLabels.store,
+    icon: Palette,
     items: [
       {
-        href: "/vendor/store-appearance",
-        label: "Choose your store appearance",
+        href: "/vendor/store-appearance?started=1&tab=template",
+        label: vendorNavLabels.storeAppearance,
         description: "Template, Happy Banner, and storefront preview",
         icon: Palette,
       },
     ],
   },
   {
-    label: "Support",
+    label: vendorNavGroupLabels.support,
+    icon: MessageCircle,
     items: [
       {
         href: "/vendor/tasks",
-        label: "Contact & chat with BDO",
+        label: vendorNavLabels.support,
         description:
           "Create tasks and offline messages for your Business Development Officer",
         icon: MessageCircle,
@@ -76,29 +77,49 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "AI",
-    items: [{ href: "/vendor/analytics", label: "Analytics", icon: BarChart3 }],
-  },
-  {
-    label: "Account",
+    label: vendorNavGroupLabels.account,
+    icon: Settings,
     items: [
-      { href: "/vendor/payouts", label: "Payouts", icon: CreditCard },
-      { href: "/vendor/notifications", label: "Notifications", icon: Bell },
-      { href: "/vendor/settings", label: "Settings", icon: Settings },
+      { href: "/vendor/analytics", label: vendorNavLabels.analytics, icon: BarChart3 },
+      { href: "/vendor/stripe-onboarding", label: vendorNavLabels.payouts, icon: CreditCard },
+      { href: "/vendor/notifications", label: vendorNavLabels.notifications, icon: Bell },
+      { href: "/vendor/settings", label: vendorNavLabels.settings, icon: Settings },
     ],
   },
 ];
 
-export function VendorSidebar() {
+const standaloneItem: NavItem = {
+  href: "/vendor/dashboard",
+  label: vendorNavLabels.dashboard,
+  icon: LayoutDashboard,
+};
+
+/** All sidebar groups start collapsed. */
+const initialCollapsedState = Object.fromEntries(
+  navGroups.map((group) => [group.label, true]),
+);
+
+type VendorSidebarProps = {
+  vendorSlug?: string | null;
+};
+
+export function VendorSidebar({ vendorSlug }: VendorSidebarProps) {
   const pathname = usePathname();
+  const storefrontHref = vendorStorefrontHref(vendorSlug);
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(href + "/");
+  const isActive = (href: string) => {
+    const path = href.split("?")[0];
+    return pathname === path || pathname.startsWith(path + "/");
+  };
 
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [collapsed, setCollapsed] =
+    useState<Record<string, boolean>>(initialCollapsedState);
 
   const toggleGroup = (label: string) =>
-    setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
+    setCollapsed((prev) => ({
+      ...prev,
+      [label]: !(prev[label] ?? true),
+    }));
 
   const renderItem = (item: NavItem) => {
     const Icon = item.icon;
@@ -128,25 +149,23 @@ export function VendorSidebar() {
 
   return (
     <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col h-screen">
-      {/* Logo/Brand Section */}
       <div className="p-4 border-b border-sidebar-border">
-        <Link href="/vendor/dashboard" className="flex items-center gap-2">
+        <Link href={storefrontHref} className="flex items-center gap-2">
           <Store className="h-6 w-6 text-sidebar-foreground" />
-          <span className="font-semibold text-sidebar-foreground">Vendor Portal</span>
+          <span className="font-semibold text-sidebar-foreground">{vendorPortalBrandLabel}</span>
         </Link>
       </div>
 
-      {/* Prominent Go Shopping Button */}
       <div className="p-4 border-b border-sidebar-border">
         <GoShoppingButton className="w-full" />
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-2">
         <div className="space-y-1">{renderItem(standaloneItem)}</div>
 
         {navGroups.map((group) => {
-          const isCollapsed = collapsed[group.label];
+          const isCollapsed = collapsed[group.label] ?? true;
+          const GroupIcon = group.icon;
           return (
             <div key={group.label} className="mt-4">
               <button
@@ -155,7 +174,7 @@ export function VendorSidebar() {
                 aria-expanded={!isCollapsed}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
               >
-                <Folder className="h-4 w-4 shrink-0 text-primary" />
+                <GroupIcon className="h-4 w-4 shrink-0 text-primary" />
                 <span className="flex-1 text-left">{group.label}</span>
                 <ChevronUp
                   className={cn(

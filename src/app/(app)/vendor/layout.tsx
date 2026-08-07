@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireVendor } from "@/lib/middleware/vendor-auth";
 import { VendorSidebar } from "./components/VendorSidebar";
 import { VendorHeader } from "./components/VendorHeader";
+import { VendorStorefrontUrlBar } from "./components/VendorStorefrontUrlBar";
 
 interface Props {
   children: React.ReactNode;
@@ -13,7 +14,7 @@ export default async function VendorLayout({ children }: Props) {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <VendorSidebar />
+      <VendorSidebar vendorSlug={vendor.slug} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <VendorHeader
           vendorName={vendor.name}
@@ -23,6 +24,7 @@ export default async function VendorLayout({ children }: Props) {
           userName={user.name || undefined}
           userEmail={user.email || undefined}
         />
+        <VendorStorefrontUrlBar vendorSlug={vendor.slug} />
         <main className="flex-1 overflow-y-auto bg-white">
           {children}
         </main>

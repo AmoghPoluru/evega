@@ -217,7 +217,10 @@ export async function updateVendorMarketingProfile(
     collection: "vendors",
     id: vendorId,
     data: {
-      ...(input.logo !== undefined && { logo: input.logo }),
+      ...(input.logo !== undefined && {
+        logo: input.logo,
+        ...(input.logo !== null ? { logoSource: "upload" as const } : {}),
+      }),
       ...(input.socialChannels !== undefined && {
         socialChannels: buildSocialChannelsUpdate(existing.socialChannels, input.socialChannels),
       }),

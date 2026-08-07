@@ -16,6 +16,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { templateCustomizationSchema } from "@/types/template-customization";
 import type { TemplateCustomization } from "@/types/template-customization";
+import { vendorPageTitles } from "@/lib/vendor-portal-labels";
 
 export default function CustomizeTemplatePage() {
   const { data, isLoading } = trpc.vendor.templates.getCustomization.useQuery();
@@ -73,7 +74,7 @@ export default function CustomizeTemplatePage() {
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Customize Template</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{vendorPageTitles.customizeTemplate}</h1>
           <p className="text-sm text-gray-600 mt-1">
             Customize colors, fonts, and layout to match your brand
           </p>

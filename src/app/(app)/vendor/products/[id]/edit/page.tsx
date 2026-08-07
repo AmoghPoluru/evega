@@ -3,6 +3,7 @@ import { getPayload } from "payload";
 import config from "@payload-config";
 import { ProductForm } from "../../components/ProductForm";
 import { requireVendor } from "@/lib/middleware/vendor-auth";
+import { vendorPageTitles } from "@/lib/vendor-portal-labels";
 
 interface Props {
   params: Promise<{
@@ -51,7 +52,7 @@ export default async function EditProductPage({ params }: Props) {
     return (
       <div className="p-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Edit Product</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{vendorPageTitles.editProduct}</h1>
           <p className="text-sm text-gray-600 mt-1">
             Update your product information
           </p>

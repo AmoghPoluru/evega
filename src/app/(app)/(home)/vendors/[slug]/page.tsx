@@ -1,15 +1,12 @@
 import { notFound } from "next/navigation";
 import { getPayload } from "payload";
 import config from "@payload-config";
-import type { TemplateCustomization } from "@/types/template-customization";
-import {
-  resolveVendorTemplate,
-  resolveVendorTemplatePreview,
-} from "@/lib/templates/template-engine";
-import { buildFallbackResolvedTemplate } from "@/lib/templates/default-template";
 import { cssVariablesToString } from "@/lib/templates/css-variables";
 import { canPreviewVendorTemplate } from "@/lib/templates/template-preview-auth";
-import { resolveHappyBannerForVendor } from "@/lib/happy-banner/resolve";
+import {
+  loadApprovedVendorBySlug,
+  loadVendorStorefrontPageData,
+} from "@/lib/templates/load-vendor-storefront-page";
 import { VendorStorefront } from "@/components/vendor/VendorStorefront";
 
 export const dynamic = "force-dynamic";
@@ -24,63 +21,24 @@ export default async function VendorPage({ params, searchParams }: Props) {
   const { previewTemplate } = await searchParams;
 
   const payload = await getPayload({ config });
+  const vendor = await loadApprovedVendorBySlug(payload, slug);
 
-  const vendorsResult = await payload.find({
-    collection: "vendors",
-    where: {
-      slug: { equals: slug },
-      status: { equals: "approved" },
-      isActive: { equals: true },
-    },
-    limit: 1,
-    depth: 2,
-  });
-
-  if (vendorsResult.docs.length === 0) {
+  if (!vendor) {
     notFound();
   }
-
-  const vendor = vendorsResult.docs[0];
-
-  const productsData = await payload.find({
-    collection: "products",
-    where: {
-      vendor: { equals: vendor.id },
-      isPrivate: { equals: false },
-      isArchived: { equals: false },
-    },
-    limit: 100,
-    depth: 2,
-    sort: "-createdAt",
-  });
 
   const previewAllowed =
     Boolean(previewTemplate) && (await canPreviewVendorTemplate(payload, vendor.id));
 
-  let resolvedTemplate;
-  try {
-    if (previewAllowed && previewTemplate) {
-      resolvedTemplate = await resolveVendorTemplatePreview(
-        vendor.id,
-        previewTemplate,
-        payload,
-      );
-    } else {
-      resolvedTemplate = await resolveVendorTemplate(vendor.id, payload);
-    }
-  } catch (error) {
-    console.error("❌ Error resolving vendor template:", error);
-    const customization =
-      (vendor.templateCustomization as TemplateCustomization) || {};
-    resolvedTemplate = buildFallbackResolvedTemplate(customization);
-  }
+  const storefront = await loadVendorStorefrontPageData(payload, vendor, {
+    previewTemplateId: previewAllowed ? previewTemplate : undefined,
+  });
 
-  const cssVariables = cssVariablesToString(resolvedTemplate.cssVariables);
-  const happyBanner = await resolveHappyBannerForVendor(payload, vendor);
+  const cssVariables = cssVariablesToString(storefront.resolvedTemplate.cssVariables);
 
   return (
     <>
-      {previewAllowed ? (
+      {storefront.previewMode ? (
         <div className="sticky top-0 z-50 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
           Template preview — this layout is not saved until you click Select.
         </div>
@@ -89,10 +47,11 @@ export default async function VendorPage({ params, searchParams }: Props) {
           ${cssVariables}
         }`}</style>
       <VendorStorefront
-        vendor={vendor}
-        template={resolvedTemplate}
-        products={productsData.docs}
-        happyBanner={happyBanner}
+        vendor={storefront.vendor}
+        template={storefront.resolvedTemplate}
+        products={storefront.products}
+        happyBanner={storefront.happyBanner}
+        resolvedLogoTemplate={storefront.resolvedLogoTemplate}
       />
     </>
   );

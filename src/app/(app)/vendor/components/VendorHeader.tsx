@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Bell, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +16,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { trpc } from "@/trpc/client";
 import Link from "next/link";
+import { getTimeOfDayGreeting } from "@/lib/vendor-greeting";
+import { VendorStoreLogo } from "@/components/vendor-logo/VendorStoreLogo";
 
 interface VendorHeaderProps {
   vendorName?: string;
@@ -56,25 +57,36 @@ export function VendorHeader({
         .slice(0, 2)
     : userEmail?.[0]?.toUpperCase() || "U";
 
+  const greeting = getTimeOfDayGreeting();
+  const { data: logoData } = trpc.vendor.logoTemplate.get.useQuery();
+
+  const showLogo =
+    (logoData?.logoSource === "template" && logoData?.preview) ||
+    (logoData?.logoSource !== "template" && vendorLogoUrl);
+
   return (
     <header className="h-16 bg-sidebar border-b border-sidebar-border flex items-center justify-between px-6">
       {/* Left side - Logo */}
-      <div className="flex items-center gap-6 flex-1">
+      <div className="flex items-center gap-6 flex-1 min-w-0">
         <div className="flex items-center gap-3 min-w-0">
-          {vendorLogoUrl ? (
-            <div className="relative h-9 w-9 shrink-0 rounded-md overflow-hidden bg-card">
-              <Image
-                src={vendorLogoUrl}
-                alt={vendorName ? `${vendorName} logo` : "Store logo"}
-                fill
-                className="object-contain p-0.5"
-                sizes="36px"
-              />
-            </div>
+          {showLogo ? (
+            <VendorStoreLogo
+              vendorName={vendorName ?? "Store"}
+              uploadUrl={logoData?.logoSource === "template" ? null : vendorLogoUrl}
+              templateLogo={logoData?.logoSource === "template" ? logoData.preview : null}
+              size={36}
+              showFallbackInitial={false}
+            />
           ) : null}
-          <span className="text-sidebar-foreground font-semibold text-lg truncate">
-            {vendorName || "My Store"}
-          </span>
+          <div className="min-w-0">
+            <span className="text-sidebar-foreground font-semibold text-lg truncate block">
+              {vendorName || "My Store"}
+            </span>
+            <span className="text-xs text-muted-foreground truncate block">
+              {greeting}
+              {userName ? `, ${userName.split(" ")[0]}` : ""}
+            </span>
+          </div>
         </div>
       </div>
 

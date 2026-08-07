@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Shield, Store } from "lucide-react";
+import { vendorNavLabels } from "@/lib/vendor-portal-labels";
 import { trpc } from "@/trpc/client";
 import { isAppStaff } from "@/lib/access";
 import type { User } from "@/payload-types";
@@ -148,7 +149,7 @@ export default function NavbarSidebar({
                     className="w-full text-left p-4 hover:bg-black hover:text-white flex items-center text-base font-medium gap-2"
                   >
                     <Store className="h-4 w-4" />
-                    Vendor Dashboard
+                    {vendorNavLabels.dashboard}
                   </Link>
                 )}
                 {showBecomeVendor && (

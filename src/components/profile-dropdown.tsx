@@ -1,6 +1,7 @@
 "use client";
 
 import { Store, MapPin, LogOut, Settings, Package, Shield } from "lucide-react";
+import { vendorNavLabels } from "@/lib/vendor-portal-labels";
 import { isAppStaff } from "@/lib/access";
 import type { User } from "@/payload-types";
 import Link from "next/link";
@@ -147,7 +148,7 @@ export function ProfileDropdown() {
           <DropdownMenuItem asChild>
             <Link href="/vendor/dashboard" className="flex items-center cursor-pointer">
               <Store className="mr-2 h-4 w-4" />
-              Vendor Dashboard
+              {vendorNavLabels.dashboard}
             </Link>
           </DropdownMenuItem>
         )}
