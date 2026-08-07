@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPayload } from "payload";
-import config from "@payload-config";
+import { getCachedPayload } from "@/lib/payload-client";
 import { readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
@@ -30,7 +29,7 @@ export async function GET(
     }
 
     // Try to get media record from database first
-    const payload = await getPayload({ config });
+    const payload = await getCachedPayload();
     const mediaResult = await payload.find({
       collection: "media",
       where: {

@@ -1,4 +1,5 @@
-import type { VendorLogoDocFields } from "./types";
+import type { VendorLogoDocFields, VendorLogoPreset } from "./types";
+import { resolveVendorLogoTheme } from "./format-logo";
 import { getVendorLogoWordDefaults, getVendorLogoWordSlots } from "./vendor-words";
 
 type MediaLike = { url?: string | null; id?: string };
@@ -24,7 +25,7 @@ export function formatVendorLogoListItem(
     defaultWord1: getVendorLogoWordDefaults(template).word1,
     defaultWord2: getVendorLogoWordDefaults(template).word2,
     vendorWordSlots: getVendorLogoWordSlots(template),
-    theme: template.theme ?? null,
+    theme: resolveVendorLogoTheme(template, template.preset as VendorLogoPreset | null),
     thumbnailUrl: getPreviewImageUrl(template.previewImage),
     isDefault: template.isDefault ?? false,
     isActive: template.isActive ?? true,

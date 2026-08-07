@@ -6,43 +6,30 @@ import Image from "next/image";
 import { Search, Star } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { VendorLayoutProps } from "./types";
-import { getCategoryName, getMediaUrl, getPseudoRating } from "./utils";
+import { getMediaUrl, getPseudoRating } from "./utils";
 import { VendorStoreLogo } from "@/components/vendor-logo/VendorStoreLogo";
 
 /**
  * EmporiumLayout
- * A dense catalog storefront: a persistent top search bar, a left category /
- * filter rail and a rating-heavy product grid. Search and category filtering
- * run client-side over the vendor's products.
+ * A dense catalog storefront: search bar, rating filter, and product grid.
  */
 export function EmporiumLayout({ vendor, template, products, resolvedLogoTemplate }: VendorLayoutProps) {
   const [query, setQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [minRating, setMinRating] = useState(0);
 
   const logoUrl = getMediaUrl(vendor.logo);
-
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    products.forEach((p) => {
-      const name = getCategoryName(p.category);
-      if (name) set.add(name);
-    });
-    return Array.from(set).sort();
-  }, [products]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products.filter((p) => {
       if (q && !p.name?.toLowerCase().includes(q)) return false;
-      if (activeCategory && getCategoryName(p.category) !== activeCategory) return false;
       if (minRating > 0) {
         const { rating } = getPseudoRating(p.id);
         if (rating < minRating) return false;
       }
       return true;
     });
-  }, [products, query, activeCategory, minRating]);
+  }, [products, query, minRating]);
 
   return (
     <div
@@ -54,7 +41,6 @@ export function EmporiumLayout({ vendor, template, products, resolvedLogoTemplat
         fontFamily: "var(--template-font-body)",
       }}
     >
-      {/* Top bar with search */}
       <header
         className="sticky top-0 z-30"
         style={{ backgroundColor: "var(--template-primary, #131921)" }}
@@ -65,7 +51,7 @@ export function EmporiumLayout({ vendor, template, products, resolvedLogoTemplat
               vendorName={vendor.name}
               uploadUrl={logoUrl}
               templateLogo={resolvedLogoTemplate}
-              size={36}
+              size={48}
             />
             <span
               className="hidden text-lg font-bold text-white sm:block"
@@ -96,42 +82,12 @@ export function EmporiumLayout({ vendor, template, products, resolvedLogoTemplat
       </header>
 
       <div className="mx-auto flex max-w-[1500px] gap-6 px-4 py-6">
-        {/* Sidebar */}
         <aside className="hidden w-56 flex-shrink-0 lg:block">
           <div
             className="rounded-md border bg-white p-4"
             style={{ borderColor: "var(--template-border)" }}
           >
-            <h2 className="mb-2 text-sm font-bold">Departments</h2>
-            <ul className="space-y-1 text-sm">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setActiveCategory(null)}
-                  className={`text-left hover:underline ${activeCategory === null ? "font-bold" : ""}`}
-                  style={{ color: activeCategory === null ? "var(--template-text)" : "var(--template-text-secondary)" }}
-                >
-                  All departments
-                </button>
-              </li>
-              {categories.map((cat) => (
-                <li key={cat}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveCategory(cat)}
-                    className={`text-left hover:underline ${activeCategory === cat ? "font-bold" : ""}`}
-                    style={{ color: activeCategory === cat ? "var(--template-text)" : "var(--template-text-secondary)" }}
-                  >
-                    {cat}
-                  </button>
-                </li>
-              ))}
-              {categories.length === 0 && (
-                <li style={{ color: "var(--template-text-secondary)" }}>No categories</li>
-              )}
-            </ul>
-
-            <h2 className="mb-2 mt-5 text-sm font-bold">Customer reviews</h2>
+            <h2 className="mb-2 text-sm font-bold">Customer reviews</h2>
             <ul className="space-y-1 text-sm">
               {[4, 3, 0].map((r) => (
                 <li key={r}>
@@ -155,11 +111,10 @@ export function EmporiumLayout({ vendor, template, products, resolvedLogoTemplat
           </div>
         </aside>
 
-        {/* Product grid */}
         <main className="min-w-0 flex-1">
           <div className="mb-4 flex items-baseline justify-between border-b pb-2" style={{ borderColor: "var(--template-border)" }}>
             <h1 className="text-xl font-bold" style={{ fontFamily: "var(--template-font-heading)" }}>
-              {activeCategory ?? "All products"}
+              All products
             </h1>
             <span className="text-sm" style={{ color: "var(--template-text-secondary)" }}>
               {filtered.length} result{filtered.length === 1 ? "" : "s"}

@@ -34,7 +34,24 @@ const happyBannerFieldsSchema = z.object({
     .max(80)
     .regex(/^[a-z0-9-]+$/, "Slug must be lowercase letters, numbers, and hyphens"),
   description: z.string().trim().max(500).optional(),
-  preset: z.enum(["mega-sale", "summer-sale", "hue-editorial", "tropical-hot-sale"]).default("mega-sale"),
+  preset: z
+    .enum([
+      "mega-sale",
+      "summer-sale",
+      "hue-editorial",
+      "tropical-hot-sale",
+      "new-arrivals",
+      "ethnic-festive",
+      "flash-sale",
+      "bridal-edit",
+      "linen-edit",
+      "kurta-print",
+      "luxury-boutique",
+      "boho-chic",
+      "clearance-eoss",
+      "handloom-heritage",
+    ])
+    .default("mega-sale"),
   vendorWords: vendorWordsSchema.optional(),
   defaultWord1: z.string().trim().min(1).max(40).optional(),
   defaultWord2: z.string().trim().min(1).max(40).optional(),

@@ -1,5 +1,5 @@
 /**
- * Seed 5 South Asian logo templates for the vendor picker.
+ * Seed South Asian monogram logo templates for the vendor picker.
  * Run: npx tsx scripts/seed-vendor-logo-templates.ts
  */
 import "dotenv/config";
@@ -18,38 +18,108 @@ const TEMPLATES: Array<{
   isDefault: boolean;
 }> = [
   {
-    name: "Lotus Grace",
+    name: "Lotus Monogram",
     slug: "lotus-grace",
     description: VENDOR_LOGO_PRESET_DEFAULTS["lotus-grace"].description,
     preset: "lotus-grace",
     isDefault: true,
   },
   {
-    name: "Peacock Royal",
+    name: "Peacock Monogram",
     slug: "peacock-royal",
     description: VENDOR_LOGO_PRESET_DEFAULTS["peacock-royal"].description,
     preset: "peacock-royal",
     isDefault: false,
   },
   {
-    name: "Mandala Gold",
+    name: "Mandala Monogram",
     slug: "mandala-gold",
     description: VENDOR_LOGO_PRESET_DEFAULTS["mandala-gold"].description,
     preset: "mandala-gold",
     isDefault: false,
   },
   {
-    name: "Silk Emblem",
+    name: "Bandhani Monogram",
     slug: "silk-emblem",
     description: VENDOR_LOGO_PRESET_DEFAULTS["silk-emblem"].description,
     preset: "silk-emblem",
     isDefault: false,
   },
   {
-    name: "Temple Arch",
+    name: "Heritage Monogram",
     slug: "temple-arch",
     description: VENDOR_LOGO_PRESET_DEFAULTS["temple-arch"].description,
     preset: "temple-arch",
+    isDefault: false,
+  },
+  {
+    name: "Rangoli Star",
+    slug: "rangoli-star",
+    description: VENDOR_LOGO_PRESET_DEFAULTS["rangoli-star"].description,
+    preset: "rangoli-star",
+    isDefault: false,
+  },
+  {
+    name: "Diya Lamp",
+    slug: "diya-lamp",
+    description: VENDOR_LOGO_PRESET_DEFAULTS["diya-lamp"].description,
+    preset: "diya-lamp",
+    isDefault: false,
+  },
+  {
+    name: "Jasmine Wreath",
+    slug: "jasmine-wreath",
+    description: VENDOR_LOGO_PRESET_DEFAULTS["jasmine-wreath"].description,
+    preset: "jasmine-wreath",
+    isDefault: false,
+  },
+  {
+    name: "Paisley Curve",
+    slug: "paisley-curve",
+    description: VENDOR_LOGO_PRESET_DEFAULTS["paisley-curve"].description,
+    preset: "paisley-curve",
+    isDefault: false,
+  },
+  {
+    name: "Kite Festival",
+    slug: "kite-sankranti",
+    description: VENDOR_LOGO_PRESET_DEFAULTS["kite-sankranti"].description,
+    preset: "kite-sankranti",
+    isDefault: false,
+  },
+  {
+    name: "Henna Scroll",
+    slug: "henna-scroll",
+    description: VENDOR_LOGO_PRESET_DEFAULTS["henna-scroll"].description,
+    preset: "henna-scroll",
+    isDefault: false,
+  },
+  {
+    name: "Marigold Ring",
+    slug: "marigold-ring",
+    description: VENDOR_LOGO_PRESET_DEFAULTS["marigold-ring"].description,
+    preset: "marigold-ring",
+    isDefault: false,
+  },
+  {
+    name: "Chakra Wheel",
+    slug: "chakra-wheel",
+    description: VENDOR_LOGO_PRESET_DEFAULTS["chakra-wheel"].description,
+    preset: "chakra-wheel",
+    isDefault: false,
+  },
+  {
+    name: "Hex Kolam",
+    slug: "hex-kolam",
+    description: VENDOR_LOGO_PRESET_DEFAULTS["hex-kolam"].description,
+    preset: "hex-kolam",
+    isDefault: false,
+  },
+  {
+    name: "Elephant Emblem",
+    slug: "elephant-emblem",
+    description: VENDOR_LOGO_PRESET_DEFAULTS["elephant-emblem"].description,
+    preset: "elephant-emblem",
     isDefault: false,
   },
 ];
@@ -82,6 +152,8 @@ async function main() {
         primary: defaults.primary,
         secondary: defaults.secondary,
         accent: defaults.accent,
+        tertiary: defaults.tertiary,
+        highlight: defaults.highlight,
         background: defaults.background,
       },
       isDefault: item.isDefault,

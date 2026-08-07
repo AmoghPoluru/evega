@@ -5,13 +5,11 @@ import { trpc } from "@/trpc/client";
 import { AdminProductsTable } from "./components/AdminProductsTable";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Category } from "@/payload-types";
 
 export default function StaffProductsPage() {
   const [status, setStatus] = useState<"all" | "published" | "draft" | "archived">("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [category, setCategory] = useState<string | undefined>();
   const [vendorId, setVendorId] = useState<string | undefined>();
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<"name" | "price" | "createdAt" | "updatedAt">("updatedAt");
@@ -24,27 +22,19 @@ export default function StaffProductsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, status, category, vendorId]);
+  }, [debouncedSearch, status, vendorId]);
 
-  const { data: categoriesData } = trpc.categories.useQuery();
   const { data: vendorsData } = trpc.admin.vendors.listOptions.useQuery();
 
   const { data, isLoading, error } = trpc.admin.products.list.useQuery({
     status,
     search: debouncedSearch || undefined,
-    category,
     vendorId,
     page,
     limit: 20,
     sortBy,
     sortOrder,
   });
-
-  const categories =
-    categoriesData?.map((cat: Category) => ({
-      id: cat.id,
-      name: cat.name,
-    })) ?? [];
 
   const vendors = vendorsData ?? [];
 
@@ -84,11 +74,8 @@ export default function StaffProductsPage() {
           onStatusChange={setStatus}
           search={search}
           onSearchChange={setSearch}
-          category={category}
-          onCategoryChange={setCategory}
           vendorId={vendorId}
           onVendorChange={setVendorId}
-          categories={categories}
           vendors={vendors}
           sortBy={sortBy}
           sortOrder={sortOrder}

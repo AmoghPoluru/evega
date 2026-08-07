@@ -31,11 +31,6 @@ import {
 
 type ProductRow = Product & { remainingStock?: number };
 
-interface CategoryOption {
-  id: string;
-  name: string;
-}
-
 interface VendorOption {
   id: string;
   name: string;
@@ -48,7 +43,6 @@ interface EditableProductRowProps {
   draft: ProductDraft;
   fieldErrors: Partial<Record<keyof ProductDraft, string>>;
   vendors: VendorOption[];
-  categories: CategoryOption[];
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onSaveRow: () => void;
@@ -84,7 +78,6 @@ export function EditableProductRow({
   draft,
   fieldErrors,
   vendors,
-  categories,
   onStartEdit,
   onCancelEdit,
   onSaveRow,
@@ -122,11 +115,6 @@ export function EditableProductRow({
     (typeof product.vendor === "object" && product.vendor
       ? product.vendor.name || product.vendor.slug
       : "—");
-
-  const categoryLabel =
-    categories.find((c) => c.id === (isEditing ? draft.category : productToDraft(product).category))
-      ?.name ||
-    (typeof product.category === "object" && product.category ? product.category.name : "—");
 
   return (
     <TableRow
@@ -197,31 +185,6 @@ export function EditableProductRow({
           </Select>
         ) : (
           <span className="text-sm text-gray-600">{vendorLabel}</span>
-        )}
-      </TableCell>
-
-      <TableCell
-        className={cn(!isEditing && "cursor-pointer hover:bg-gray-50")}
-        onClick={() => !isEditing && !disabled && onStartEdit()}
-      >
-        {isEditing ? (
-          <Select
-            value={draft.category}
-            onValueChange={(value) => onDraftChange({ category: value })}
-          >
-            <SelectTrigger className="h-8 w-[min(140px,100%)]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map((cat) => (
-                <SelectItem key={cat.id} value={cat.id}>
-                  {cat.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <span className="text-sm text-gray-600">{categoryLabel}</span>
         )}
       </TableCell>
 

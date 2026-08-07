@@ -7,6 +7,7 @@ import { formatVendorLogoListItem } from "@/lib/vendor-logo/format-list-item";
 import {
   getVendorLogoWordDefaults,
   getVendorLogoWordSlots,
+  getMonogramLetter,
 } from "@/lib/vendor-logo/vendor-words";
 import { getVendorLogoRelationshipId } from "@/lib/vendor-logo/relationship-id";
 import {
@@ -136,6 +137,7 @@ export const vendorLogoTemplateRouter = createTRPCRouter({
 
     const templateDoc = template as VendorLogoDocFields;
     const defaults = getVendorLogoWordDefaults(templateDoc);
+    const letter = getMonogramLetter(defaults.word1);
 
     const updated = await ctx.db.update({
       collection: "vendors",
@@ -144,8 +146,8 @@ export const vendorLogoTemplateRouter = createTRPCRouter({
         logoSource: "template",
         logoTemplate: {
           selectedTemplate: input.templateId,
-          word1: defaults.word1,
-          word2: defaults.word2,
+          word1: letter,
+          word2: letter,
         },
       },
     });
@@ -181,6 +183,8 @@ export const vendorLogoTemplateRouter = createTRPCRouter({
       });
     }
 
+    const letter = getMonogramLetter(input.word1);
+
     const updated = await ctx.db.update({
       collection: "vendors",
       id: vendorId,
@@ -188,8 +192,8 @@ export const vendorLogoTemplateRouter = createTRPCRouter({
         logoSource: "template",
         logoTemplate: {
           selectedTemplate: selectedId,
-          word1: input.word1.trim().toUpperCase(),
-          word2: input.word2.trim().toUpperCase(),
+          word1: letter,
+          word2: letter,
         },
       },
     });
@@ -199,8 +203,8 @@ export const vendorLogoTemplateRouter = createTRPCRouter({
     const resolved = await resolveVendorLogoTemplate(ctx.db, updated as VendorWithLogoTemplate);
 
     return {
-      word1: updated.logoTemplate?.word1 ?? input.word1,
-      word2: updated.logoTemplate?.word2 ?? input.word2,
+      word1: letter,
+      word2: letter,
       preview: resolved,
     };
   }),

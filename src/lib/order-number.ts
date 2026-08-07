@@ -1,12 +1,11 @@
-import { getPayload } from "payload";
-import config from "@payload-config";
+import { getCachedPayload } from "@/lib/payload-client";
 
 /**
  * Generate unique order number in format: ORD-YYYY-NNNN
  * Example: ORD-2024-0001
  */
 export async function generateOrderNumber(): Promise<string> {
-  const payload = await getPayload({ config });
+  const payload = await getCachedPayload();
   const year = new Date().getFullYear();
   const prefix = `ORD-${year}`;
 

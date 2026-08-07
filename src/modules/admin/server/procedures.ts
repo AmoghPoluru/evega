@@ -53,7 +53,6 @@ const productStatusSchema = z.enum(['all', 'published', 'draft', 'archived']);
 const listInputSchema = z.object({
   status: productStatusSchema.optional().default('all'),
   search: z.string().optional(),
-  category: z.string().optional(),
   vendorId: z.string().optional(),
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(100).default(20),
@@ -103,7 +102,7 @@ function flagsToStatus(isPrivate?: boolean | null, isArchived?: boolean | null):
   return 'published';
 }
 
-const userRoleSchema = z.enum(['user', 'vendor', 'admin', 'bdo']);
+const userRoleSchema = z.enum(['user', 'vendor', 'admin']);
 
 const staffUserUpdateInputSchema = z.object({
   id: z.string().min(1),
@@ -283,7 +282,7 @@ export const adminRouter = createTRPCRouter({
         }
         if (fields.role !== undefined) {
           data.role = fields.role;
-          if (fields.role === 'admin' || fields.role === 'bdo') {
+          if (fields.role === 'admin') {
             data.vendor = null;
           }
         }
@@ -782,10 +781,6 @@ export const adminRouter = createTRPCRouter({
         where.name = { contains: input.search.trim() };
       }
 
-      if (input.category) {
-        where.category = { equals: input.category };
-      }
-
       const sort: Sort = `${input.sortOrder === 'desc' ? '-' : ''}${input.sortBy}`;
 
       const result = await ctx.db.find({
@@ -888,7 +883,6 @@ export const adminRouter = createTRPCRouter({
           name: z.string().min(1).optional(),
           vendor: z.string().min(1).optional(),
           price: z.number().min(0.01).optional(),
-          category: z.string().min(1).optional(),
           status: z.enum(['published', 'draft', 'archived']).optional(),
         }),
       )
@@ -899,7 +893,6 @@ export const adminRouter = createTRPCRouter({
         if (fields.name !== undefined) data.name = fields.name;
         if (fields.vendor !== undefined) data.vendor = fields.vendor;
         if (fields.price !== undefined) data.price = fields.price;
-        if (fields.category !== undefined) data.category = fields.category;
         if (fields.status !== undefined) {
           Object.assign(data, statusToFlags(fields.status));
         }

@@ -2,20 +2,6 @@ import { withPayload } from "@payloadcms/next/withPayload";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  async redirects() {
-    return [
-      {
-        source: "/admin-tasks",
-        destination: "/staff/tasks",
-        permanent: false,
-      },
-      {
-        source: "/admin-tasks/:taskId",
-        destination: "/staff/tasks/:taskId",
-        permanent: false,
-      },
-    ];
-  },
   /* config options here */
   webpack: (config) => {
     // Resolve .js imports to .ts files for ESM compatibility

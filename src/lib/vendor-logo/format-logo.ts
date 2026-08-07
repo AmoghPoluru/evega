@@ -1,6 +1,14 @@
 import { VENDOR_LOGO_PRESET_DEFAULTS } from "./presets";
 import type { ResolvedVendorLogoTemplate, VendorLogoDocFields, VendorLogoPreset, VendorLogoTheme } from "./types";
-import { resolveVendorLogoWords } from "./vendor-words";
+import { getMonogramLetter, resolveVendorLogoWords } from "./vendor-words";
+
+export function resolveVendorLogoTheme(
+  doc: VendorLogoDocFields,
+  preset?: VendorLogoPreset | null,
+): VendorLogoTheme {
+  const resolvedPreset = (preset ?? doc.preset ?? "lotus-grace") as VendorLogoPreset;
+  return resolveTheme(doc, resolvedPreset);
+}
 
 function resolveTheme(doc: VendorLogoDocFields, preset: VendorLogoPreset): VendorLogoTheme {
   const defaults = VENDOR_LOGO_PRESET_DEFAULTS[preset];
@@ -8,6 +16,8 @@ function resolveTheme(doc: VendorLogoDocFields, preset: VendorLogoPreset): Vendo
     primary: doc.theme?.primary?.trim() || defaults.primary,
     secondary: doc.theme?.secondary?.trim() || defaults.secondary,
     accent: doc.theme?.accent?.trim() || defaults.accent,
+    tertiary: doc.theme?.tertiary?.trim() || defaults.tertiary,
+    highlight: doc.theme?.highlight?.trim() || defaults.highlight,
     background: doc.theme?.background?.trim() || defaults.background,
   };
 }
@@ -21,13 +31,14 @@ export function buildResolvedVendorLogoTemplate(
     word1: overrides?.word1,
     word2: overrides?.word2,
   });
+  const letter = getMonogramLetter(words.word1);
 
   return {
     templateId: doc.id,
     templateName: doc.name ?? "Logo",
     preset,
-    word1: words.word1.toUpperCase(),
-    word2: words.word2.toUpperCase(),
+    word1: letter,
+    word2: letter,
     theme: resolveTheme(doc, preset),
   };
 }

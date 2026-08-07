@@ -1,6 +1,4 @@
 import { notFound } from "next/navigation";
-import { getPayload } from "payload";
-import config from "@payload-config";
 import { cssVariablesToString } from "@/lib/templates/css-variables";
 import { canPreviewVendorTemplate } from "@/lib/templates/template-preview-auth";
 import {
@@ -8,6 +6,7 @@ import {
   loadVendorStorefrontPageData,
 } from "@/lib/templates/load-vendor-storefront-page";
 import { VendorStorefront } from "@/components/vendor/VendorStorefront";
+import { getCachedPayload } from "@/lib/payload-client";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +19,7 @@ export default async function VendorPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const { previewTemplate } = await searchParams;
 
-  const payload = await getPayload({ config });
+  const payload = await getCachedPayload();
   const vendor = await loadApprovedVendorBySlug(payload, slug);
 
   if (!vendor) {

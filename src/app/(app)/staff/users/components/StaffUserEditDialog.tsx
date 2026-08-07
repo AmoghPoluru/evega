@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type UserRole = "user" | "vendor" | "admin" | "bdo";
+type UserRole = "user" | "vendor" | "admin";
 
 type UserDraft = {
   name: string;
@@ -182,7 +182,6 @@ export function StaffUserEditDialog({ userId, open, onOpenChange, onSaved }: Pro
                 <SelectContent>
                   <SelectItem value="user">User</SelectItem>
                   <SelectItem value="vendor">Vendor</SelectItem>
-                  <SelectItem value="bdo">BDO</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>

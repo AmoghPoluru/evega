@@ -3,12 +3,26 @@ export type VendorLogoPreset =
   | "peacock-royal"
   | "mandala-gold"
   | "silk-emblem"
-  | "temple-arch";
+  | "temple-arch"
+  | "rangoli-star"
+  | "diya-lamp"
+  | "jasmine-wreath"
+  | "paisley-curve"
+  | "kite-sankranti"
+  | "henna-scroll"
+  | "marigold-ring"
+  | "chakra-wheel"
+  | "hex-kolam"
+  | "elephant-emblem";
 
 export type VendorLogoTheme = {
   primary: string;
   secondary: string;
   accent: string;
+  /** Fourth palette color — e.g. emerald, fuchsia, Krishna blue */
+  tertiary: string;
+  /** Fifth palette color — e.g. marigold, magenta, mehndi green */
+  highlight: string;
   background: string;
 };
 
@@ -28,6 +42,8 @@ export type VendorLogoDocFields = {
     primary?: string | null;
     secondary?: string | null;
     accent?: string | null;
+    tertiary?: string | null;
+    highlight?: string | null;
     background?: string | null;
   } | null;
   previewImage?: string | { id?: string; url?: string | null } | null;

@@ -43,8 +43,17 @@ export function resolveVendorLogoWords(
   vendorWords?: { word1?: string | null; word2?: string | null } | null,
 ): { word1: string; word2: string } {
   const defaults = getVendorLogoWordDefaults(doc);
+  const word1 = vendorWords?.word1?.trim() || defaults.word1;
+  const letter = getMonogramLetter(word1);
   return {
-    word1: vendorWords?.word1?.trim() || defaults.word1,
-    word2: vendorWords?.word2?.trim() || defaults.word2,
+    word1: letter,
+    word2: vendorWords?.word2?.trim() || letter,
   };
+}
+
+/** Single display letter for monogram logos (first character of word1). */
+export function getMonogramLetter(word1: string): string {
+  const trimmed = word1.trim();
+  if (!trimmed) return "A";
+  return trimmed.charAt(0).toUpperCase();
 }

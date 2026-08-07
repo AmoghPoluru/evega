@@ -20,7 +20,6 @@ import {
   Users,
   CreditCard,
   Bell,
-  MessageCircle,
   Palette,
   Briefcase,
   ChevronUp,
@@ -60,19 +59,6 @@ const navGroups: NavGroup[] = [
         label: vendorNavLabels.storeAppearance,
         description: "Template, Happy Banner, and storefront preview",
         icon: Palette,
-      },
-    ],
-  },
-  {
-    label: vendorNavGroupLabels.support,
-    icon: MessageCircle,
-    items: [
-      {
-        href: "/vendor/tasks",
-        label: vendorNavLabels.support,
-        description:
-          "Create tasks and offline messages for your Business Development Officer",
-        icon: MessageCircle,
       },
     ],
   },

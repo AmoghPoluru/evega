@@ -1,8 +1,8 @@
 import { Suspense } from "react";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getUserRole, hasVendor, isAppStaff } from "@/lib/access";
+import { getCachedSession } from "@/lib/auth-server";
 import { getCachedPayload } from "@/lib/payload-client";
 import { resolveUserVendor } from "@/lib/middleware/vendor-auth";
 import { VendorSelection, VendorSelectionSkeleton } from "@/components/vendor-selection";
@@ -25,9 +25,7 @@ async function VendorSelectionSection() {
 }
 
 export default async function Home() {
-  const headersList = await headers();
-  const payload = await getCachedPayload();
-  const session = await payload.auth({ headers: headersList });
+  const session = await getCachedSession();
   const user = session.user;
 
   if (user) {
@@ -35,6 +33,7 @@ export default async function Home() {
       redirect("/staff/digital-marketing");
     }
 
+    const payload = await getCachedPayload();
     const vendor = await resolveUserVendor(payload, user, 0);
 
     if (vendor) {

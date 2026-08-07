@@ -1,0 +1,485 @@
+/* Shared fashion / women's clothing banner base */
+.fb-banner {
+  width: 100%;
+  overflow: hidden;
+  background: var(--hb-bg);
+  container-type: inline-size;
+}
+
+.fb-banner__inner {
+  position: relative;
+  min-height: 220px;
+  height: clamp(220px, 28vw, 340px);
+  display: flex;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  overflow: hidden;
+}
+
+.fb-banner__content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 62%;
+}
+
+.fb-banner__eyebrow {
+  margin: 0;
+  font-size: clamp(0.6rem, 1.2vw, 0.75rem);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--hb-accent-2, #fff);
+  opacity: 0.92;
+}
+
+.fb-banner__headline {
+  margin: 0;
+  font-family: var(--template-font-heading, "Georgia", "Times New Roman", serif);
+  font-size: clamp(1.75rem, calc(10cqi * var(--hb-word1-scale, 1)), 4.5rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--hb-accent, #fff);
+}
+
+.fb-banner__secondary {
+  display: block;
+  font-size: 0.72em;
+  color: var(--hb-accent-2, #ffd400);
+}
+
+.fb-banner__tagline {
+  margin: 0.15rem 0 0;
+  font-size: clamp(0.7rem, 1.8vw, 0.95rem);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hb-accent, #fff);
+  opacity: 0.9;
+}
+
+.fb-banner__cta {
+  display: inline-flex;
+  align-self: flex-start;
+  margin-top: 0.65rem;
+  padding: 0.45rem 1.1rem;
+  font-size: clamp(0.65rem, 1.2vw, 0.78rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: 999px;
+  background: var(--hb-accent, #fff);
+  color: var(--hb-bg, #000);
+  transition: opacity 0.15s ease;
+}
+
+.fb-banner__cta:hover {
+  opacity: 0.88;
+}
+
+.fb-banner__badge {
+  position: absolute;
+  z-index: 3;
+  right: clamp(0.75rem, 4vw, 2rem);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: clamp(5.5rem, 18cqi, 8.5rem);
+  height: clamp(5.5rem, 18cqi, 8.5rem);
+  border-radius: 50%;
+  background: var(--hb-accent-2, #fff);
+  color: var(--hb-bg, #000);
+  text-align: center;
+  line-height: 1;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
+
+.fb-banner__badge-prefix,
+.fb-banner__badge-suffix {
+  font-size: clamp(0.45rem, 1vw, 0.62rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fb-banner__badge-value {
+  font-size: clamp(1.6rem, 5cqi, 2.6rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.fb-banner__badge-percent {
+  font-size: 0.55em;
+}
+
+.fb-banner__decor {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* —— New Arrivals —— */
+.fb-new-arrivals .fb-banner__inner {
+  justify-content: flex-start;
+}
+
+.fb-new-arrivals__orb {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.35;
+}
+
+.fb-new-arrivals__orb--1 {
+  width: 55%;
+  height: 110%;
+  right: -8%;
+  top: -20%;
+  background: radial-gradient(circle, var(--hb-accent-2) 0%, transparent 70%);
+}
+
+.fb-new-arrivals__orb--2 {
+  width: 28%;
+  height: 55%;
+  right: 12%;
+  bottom: -15%;
+  background: var(--hb-accent);
+  opacity: 0.12;
+}
+
+.fb-new-arrivals__arc {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 42%;
+  height: 100%;
+  border-left: 3px solid var(--hb-accent);
+  opacity: 0.25;
+}
+
+/* —— Ethnic Festive —— */
+.fb-ethnic-festive .fb-banner__inner {
+  justify-content: center;
+}
+
+.fb-ethnic-festive__frame {
+  position: absolute;
+  inset: 0.85rem 1rem;
+  border: 2px solid var(--hb-accent);
+  opacity: 0.75;
+}
+
+.fb-ethnic-festive__frame-inner {
+  position: absolute;
+  inset: 1.35rem 1.5rem;
+  border: 1px solid var(--hb-accent-2);
+  opacity: 0.45;
+}
+
+.fb-ethnic-festive__corner {
+  position: absolute;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-color: var(--hb-accent);
+  border-style: solid;
+}
+
+.fb-ethnic-festive__corner--tl {
+  top: 0.55rem;
+  left: 0.7rem;
+  border-width: 3px 0 0 3px;
+}
+
+.fb-ethnic-festive__corner--tr {
+  top: 0.55rem;
+  right: 0.7rem;
+  border-width: 3px 3px 0 0;
+}
+
+.fb-ethnic-festive__corner--bl {
+  bottom: 0.55rem;
+  left: 0.7rem;
+  border-width: 0 0 3px 3px;
+}
+
+.fb-ethnic-festive__corner--br {
+  bottom: 0.55rem;
+  right: 0.7rem;
+  border-width: 0 3px 3px 0;
+}
+
+.fb-ethnic-festive .fb-banner__content {
+  align-items: center;
+  text-align: center;
+  max-width: 100%;
+}
+
+.fb-ethnic-festive .fb-banner__headline,
+.fb-ethnic-festive .fb-banner__tagline {
+  color: #fff;
+}
+
+.fb-ethnic-festive .fb-banner__eyebrow {
+  color: var(--hb-accent);
+}
+
+.fb-ethnic-festive .fb-banner__cta {
+  align-self: center;
+  background: var(--hb-accent);
+  color: var(--hb-bg);
+}
+
+/* —— Flash Sale —— */
+.fb-flash-sale .fb-banner__inner {
+  background: linear-gradient(115deg, var(--hb-bg) 55%, color-mix(in srgb, var(--hb-accent-2) 25%, var(--hb-bg)) 100%);
+}
+
+.fb-flash-sale__slash {
+  position: absolute;
+  left: -5%;
+  top: -20%;
+  width: 45%;
+  height: 140%;
+  background: var(--hb-accent-2);
+  opacity: 0.08;
+  transform: rotate(-12deg);
+}
+
+.fb-flash-sale .fb-banner__headline {
+  color: #fff;
+}
+
+.fb-flash-sale .fb-banner__secondary {
+  color: var(--hb-accent);
+}
+
+/* —— Bridal Edit —— */
+.fb-bridal-edit .fb-banner__inner {
+  background: linear-gradient(135deg, var(--hb-bg) 0%, color-mix(in srgb, var(--hb-accent-2) 45%, #fff) 100%);
+}
+
+.fb-bridal-edit__sparkle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hb-accent);
+  opacity: 0.35;
+}
+
+.fb-bridal-edit__ring {
+  position: absolute;
+  right: 8%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: clamp(5rem, 22cqi, 9rem);
+  height: clamp(5rem, 22cqi, 9rem);
+  border-radius: 50%;
+  border: 2px solid var(--hb-accent-2);
+  opacity: 0.55;
+}
+
+.fb-bridal-edit__ring::after {
+  content: "";
+  position: absolute;
+  inset: 0.65rem;
+  border-radius: 50%;
+  border: 1px solid var(--hb-accent);
+  opacity: 0.45;
+}
+
+/* —— Linen Edit —— */
+.fb-linen-edit .fb-banner__inner {
+  justify-content: space-between;
+}
+
+.fb-linen-edit__leaf {
+  position: absolute;
+  right: 6%;
+  bottom: 8%;
+  width: clamp(4rem, 16cqi, 7rem);
+  height: clamp(4rem, 16cqi, 7rem);
+  border-radius: 0 80% 0 80%;
+  background: var(--hb-accent-2);
+  opacity: 0.35;
+  transform: rotate(-25deg);
+}
+
+.fb-linen-edit__line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1.2rem;
+  height: 1px;
+  background: var(--hb-accent);
+  opacity: 0.2;
+}
+
+/* —— Kurta Print —— */
+.fb-kurta-print .fb-banner__inner {
+  background-color: var(--hb-bg);
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--hb-accent-2) 18%, transparent) 0,
+      color-mix(in srgb, var(--hb-accent-2) 18%, transparent) 8px,
+      transparent 8px,
+      transparent 16px
+    );
+}
+
+.fb-kurta-print .fb-banner__headline,
+.fb-kurta-print .fb-banner__tagline,
+.fb-kurta-print .fb-banner__eyebrow {
+  color: var(--hb-accent);
+}
+
+.fb-kurta-print .fb-banner__cta {
+  background: var(--hb-accent);
+  color: var(--hb-bg);
+}
+
+/* —— Luxury Boutique —— */
+.fb-luxury-boutique .fb-banner__inner {
+  justify-content: center;
+  border-top: 3px solid var(--hb-accent);
+  border-bottom: 3px solid var(--hb-accent);
+}
+
+.fb-luxury-boutique .fb-banner__content {
+  align-items: center;
+  text-align: center;
+  max-width: 100%;
+}
+
+.fb-luxury-boutique .fb-banner__headline {
+  color: var(--hb-accent);
+  font-weight: 400;
+  letter-spacing: 0.28em;
+}
+
+.fb-luxury-boutique .fb-banner__tagline {
+  color: var(--hb-accent-2);
+  font-weight: 400;
+  letter-spacing: 0.32em;
+}
+
+.fb-luxury-boutique .fb-banner__eyebrow {
+  color: var(--hb-accent-2);
+}
+
+.fb-luxury-boutique .fb-banner__cta {
+  background: transparent;
+  color: var(--hb-accent);
+  border: 1px solid var(--hb-accent);
+}
+
+/* —— Boho Chic —— */
+.fb-boho-chic .fb-banner__inner {
+  background: linear-gradient(160deg, var(--hb-bg) 40%, var(--hb-accent-2) 180%);
+}
+
+.fb-boho-chic__arch {
+  position: absolute;
+  right: 5%;
+  top: 10%;
+  width: 38%;
+  height: 80%;
+  border-radius: 50% 50% 0 0;
+  background: color-mix(in srgb, var(--hb-accent) 22%, transparent);
+}
+
+.fb-boho-chic .fb-banner__headline {
+  color: var(--hb-accent);
+}
+
+.fb-boho-chic .fb-banner__secondary {
+  color: var(--hb-accent-2);
+}
+
+/* —— Clearance EOSS —— */
+.fb-clearance-eoss .fb-banner__inner {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--hb-bg),
+    var(--hb-bg) 12px,
+    color-mix(in srgb, var(--hb-accent) 12%, var(--hb-bg)) 12px,
+    color-mix(in srgb, var(--hb-accent) 12%, var(--hb-bg)) 24px
+  );
+}
+
+.fb-clearance-eoss .fb-banner__headline {
+  color: var(--hb-accent-2);
+}
+
+.fb-clearance-eoss .fb-banner__secondary {
+  color: var(--hb-accent);
+}
+
+.fb-clearance-eoss .fb-banner__badge {
+  background: var(--hb-accent);
+  color: var(--hb-accent-2);
+}
+
+/* —— Handloom Heritage —— */
+.fb-handloom-heritage .fb-banner__inner {
+  background: linear-gradient(90deg, var(--hb-bg) 0%, color-mix(in srgb, var(--hb-accent) 25%, var(--hb-bg)) 100%);
+}
+
+.fb-handloom-heritage__weave {
+  position: absolute;
+  inset: 0;
+  opacity: 0.12;
+  background-image: repeating-linear-gradient(
+    0deg,
+    var(--hb-accent) 0,
+    var(--hb-accent) 1px,
+    transparent 1px,
+    transparent 6px
+  );
+}
+
+.fb-handloom-heritage__weave-2 {
+  position: absolute;
+  inset: 0;
+  opacity: 0.08;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--hb-accent-2) 0,
+    var(--hb-accent-2) 1px,
+    transparent 1px,
+    transparent 8px
+  );
+}
+
+.fb-handloom-heritage .fb-banner__headline,
+.fb-handloom-heritage .fb-banner__tagline {
+  color: var(--hb-accent);
+}
+
+.fb-handloom-heritage .fb-banner__eyebrow {
+  color: var(--hb-accent-2);
+}
+
+.fb-handloom-heritage .fb-banner__cta {
+  background: var(--hb-accent);
+  color: var(--hb-bg);
+}
+
+@media (max-width: 640px) {
+  .fb-banner__content {
+    max-width: 58%;
+  }
+
+  .fb-banner__badge {
+    width: 4.75rem;
+    height: 4.75rem;
+    right: 0.5rem;
+  }
+}

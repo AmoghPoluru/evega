@@ -31,14 +31,6 @@ export function getMediaUrl(media: any): string | null {
   return null;
 }
 
-/** Human-readable category label from a product's populated category. */
-export function getCategoryName(category: any): string | null {
-  if (!category) return null;
-  if (typeof category === "string") return null;
-  if (typeof category === "object" && typeof category.name === "string") return category.name;
-  return null;
-}
-
 /**
  * Deterministic pseudo-rating (3.5 - 5.0) derived from a stable id so the value
  * is consistent between server and client renders. Used for display-only star

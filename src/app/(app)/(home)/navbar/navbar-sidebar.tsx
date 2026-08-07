@@ -165,7 +165,7 @@ export default function NavbarSidebar({
                 {showAdminConsole && (
                   <Link
                     onClick={() => onOpenChange(false)}
-                    href="/staff/tasks"
+                    href="/staff/digital-marketing"
                     className="flex w-full items-center gap-2 p-4 text-base font-medium hover:bg-black hover:text-white"
                   >
                     <Shield className="h-4 w-4" />

@@ -248,26 +248,6 @@ export const Products: CollectionConfig = {
       },
     },
     {
-      name: "category",
-      type: "relationship",
-      relationTo: "categories",
-      hasMany: false,
-      required: true,
-      admin: {
-        description: "Select a category for this product"
-      }
-    },
-    {
-      name: "subcategory",
-      type: "relationship",
-      relationTo: "categories",
-      hasMany: false,
-      required: false,
-      admin: {
-        description: "Select a subcategory for this product (optional)"
-      }
-    },
-    {
       name: "image",
       type: "upload",
       relationTo: "media",
@@ -390,7 +370,7 @@ export const Products: CollectionConfig = {
       type: "array",
       label: "Product Variants",
       admin: {
-        description: "⚠️ Use the Vendor Dashboard (/vendor/products) to create products with variants. Variant fields are dynamically generated based on the selected category. This field is for advanced users only.",
+        description: "⚠️ Use the Vendor Dashboard (/vendor/products) to create products with variants. This field is for advanced users only.",
       },
       fields: [
         {
@@ -398,7 +378,7 @@ export const Products: CollectionConfig = {
           type: "json",
           required: true,
           admin: {
-            description: "Dynamic variant data based on category variant types (e.g., { size: 'M', color: 'Red', material: 'Silk' })",
+            description: "Variant attributes (e.g., { size: 'M', color: 'Red', material: 'Silk' })",
             components: {
               Field: "@/components/payload/VariantDataField",
             },

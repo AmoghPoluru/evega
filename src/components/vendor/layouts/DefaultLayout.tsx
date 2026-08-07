@@ -243,8 +243,7 @@ export function DefaultLayout({ vendor, template, products, happyBanner, resolve
                   vendorName={vendor.name}
                   uploadUrl={getMediaUrl(vendor.logo)}
                   templateLogo={resolvedLogoTemplate}
-                  size={40}
-                  preferWideTemplate={Boolean(resolvedLogoTemplate)}
+                  size={56}
                 />
                 <h1
                   className="text-base font-bold"

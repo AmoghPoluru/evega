@@ -74,7 +74,7 @@ export function VendorHeader({
               vendorName={vendorName ?? "Store"}
               uploadUrl={logoData?.logoSource === "template" ? null : vendorLogoUrl}
               templateLogo={logoData?.logoSource === "template" ? logoData.preview : null}
-              size={36}
+              size={48}
               showFallbackInitial={false}
             />
           ) : null}

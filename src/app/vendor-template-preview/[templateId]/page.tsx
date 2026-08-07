@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { getPayload } from "payload";
-import config from "@payload-config";
+import { getCachedPayload } from "@/lib/payload-client";
 import { requireVendor } from "@/lib/middleware/vendor-auth";
 import { loadVendorStorefrontPageData } from "@/lib/templates/load-vendor-storefront-page";
 import { cssVariablesToString } from "@/lib/templates/css-variables";
@@ -21,7 +20,7 @@ export default async function VendorTemplatePreviewPage({ params }: Props) {
     notFound();
   }
 
-  const payload = await getPayload({ config });
+  const payload = await getCachedPayload();
 
   let storefront;
   try {

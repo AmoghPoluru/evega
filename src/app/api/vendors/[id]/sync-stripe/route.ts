@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPayload } from "payload";
-import config from "@payload-config";
+import { getCachedPayload } from "@/lib/payload-client";
 import { isSuperAdmin } from "@/lib/access";
 import { syncVendorStripeDetails } from "@/lib/stripe-connect";
 
@@ -9,7 +8,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const payload = await getPayload({ config });
+    const payload = await getCachedPayload();
     const headers = request.headers;
     
     // Get current user from session

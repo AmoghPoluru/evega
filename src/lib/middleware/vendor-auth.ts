@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { getPayload, type BasePayload } from "payload";
-import config from "@payload-config";
+import type { BasePayload } from "payload";
 import type { User, Vendor } from "@/payload-types";
+import { getCachedPayload } from "@/lib/payload-client";
+import { getCachedSession } from "@/lib/auth-server";
 
 function isPayloadNotFound(error: unknown): boolean {
   return (
@@ -48,8 +49,8 @@ export async function resolveUserVendor(
  */
 export async function requireVendor() {
   const headersList = await headers();
-  const payload = await getPayload({ config });
-  const session = await payload.auth({ headers: headersList });
+  const payload = await getCachedPayload();
+  const session = await getCachedSession();
 
   if (!session.user) {
     const returnTo =
@@ -89,9 +90,8 @@ export async function requireVendor() {
  * Returns status information for conditional rendering
  */
 export async function getVendorStatus() {
-  const headersList = await headers();
-  const payload = await getPayload({ config });
-  const session = await payload.auth({ headers: headersList });
+  const payload = await getCachedPayload();
+  const session = await getCachedSession();
 
   if (!session.user || !session.user.vendor) {
     return {

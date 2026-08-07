@@ -57,9 +57,8 @@ const cleanupAll = async () => {
   try {
     logSection("🧹 Database Cleanup");
     console.log("\n⚠️  WARNING: This will delete ALL data from:");
-    console.log("   - Categories & Subcategories");
     console.log("   - Variant Types & Variant Options");
-    console.log("   - Products (depends on categories)");
+    console.log("   - Products");
     console.log("   - Hero Banners");
     console.log("   - Tags");
     console.log("   - Orders");
@@ -86,7 +85,6 @@ const cleanupAll = async () => {
       { collection: "tags", label: "tags" },
       { collection: "customers", label: "customers" },
       { collection: "vendors", label: "vendors" },
-      { collection: "categories", label: "categories & subcategories" },
       { collection: "variant-options", label: "variant options" },
       { collection: "variant-types", label: "variant types" },
       { collection: "users", label: "users (including admin)" },

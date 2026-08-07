@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPayload } from "payload";
-import config from "@payload-config";
+import { getCachedPayload } from "@/lib/payload-client";
 import { createMediaFromBlobUrl } from "@/lib/create-media-from-blob";
 import { getPayloadSessionFromRequest } from "@/lib/payload-auth-headers";
 
@@ -15,7 +14,7 @@ import { getPayloadSessionFromRequest } from "@/lib/payload-auth-headers";
  */
 export async function POST(req: NextRequest) {
   try {
-    const payload = await getPayload({ config });
+    const payload = await getCachedPayload();
     const session = await getPayloadSessionFromRequest(req, payload);
 
     if (!session.user) {

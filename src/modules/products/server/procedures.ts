@@ -4,7 +4,7 @@ import type { Sort, Where } from "payload";
 import { headers as getHeaders } from "next/headers";
 
 import { DEFAULT_LIMIT } from "@/constants";
-import { Category, Media, Product } from "@/payload-types";
+import { Media, Product } from "@/payload-types";
 import { baseProcedure, createTRPCRouter } from "@/trpc/init";
 import { buildSearchQuery } from "@/lib/search/search-query-builder";
 import { extractVariantValues, hasMatchingVariant } from "@/lib/search/variant-utils";
@@ -25,7 +25,7 @@ export const productsRouter = createTRPCRouter({
       const product = await ctx.db.findByID({
         collection: "products",
         id: input.id,
-        depth: 2, // Load the "product.image", "product.category", "product.vendor"
+        depth: 2, // Load the "product.image", "product.vendor"
         select: {
           content: false,
         },
@@ -125,7 +125,6 @@ export const productsRouter = createTRPCRouter({
         cursor: z.number().default(1),
         limit: z.number().default(DEFAULT_LIMIT),
         search: z.string().nullable().optional(),
-        category: z.string().nullable().optional(),
         vendor: z.string().nullable().optional(), // Add vendor filter
         minPrice: z.string().nullable().optional(),
         maxPrice: z.string().nullable().optional(),
@@ -178,44 +177,6 @@ export const productsRouter = createTRPCRouter({
         where.vendor = {
           equals: input.vendor,
         };
-      }
-
-      if (input.category) {
-        const categoriesData = await ctx.db.find({
-          collection: "categories",
-          limit: 1,
-          depth: 1, // Populate subcategories, subcategores.[0] will be a type of "Category"
-          pagination: false,
-          where: {
-            slug: {
-              equals: input.category,
-            }
-          }
-        });
-
-        const formattedData = categoriesData.docs.map((doc: Category) => ({
-          ...doc,
-          subcategories: (doc.subcategories?.docs ?? [])
-            .filter((sub): sub is Category => typeof sub === 'object' && sub !== null && 'id' in sub)
-            .map((sub: Category) => ({
-              // Because of "depth: 1" we are confident "sub" will be a type of "Category"
-              ...(sub as Category),
-              subcategories: undefined,
-            }))
-        }));
-
-        const subcategoriesSlugs = [];
-        const parentCategory = formattedData[0];
-
-        if (parentCategory) {
-          subcategoriesSlugs.push(
-            ...parentCategory.subcategories.map((subcategory: Category) => subcategory.slug)
-          )
-
-          where["category.slug"] = {
-            in: [parentCategory.slug, ...subcategoriesSlugs]
-          }
-        }
       }
 
       if (input.tags && input.tags.length > 0) {

@@ -1,8 +1,13 @@
 import { z } from "zod";
+import { getMonogramLetter } from "./vendor-words";
 
 export const vendorLogoTextSchema = z.object({
-  word1: z.string().trim().min(1, "Word 1 is required").max(24),
-  word2: z.string().trim().min(1, "Word 2 is required").max(24),
+  word1: z
+    .string()
+    .trim()
+    .min(1, "Your brand initial is required")
+    .transform(getMonogramLetter),
+  word2: z.string().trim().optional(),
 });
 
 export const vendorLogoSelectSchema = z.object({

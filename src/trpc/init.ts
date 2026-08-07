@@ -150,7 +150,7 @@ export const vendorProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   });
 });
 
-/** Platform staff (admin + BDO) — app admin console at /staff/* */
+/** Platform staff — app admin console at /staff/* */
 export const staffProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   const user = ctx.session.user as User;
 
@@ -164,7 +164,7 @@ export const staffProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   return next({ ctx });
 });
 
-/** Platform admins only (never BDO) — sensitive actions such as impersonation. */
+/** Platform admins only — sensitive actions such as impersonation. */
 export const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   const user = ctx.session.user as User;
 

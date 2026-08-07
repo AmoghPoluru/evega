@@ -10,7 +10,7 @@ export const VendorLogoTemplates: CollectionConfig = {
   },
   admin: {
     useAsTitle: "name",
-    description: "South Asian logo designs vendors can customize with two keywords",
+    description: "Colorful South Asian monogram designs — vendors pick one initial letter",
     defaultColumns: ["name", "preset", "isDefault", "isActive", "updatedAt"],
   },
   access: {
@@ -134,6 +134,8 @@ export const VendorLogoTemplates: CollectionConfig = {
         { name: "primary", type: "text" },
         { name: "secondary", type: "text" },
         { name: "accent", type: "text" },
+        { name: "tertiary", type: "text", label: "Tertiary" },
+        { name: "highlight", type: "text", label: "Highlight" },
         { name: "background", type: "text" },
       ],
     },

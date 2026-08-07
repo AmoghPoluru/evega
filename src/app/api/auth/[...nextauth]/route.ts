@@ -1,7 +1,6 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth.config";
-import { getPayload } from "payload";
-import config from "@payload-config";
+import { getPayloadInstance } from "@/lib/payload-client";
 import { generateAuthCookie } from "@/modules/auth/utils";
 
 // Mark this route as dynamic to prevent build-time analysis
@@ -48,7 +47,7 @@ function getNextAuthHandlers() {
       }
 
       try {
-        const payload = await getPayload({ config });
+        const payload = await getPayloadInstance();
         
         // Check if user exists by email
         const existingUsers = await payload.find({
