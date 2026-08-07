@@ -96,7 +96,12 @@ function StaffTemplateEditDialogInner({
   open,
   onOpenChange,
   onSaved,
-}: Required<Pick<Props, "templateId" | "open" | "onOpenChange" | "onSaved">>) {
+}: {
+  templateId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
+}) {
   const [draft, setDraft] = useState<TemplateDraft>(emptyDraft);
   const [isDraftReady, setIsDraftReady] = useState(false);
 

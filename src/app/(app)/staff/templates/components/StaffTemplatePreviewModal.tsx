@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ExternalLink, Eye, Maximize2, Minimize2 } from "lucide-react";
 
 import { trpc } from "@/trpc/client";
+import type { AppRouter } from "@/trpc/routers/_app";
+import type { inferRouterOutputs } from "@trpc/server";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +26,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+type PreviewVendor =
+  inferRouterOutputs<AppRouter>["admin"]["templates"]["previewVendors"][number];
 
 type PreviewTemplate = {
   id: string;
@@ -55,7 +60,7 @@ export function StaffTemplatePreviewModal({
   );
 
   const selectedVendor = useMemo(
-    () => vendors?.find((vendor) => vendor.slug === vendorSlug) ?? null,
+    () => vendors?.find((vendor: PreviewVendor) => vendor.slug === vendorSlug) ?? null,
     [vendors, vendorSlug],
   );
 
@@ -112,7 +117,7 @@ export function StaffTemplatePreviewModal({
                 <SelectValue placeholder={vendorsLoading ? "Loading vendors…" : "Select vendor"} />
               </SelectTrigger>
               <SelectContent className="z-[100]">
-                {(vendors ?? []).map((vendor) => (
+                {(vendors ?? []).map((vendor: PreviewVendor) => (
                   <SelectItem key={vendor.id} value={vendor.slug}>
                     {vendor.name}
                   </SelectItem>

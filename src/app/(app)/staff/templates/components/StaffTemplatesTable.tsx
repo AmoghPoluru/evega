@@ -5,6 +5,8 @@ import Image from "next/image";
 import { Eye, Pencil } from "lucide-react";
 
 import { trpc } from "@/trpc/client";
+import type { AppRouter } from "@/trpc/routers/_app";
+import type { inferRouterOutputs } from "@trpc/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +22,9 @@ import { StaffTemplateEditDialog } from "./StaffTemplateEditDialog";
 import { StaffTemplatePreviewModal } from "./StaffTemplatePreviewModal";
 
 const PREVIEW_VENDOR_STORAGE_KEY = "staff-templates-preview-vendor-slug";
+
+type PreviewVendor =
+  inferRouterOutputs<AppRouter>["admin"]["templates"]["previewVendors"][number];
 
 type TemplateListItem = {
   id: string;
@@ -126,7 +131,7 @@ export function StaffTemplatesTable() {
                 <SelectValue placeholder="Select vendor" />
               </SelectTrigger>
               <SelectContent>
-                {previewVendors.map((vendor) => (
+                {previewVendors.map((vendor: PreviewVendor) => (
                   <SelectItem key={vendor.id} value={vendor.slug}>
                     {vendor.name}
                   </SelectItem>

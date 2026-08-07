@@ -22,21 +22,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { HappyBannerThumbnail } from "@/components/happy-banner/HappyBannerThumbnail";
+import { formatHappyBannerListItem } from "@/lib/happy-banner/preview-image";
 import { StaffHappyBannerPreviewDialog } from "./StaffHappyBannerPreviewDialog";
 
-type BannerListItem = {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  preset: string;
-  defaultWord1: string;
-  defaultWord2: string;
-  thumbnailUrl: string | null;
-  isDefault: boolean;
-  isActive: boolean;
-  updatedAt: string;
-};
+type BannerListItem = ReturnType<typeof formatHappyBannerListItem>;
 
 export function StaffHappyBannersTable() {
   const [search, setSearch] = useState("");

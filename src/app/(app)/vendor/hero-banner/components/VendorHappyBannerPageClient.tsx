@@ -5,6 +5,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Loader2, ArrowLeft, XCircle } from "lucide-react";
 import { trpc } from "@/trpc/client";
+import type { AppRouter } from "@/trpc/routers/_app";
+import type { inferRouterOutputs } from "@trpc/server";
 import { vendorHappyBannerTextSchema } from "@/lib/happy-banner/schema";
 import type { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +25,9 @@ type ViewMode = "pick" | "customize";
 type VendorHappyBannerPageClientProps = {
   embedded?: boolean;
 };
+
+type HappyBannerListItem =
+  inferRouterOutputs<AppRouter>["vendor"]["happyBanner"]["list"]["docs"][number];
 
 export function VendorHappyBannerPageClient({ embedded = false }: VendorHappyBannerPageClientProps) {
   const utils = trpc.useUtils();
@@ -95,7 +100,7 @@ export function VendorHappyBannerPageClient({ embedded = false }: VendorHappyBan
   );
 
   const selectedBanner = useMemo(
-    () => listData?.docs.find((banner) => banner.id === selectedBannerId) ?? null,
+    () => listData?.docs.find((banner: HappyBannerListItem) => banner.id === selectedBannerId) ?? null,
     [listData, selectedBannerId],
   );
 
@@ -136,7 +141,7 @@ export function VendorHappyBannerPageClient({ embedded = false }: VendorHappyBan
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {listData?.docs.map((banner: (typeof listData.docs)[number]) => {
+        {listData?.docs.map((banner: HappyBannerListItem) => {
           const isSelected = banner.id === selectedBannerId;
           return (
             <Card
