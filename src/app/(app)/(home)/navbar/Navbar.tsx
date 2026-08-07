@@ -7,7 +7,7 @@ import { vendorNavLabels } from "@/lib/vendor-portal-labels";
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react";
 import NavbarSidebar from "./navbar-sidebar";
-import Logo from "./Logo";
+import { StorefrontNavbarLogo } from "./StorefrontNavbarLogo";
 import { Menu, Heart } from "lucide-react";
 import { trpc } from "@/trpc/client";
 import { CheckoutButton } from "@/modules/checkout/ui/components/checkout-button";
@@ -59,7 +59,7 @@ export function Navbar() {
   return (
     <>
       <nav className={`h-20 flex border-b border-gray-700 justify-between font-medium bg-black items-center px-4 ${poppins.className}`}>
-        <Logo />
+        <StorefrontNavbarLogo />
 
         <NavbarSidebar
           items={[]}

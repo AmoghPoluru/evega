@@ -160,8 +160,52 @@ export const Vendors: CollectionConfig = {
       type: "upload",
       relationTo: "media",
       admin: {
-        description: "Vendor logo image",
+        description: "Vendor logo image (custom upload)",
       },
+    },
+    {
+      name: "logoSource",
+      type: "select",
+      defaultValue: "upload",
+      options: [
+        { label: "Custom upload", value: "upload" },
+        { label: "Logo template", value: "template" },
+      ],
+      admin: {
+        description: "Whether the storefront uses a custom uploaded logo or a logo template",
+      },
+    },
+    {
+      name: "logoTemplate",
+      type: "group",
+      label: "Logo template",
+      admin: {
+        description: "Vendor-selected logo design and two customizable keywords",
+      },
+      fields: [
+        {
+          name: "selectedTemplate",
+          type: "relationship",
+          relationTo: "vendor-logo-templates",
+          label: "Selected logo template",
+        },
+        {
+          name: "word1",
+          type: "text",
+          label: "Word 1",
+          admin: {
+            description: "Primary brand word (e.g. ANAYA, MARUTHI)",
+          },
+        },
+        {
+          name: "word2",
+          type: "text",
+          label: "Word 2",
+          admin: {
+            description: "Tagline word (e.g. SILKS, COLLECTION)",
+          },
+        },
+      ],
     },
     {
       name: "coverImage",

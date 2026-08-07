@@ -22,7 +22,7 @@ import {
   Bell,
   MessageCircle,
   Palette,
-  Folder,
+  Briefcase,
   ChevronUp,
   type LucideIcon,
 } from "lucide-react";
@@ -37,32 +37,26 @@ type NavItem = {
 
 type NavGroup = {
   label: string;
+  icon: LucideIcon;
   items: NavItem[];
-};
-
-const standaloneItem: NavItem = {
-  href: "/vendor/dashboard",
-  label: vendorNavLabels.dashboard,
-  icon: LayoutDashboard,
 };
 
 const navGroups: NavGroup[] = [
   {
-    label: vendorNavGroupLabels.sales,
-    items: [{ href: "/vendor/customers", label: vendorNavLabels.customers, icon: Users }],
-  },
-  {
-    label: vendorNavGroupLabels.inventory,
+    label: vendorNavGroupLabels.business,
+    icon: Briefcase,
     items: [
+      { href: "/vendor/customers", label: vendorNavLabels.customers, icon: Users },
       { href: "/vendor/products", label: vendorNavLabels.products, icon: Package },
       { href: "/vendor/orders", label: vendorNavLabels.orders, icon: ShoppingCart },
     ],
   },
   {
-    label: vendorNavGroupLabels.storeAppearance,
+    label: vendorNavGroupLabels.store,
+    icon: Palette,
     items: [
       {
-        href: "/vendor/store-appearance",
+        href: "/vendor/store-appearance?started=1&tab=template",
         label: vendorNavLabels.storeAppearance,
         description: "Template, Happy Banner, and storefront preview",
         icon: Palette,
@@ -71,6 +65,7 @@ const navGroups: NavGroup[] = [
   },
   {
     label: vendorNavGroupLabels.support,
+    icon: MessageCircle,
     items: [
       {
         href: "/vendor/tasks",
@@ -82,18 +77,27 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: vendorNavGroupLabels.ai,
-    items: [{ href: "/vendor/analytics", label: vendorNavLabels.analytics, icon: BarChart3 }],
-  },
-  {
     label: vendorNavGroupLabels.account,
+    icon: Settings,
     items: [
-      { href: "/vendor/payouts", label: vendorNavLabels.payouts, icon: CreditCard },
+      { href: "/vendor/analytics", label: vendorNavLabels.analytics, icon: BarChart3 },
+      { href: "/vendor/stripe-onboarding", label: vendorNavLabels.payouts, icon: CreditCard },
       { href: "/vendor/notifications", label: vendorNavLabels.notifications, icon: Bell },
       { href: "/vendor/settings", label: vendorNavLabels.settings, icon: Settings },
     ],
   },
 ];
+
+const standaloneItem: NavItem = {
+  href: "/vendor/dashboard",
+  label: vendorNavLabels.dashboard,
+  icon: LayoutDashboard,
+};
+
+/** All sidebar groups start collapsed. */
+const initialCollapsedState = Object.fromEntries(
+  navGroups.map((group) => [group.label, true]),
+);
 
 type VendorSidebarProps = {
   vendorSlug?: string | null;
@@ -103,13 +107,19 @@ export function VendorSidebar({ vendorSlug }: VendorSidebarProps) {
   const pathname = usePathname();
   const storefrontHref = vendorStorefrontHref(vendorSlug);
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(href + "/");
+  const isActive = (href: string) => {
+    const path = href.split("?")[0];
+    return pathname === path || pathname.startsWith(path + "/");
+  };
 
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [collapsed, setCollapsed] =
+    useState<Record<string, boolean>>(initialCollapsedState);
 
   const toggleGroup = (label: string) =>
-    setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
+    setCollapsed((prev) => ({
+      ...prev,
+      [label]: !(prev[label] ?? true),
+    }));
 
   const renderItem = (item: NavItem) => {
     const Icon = item.icon;
@@ -154,7 +164,8 @@ export function VendorSidebar({ vendorSlug }: VendorSidebarProps) {
         <div className="space-y-1">{renderItem(standaloneItem)}</div>
 
         {navGroups.map((group) => {
-          const isCollapsed = collapsed[group.label];
+          const isCollapsed = collapsed[group.label] ?? true;
+          const GroupIcon = group.icon;
           return (
             <div key={group.label} className="mt-4">
               <button
@@ -163,7 +174,7 @@ export function VendorSidebar({ vendorSlug }: VendorSidebarProps) {
                 aria-expanded={!isCollapsed}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
               >
-                <Folder className="h-4 w-4 shrink-0 text-primary" />
+                <GroupIcon className="h-4 w-4 shrink-0 text-primary" />
                 <span className="flex-1 text-left">{group.label}</span>
                 <ChevronUp
                   className={cn(

@@ -39,6 +39,7 @@ import { normalizeVendorHappyBannerWords } from "@/lib/happy-banner/validate-ven
 import type { HappyBannerPreset } from "@/lib/happy-banner/types";
 import type { Payload } from "payload";
 import { revalidatePath } from "next/cache";
+import { vendorLogoTemplateRouter } from "@/modules/vendor/server/logo-template-procedures";
 
 type VendorHappyBannerState = {
   selectedBanner?: string | { id: string } | null;
@@ -3496,6 +3497,8 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
     }),
   }),
 
+  logoTemplate: vendorLogoTemplateRouter,
+
   // Template Management
   templates: createTRPCRouter({
     // List all available templates
@@ -3545,10 +3548,22 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
             ? vendor.selectedTemplate
             : vendor.selectedTemplate?.id ?? null;
 
-        const docs = allTemplates.map((template) => ({
-          ...template,
-          isSelected: template.id === selectedTemplateId,
-        }));
+        const docs = allTemplates.map((template) => {
+          const thumb = template.thumbnailImage;
+          const preview = template.previewImage;
+          const thumbnailUrl =
+            typeof thumb === "object" && thumb?.url
+              ? thumb.url
+              : typeof preview === "object" && preview?.url
+                ? preview.url
+                : null;
+
+          return {
+            ...template,
+            isSelected: template.id === selectedTemplateId,
+            thumbnailUrl,
+          };
+        });
 
         return {
           docs,

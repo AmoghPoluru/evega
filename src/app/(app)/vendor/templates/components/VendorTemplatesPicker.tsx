@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle2, Eye, Loader2 } from "lucide-react";
 import { TemplatePreviewModal } from "./TemplatePreviewModal";
+import { TemplateCardPreview } from "./TemplateCardPreview";
 import { toast } from "sonner";
 import type { VendorTemplate } from "@/payload-types";
 
@@ -126,19 +127,7 @@ export function VendorTemplatesPicker({
           {data.docs.map((template: TemplateListItem) => (
             <Card key={template.id} className="overflow-hidden">
               <div className="relative">
-                {template.thumbnailImage &&
-                typeof template.thumbnailImage === "object" &&
-                template.thumbnailImage.url ? (
-                  <img
-                    src={template.thumbnailImage.url}
-                    alt={template.name}
-                    className="h-48 w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-48 w-full items-center justify-center bg-gray-200">
-                    <span className="text-gray-400">No preview</span>
-                  </div>
-                )}
+                <TemplateCardPreview template={template} />
                 {template.isSelected ? (
                   <div className="absolute right-2 top-2">
                     <Badge className="bg-green-600">
@@ -165,7 +154,7 @@ export function VendorTemplatesPicker({
                     className="flex-1"
                   >
                     <Eye className="mr-2 h-4 w-4" />
-                    Preview
+                    Preview Your site
                   </Button>
                   <Button
                     size="sm"
@@ -200,6 +189,7 @@ export function VendorTemplatesPicker({
       <TemplatePreviewModal
         template={previewTemplate}
         vendorSlug={data?.vendorSlug}
+        useAuthenticatedPreview
         open={!!previewTemplate}
         onOpenChange={(open) => {
           if (!open) setPreviewTemplate(null);

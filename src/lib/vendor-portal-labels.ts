@@ -22,7 +22,7 @@ export const vendorNavLabels = {
   customers: "My Customers",
   products: "My Products",
   orders: "My Orders",
-  storeAppearance: "My Store Appearance",
+  storeAppearance: "My Website Appearance",
   support: "Contact & chat with BDO",
   analytics: "My Analytics",
   payouts: "My Payouts",
@@ -32,11 +32,9 @@ export const vendorNavLabels = {
 
 /** Collapsible sidebar section headers. */
 export const vendorNavGroupLabels = {
-  sales: "My Sales",
-  inventory: "My Inventory",
-  storeAppearance: "My Store Appearance",
+  business: "My Business",
+  store: "Customize my Website",
   support: "My Support",
-  ai: "My AI",
   account: "My Account",
 } as const;
 
@@ -46,10 +44,11 @@ export const vendorPageTitles = {
   products: "My Products",
   orders: "My Orders",
   orderDetail: "My Order",
-  storeAppearance: "My Store Appearance",
+  storeAppearance: "My Website Appearance",
   support: "My Support & Tasks",
   newSupportTask: "New Support Task",
   analytics: "My Analytics & Reports",
+  settings: "My Settings",
   importProducts: "Import My Products",
   newProduct: "Create My Product",
   editProduct: "Edit My Product",

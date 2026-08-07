@@ -22,6 +22,8 @@ type TemplatePreviewItem = VendorTemplate & { isSelected?: boolean };
 interface TemplatePreviewModalProps {
   template: TemplatePreviewItem | null;
   vendorSlug?: string | null;
+  /** Vendor portal: authenticated preview route (reliable inside iframes). */
+  useAuthenticatedPreview?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: () => void;
@@ -30,6 +32,7 @@ interface TemplatePreviewModalProps {
 export function TemplatePreviewModal({
   template,
   vendorSlug: vendorSlugProp,
+  useAuthenticatedPreview = false,
   open,
   onOpenChange,
   onSelect,
@@ -50,9 +53,11 @@ export function TemplatePreviewModal({
   if (!template) return null;
 
   const vendorSlug = vendorSlugProp ?? listMeta?.vendorSlug ?? null;
-  const previewSrc = vendorSlug
-    ? `/vendors/${vendorSlug}?previewTemplate=${template.id}`
-    : null;
+  const previewSrc = useAuthenticatedPreview
+    ? `/vendor-template-preview/${template.id}`
+    : vendorSlug
+      ? `/vendors/${vendorSlug}?previewTemplate=${template.id}`
+      : null;
 
   const iframeHeight = maximized ? "flex-1 min-h-0 w-full" : "h-[min(70vh,720px)] w-full";
 

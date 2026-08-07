@@ -7,6 +7,7 @@ import { Search, Star } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { VendorLayoutProps } from "./types";
 import { getCategoryName, getMediaUrl, getPseudoRating } from "./utils";
+import { VendorStoreLogo } from "@/components/vendor-logo/VendorStoreLogo";
 
 /**
  * EmporiumLayout
@@ -14,13 +15,12 @@ import { getCategoryName, getMediaUrl, getPseudoRating } from "./utils";
  * filter rail and a rating-heavy product grid. Search and category filtering
  * run client-side over the vendor's products.
  */
-export function EmporiumLayout({ vendor, template, products }: VendorLayoutProps) {
+export function EmporiumLayout({ vendor, template, products, resolvedLogoTemplate }: VendorLayoutProps) {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [minRating, setMinRating] = useState(0);
 
   const logoUrl = getMediaUrl(vendor.logo);
-  const initial = vendor.name?.charAt(0)?.toUpperCase() ?? "?";
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -61,15 +61,12 @@ export function EmporiumLayout({ vendor, template, products }: VendorLayoutProps
       >
         <div className="mx-auto flex max-w-[1500px] items-center gap-4 px-4 py-2.5">
           <div className="flex items-center gap-2">
-            <div className="relative h-9 w-9 overflow-hidden rounded bg-white">
-              {logoUrl ? (
-                <Image src={logoUrl} alt={vendor.name} fill className="object-contain p-0.5" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-sm font-bold text-gray-800">
-                  {initial}
-                </div>
-              )}
-            </div>
+            <VendorStoreLogo
+              vendorName={vendor.name}
+              uploadUrl={logoUrl}
+              templateLogo={resolvedLogoTemplate}
+              size={36}
+            />
             <span
               className="hidden text-lg font-bold text-white sm:block"
               style={{ fontFamily: "var(--template-font-heading)" }}
