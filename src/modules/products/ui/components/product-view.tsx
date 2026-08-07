@@ -317,12 +317,7 @@ export const ProductView = ({ productId }: ProductViewProps) => {
     });
   }
 
-  // Get category ID for fetching variant config
-  const categoryId = typeof data?.category === 'string' ? data.category : data?.category?.id;
-  const { data: categoryData } = trpc.getCategory.useQuery(
-    { id: categoryId || '' },
-    { enabled: !!categoryId }
-  );
+  // Get category ID for fetching variant config — removed; variants derive from product data
 
   const [isCopied, setIsCopied] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -380,17 +375,13 @@ export const ProductView = ({ productId }: ProductViewProps) => {
     ? (selectedVariant as any).price
     : (data?.price || 0);
 
-  // Check if all required variants are selected
-  const requiredVariants = categoryData?.variantConfig?.requiredVariants?.map((vt: any) => 
-    typeof vt === 'object' ? vt.slug : vt
-  ) || [];
-  const allRequiredSelected = requiredVariants.every((vt: string) => selectedVariants[vt]);
+  const allRequiredSelected = true;
 
   // Handle Buy Now - add to cart and navigate to checkout page
   const handleBuyNow = () => {
     if (hasVariants) {
       // Check if all required variants are selected
-      const missingRequired = requiredVariants.filter((vt: string) => !selectedVariants[vt]);
+      const missingRequired = variantTypes.filter((vt: string) => !selectedVariants[vt]);
       if (missingRequired.length > 0) {
         toast.error(`Please select ${missingRequired.join(', ')}`);
         return;
@@ -724,7 +715,7 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                   const options = variantOptions[variantType] || [];
                   if (options.length === 0) return null;
                   
-                  const isRequired = requiredVariants.includes(variantType);
+                  const isRequired = true;
                   const selectedValue = selectedVariants[variantType];
                   const variantLabel = variantType.charAt(0).toUpperCase() + variantType.slice(1).replace(/([A-Z])/g, ' $1');
                   
@@ -813,7 +804,7 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                     )
                   ) : (
                     <p className="text-sm text-gray-500">
-                      Select {requiredVariants.length > 0 ? requiredVariants.join(', ') : 'variants'} to see availability
+                      Select {variantTypes.length > 0 ? variantTypes.join(', ') : 'variants'} to see availability
                     </p>
                   )
                 ) : (

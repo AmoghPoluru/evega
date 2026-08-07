@@ -12,8 +12,6 @@ export const productCreateBodySchema = z.object({
   name: z.string().min(1, 'Product name is required'),
   description: z.unknown().optional(),
   price: z.number().min(0.01, 'Price must be greater than 0'),
-  category: z.string().min(1, 'Category is required'),
-  subcategory: z.string().optional(),
   image: z.string().optional(),
   cover: z.array(z.string()).optional(),
   videoSource: z.enum(['upload', 'youtube']).optional(),

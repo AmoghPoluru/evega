@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PackagePlus, ShoppingCart, Palette, MessageCircle } from "lucide-react";
+import { PackagePlus, ShoppingCart, Palette } from "lucide-react";
 
 const actions = [
   {
@@ -29,12 +29,6 @@ const actions = [
     description: "Theme, banner, and preview",
     href: "/vendor/store-appearance?started=1&tab=template",
     icon: Palette,
-  },
-  {
-    label: "Contact BDO",
-    description: "Get help from your business officer",
-    href: "/vendor/tasks",
-    icon: MessageCircle,
   },
 ] as const;
 

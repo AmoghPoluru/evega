@@ -143,7 +143,6 @@ async function resetVariants() {
           value: SIZE_OPTIONS[i],
           label: SIZE_OPTIONS[i],
           variantType: sizeType.id,
-          category: null, // Global
           displayOrder: i,
         },
       });
@@ -162,7 +161,6 @@ async function resetVariants() {
           value: color,
           label: color,
           variantType: colorType.id,
-          category: null, // Global
           hexCode: COLOR_HEX_CODES[color] || null,
           displayOrder: i,
         },
@@ -181,7 +179,6 @@ async function resetVariants() {
           value: MATERIAL_OPTIONS[i],
           label: MATERIAL_OPTIONS[i],
           variantType: materialType.id,
-          category: null, // Global
           displayOrder: i,
         },
       });
@@ -189,41 +186,8 @@ async function resetVariants() {
     }
     console.log(`   ✓ Created ${materialOptionCount} material options\n`);
 
-    // Step 7: Update all categories to use these 3 variant types
-    console.log("📋 Step 7: Updating all categories...");
-    const categories = await payload.find({
-      collection: "categories",
-      limit: 1000,
-      pagination: false,
-    });
-
-    let updatedCategoryCount = 0;
-    for (const category of categories.docs) {
-      await payload.update({
-        collection: "categories",
-        id: category.id,
-        data: {
-          variantConfig: {
-            requiredVariants: [sizeType.id, colorType.id],
-            optionalVariants: [materialType.id],
-            variantOptions: {
-              size: SIZE_OPTIONS,
-              color: COLOR_OPTIONS,
-              material: MATERIAL_OPTIONS,
-            },
-            pricingRules: {
-              basePrice: true,
-            },
-          },
-        },
-      });
-      updatedCategoryCount++;
-      console.log(`   ✓ Updated category: ${category.name}`);
-    }
-    console.log(`\n   ✓ Updated ${updatedCategoryCount} categories\n`);
-
-    // Step 8: Clear product variants (optional - uncomment if needed)
-    console.log("📋 Step 8: Clearing product variants...");
+    // Step 7: Clear product variants (optional - uncomment if needed)
+    console.log("📋 Step 7: Clearing product variants...");
     const products = await payload.find({
       collection: "products",
       limit: 1000,
@@ -251,9 +215,7 @@ async function resetVariants() {
     console.log(`   - Created ${sizeOptionCount} size options`);
     console.log(`   - Created ${colorOptionCount} color options`);
     console.log(`   - Created ${materialOptionCount} material options`);
-    console.log(`   - Updated ${updatedCategoryCount} categories`);
     console.log(`   - Cleared variants from ${clearedProductCount} products`);
-    console.log("\n✨ All categories now use: Size (required), Color (required), Material (optional)");
 
   } catch (error) {
     console.error("❌ Error resetting variants:", error);

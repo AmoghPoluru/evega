@@ -1,17 +1,13 @@
 import { redirect } from "next/navigation";
-import { getPayload } from "payload";
-import config from "@payload-config";
-import { headers } from "next/headers";
+import { getCachedSession } from "@/lib/auth-server";
 import { OrdersView } from "@/modules/orders/ui/views/orders-view";
 
 export default async function OrdersPage() {
-  const headersList = await headers();
-  const payload = await getPayload({ config });
-  const user = await payload.auth({ headers: headersList });
+  const session = await getCachedSession();
 
-  if (!user?.user) {
+  if (!session?.user) {
     redirect("/sign-in?redirect=/orders");
   }
 
-  return <OrdersView userId={user.user.id} />;
+  return <OrdersView userId={session.user.id} />;
 }

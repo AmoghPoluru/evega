@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPayload } from "payload";
-import config from "@payload-config";
+import { getCachedPayload } from "@/lib/payload-client";
 import { uploadToBlob, deleteFromBlob } from "@/lib/vercel-blob-storage";
 import { createMediaFromBlobUrl } from "@/lib/create-media-from-blob";
 import { payloadReqFromUser } from "@/lib/payload-req";
@@ -13,7 +12,7 @@ export const runtime = 'nodejs'; // Ensure Node.js runtime for large file handli
 // Handle DELETE requests - use Payload's delete method directly
 export async function DELETE(req: NextRequest) {
   try {
-    const payload = await getPayload({ config });
+    const payload = await getCachedPayload();
     const session = await getPayloadSessionFromRequest(req, payload);
 
     if (!session.user) {
@@ -135,7 +134,7 @@ export async function DELETE(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const payload = await getPayload({ config });
+    const payload = await getCachedPayload();
     const session = await getPayloadSessionFromRequest(req, payload);
 
     if (!session.user) {

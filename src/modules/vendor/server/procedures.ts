@@ -68,6 +68,32 @@ const optionalUrl = z.preprocess(
   z.string().url().optional(),
 );
 
+/** Fields selected by the public `vendor.list` query. */
+type VendorListFields = Pick<Vendor, "id" | "name" | "slug" | "logo" | "description">;
+
+const VENDOR_DESCRIPTION_PREVIEW_LENGTH = 240;
+
+/** Flatten a Lexical description into a short preview string for listing cards. */
+function extractVendorDescriptionText(description: Vendor["description"]): string | null {
+  if (!description?.root?.children) return null;
+
+  const walk = (nodes: unknown[]): string =>
+    nodes
+      .map((node) => {
+        if (typeof node !== "object" || node === null) return "";
+        const n = node as { text?: string; children?: unknown[] };
+        return (n.text ?? "") + (n.children ? walk(n.children) : "");
+      })
+      .join(" ");
+
+  const text = walk(description.root.children).replace(/\s+/g, " ").trim();
+  if (!text) return null;
+
+  return text.length > VENDOR_DESCRIPTION_PREVIEW_LENGTH
+    ? `${text.slice(0, VENDOR_DESCRIPTION_PREVIEW_LENGTH).trimEnd()}…`
+    : text;
+}
+
 const vendorRegistrationSchema = z.object({
   businessName: z.string().min(2, "Business name is required"),
   email: z.string().email("Valid email is required"),
@@ -164,11 +190,33 @@ export const vendorRouter = createTRPCRouter({
         where,
         limit: input.limit,
         sort: "-createdAt",
-        depth: 0,
+        depth: 1,
+        select: {
+          name: true,
+          slug: true,
+          logo: true,
+          description: true,
+        },
+        populate: {
+          // `url` is virtual and derived from `filename`/`mimeType`, so those
+          // have to be selected for it to be resolved.
+          media: {
+            url: true,
+            filename: true,
+            mimeType: true,
+          },
+        },
       });
 
       return {
-        vendors: result.docs,
+        vendors: (result.docs as VendorListFields[]).map((vendor) => ({
+          id: vendor.id,
+          name: vendor.name,
+          slug: vendor.slug ?? null,
+          logoUrl:
+            vendor.logo && typeof vendor.logo !== "string" ? vendor.logo.url ?? null : null,
+          descriptionText: extractVendorDescriptionText(vendor.description),
+        })),
         total: result.totalDocs,
       };
     }),
@@ -318,7 +366,6 @@ export const vendorRouter = createTRPCRouter({
         z.object({
           status: z.enum(["all", "published", "draft", "archived"]).optional().default("all"),
           search: z.string().optional(),
-          category: z.string().optional(),
           page: z.number().min(1).default(1),
           limit: z.number().min(1).max(100).default(20),
           sortBy: z.enum(["name", "price", "createdAt", "updatedAt"]).default("createdAt"),
@@ -363,10 +410,6 @@ export const vendorRouter = createTRPCRouter({
           where.name = { contains: input.search };
         }
 
-        // Category filter
-        if (input.category) {
-          where.category = { equals: input.category };
-        }
 
         // Build sort
         const sort: Sort = `${input.sortOrder === "desc" ? "-" : ""}${input.sortBy}`;
@@ -378,7 +421,7 @@ export const vendorRouter = createTRPCRouter({
           limit: input.limit,
           page: input.page,
           sort,
-          depth: 1, // Include category, image
+          depth: 1, // Include image
         });
 
         console.log("[PRODUCTS LIST] Query result:", {
@@ -587,8 +630,6 @@ export const vendorRouter = createTRPCRouter({
           name: z.string().min(1, "Product name is required"),
           description: z.any().optional(), // Rich text object
           price: z.number().min(0.01, "Price must be greater than 0"),
-          category: z.string().min(1, "Category is required"),
-          subcategory: z.string().optional(),
           image: z.string().optional(),
           cover: z.array(z.string()).optional(),
           videoSource: z.enum(["upload", "youtube"]).optional(),
@@ -700,54 +741,7 @@ export const vendorRouter = createTRPCRouter({
 
           // Format 1: error.errors array (Payload standard format)
           if (error?.errors && Array.isArray(error.errors)) {
-            // Fetch category variant config if we have a category ID
             let requiredVariantFields: string[] = [];
-            if (input.category) {
-              try {
-                const category = await ctx.db.findByID({
-                  collection: "categories",
-                  id: input.category,
-                  depth: 1, // Populate relationships to get variant type names
-                });
-                if (category?.variantConfig?.requiredVariants) {
-                  // Handle both populated objects and IDs
-                  const requiredVariants = Array.isArray(category.variantConfig.requiredVariants)
-                    ? category.variantConfig.requiredVariants
-                    : [];
-                  
-                  requiredVariantFields = requiredVariants.map((vt: any) => {
-                    // If it's a populated object, use the name
-                    if (typeof vt === 'object' && vt !== null && 'name' in vt) {
-                      return vt.name;
-                    }
-                    // If it's an ID string, we can't resolve it here, so return a generic message
-                    return null;
-                  }).filter((name: string | null): name is string => name !== null);
-                  
-                  // If we couldn't get names, fetch variant types separately
-                  if (requiredVariantFields.length === 0 && requiredVariants.length > 0) {
-                    const variantTypeIds = requiredVariants
-                      .map((vt: any) => typeof vt === 'string' ? vt : vt.id)
-                      .filter(Boolean);
-                    
-                    if (variantTypeIds.length > 0) {
-                      const variantTypes = await ctx.db.find({
-                        collection: "variant-types",
-                        where: {
-                          id: {
-                            in: variantTypeIds,
-                          },
-                        },
-                        limit: 100,
-                      });
-                      requiredVariantFields = variantTypes.docs.map((vt: any) => vt.name || vt.slug);
-                    }
-                  }
-                }
-              } catch (e) {
-                // Ignore category fetch errors
-              }
-            }
 
             parsedErrors = error.errors.map((err: any) => {
               // Extract field name from path (e.g., "variants.0.variantData.size" -> "Size in Variant 1")
@@ -777,54 +771,7 @@ export const vendorRouter = createTRPCRouter({
           }
           // Format 2: error.data?.errors (alternative Payload format)
           else if (error?.data?.errors && Array.isArray(error.data.errors)) {
-            // Fetch category variant config if we have a category ID
             let requiredVariantFields: string[] = [];
-            if (input.category) {
-              try {
-                const category = await ctx.db.findByID({
-                  collection: "categories",
-                  id: input.category,
-                  depth: 1, // Populate relationships to get variant type names
-                });
-                if (category?.variantConfig?.requiredVariants) {
-                  // Handle both populated objects and IDs
-                  const requiredVariants = Array.isArray(category.variantConfig.requiredVariants)
-                    ? category.variantConfig.requiredVariants
-                    : [];
-                  
-                  requiredVariantFields = requiredVariants.map((vt: any) => {
-                    // If it's a populated object, use the name
-                    if (typeof vt === 'object' && vt !== null && 'name' in vt) {
-                      return vt.name;
-                    }
-                    // If it's an ID string, we can't resolve it here, so return a generic message
-                    return null;
-                  }).filter((name: string | null): name is string => name !== null);
-                  
-                  // If we couldn't get names, fetch variant types separately
-                  if (requiredVariantFields.length === 0 && requiredVariants.length > 0) {
-                    const variantTypeIds = requiredVariants
-                      .map((vt: any) => typeof vt === 'string' ? vt : vt.id)
-                      .filter(Boolean);
-                    
-                    if (variantTypeIds.length > 0) {
-                      const variantTypes = await ctx.db.find({
-                        collection: "variant-types",
-                        where: {
-                          id: {
-                            in: variantTypeIds,
-                          },
-                        },
-                        limit: 100,
-                      });
-                      requiredVariantFields = variantTypes.docs.map((vt: any) => vt.name || vt.slug);
-                    }
-                  }
-                }
-              } catch (e) {
-                // Ignore category fetch errors
-              }
-            }
 
             parsedErrors = error.data.errors.map((err: any) => {
               if (err.path) {
@@ -882,8 +829,6 @@ export const vendorRouter = createTRPCRouter({
           name: z.string().min(1).optional(),
           description: z.any().optional(),
           price: z.number().min(0.01).optional(),
-          category: z.string().optional(),
-          subcategory: z.string().optional(),
           image: z.string().optional(),
           cover: z.array(z.string()).optional(),
           videoSource: z.enum(["upload", "youtube"]).optional(),
@@ -1017,56 +962,7 @@ export const vendorRouter = createTRPCRouter({
 
           // Format 1: error.errors array (Payload standard format)
           if (error?.errors && Array.isArray(error.errors)) {
-            // Fetch category variant config - use existing product's category or updateData.category
             let requiredVariantFields: string[] = [];
-            const categoryId = (updateData as any).category || existingProduct.category;
-            if (categoryId) {
-              try {
-                const categoryIdStr = typeof categoryId === 'string' ? categoryId : categoryId.id || categoryId;
-                const category = await ctx.db.findByID({
-                  collection: "categories",
-                  id: categoryIdStr,
-                  depth: 1, // Populate relationships to get variant type names
-                });
-                if (category?.variantConfig?.requiredVariants) {
-                  // Handle both populated objects and IDs
-                  const requiredVariants = Array.isArray(category.variantConfig.requiredVariants)
-                    ? category.variantConfig.requiredVariants
-                    : [];
-                  
-                  requiredVariantFields = requiredVariants.map((vt: any) => {
-                    // If it's a populated object, use the name
-                    if (typeof vt === 'object' && vt !== null && 'name' in vt) {
-                      return vt.name;
-                    }
-                    // If it's an ID string, we can't resolve it here, so return a generic message
-                    return null;
-                  }).filter((name: string | null): name is string => name !== null);
-                  
-                  // If we couldn't get names, fetch variant types separately
-                  if (requiredVariantFields.length === 0 && requiredVariants.length > 0) {
-                    const variantTypeIds = requiredVariants
-                      .map((vt: any) => typeof vt === 'string' ? vt : vt.id)
-                      .filter(Boolean);
-                    
-                    if (variantTypeIds.length > 0) {
-                      const variantTypes = await ctx.db.find({
-                        collection: "variant-types",
-                        where: {
-                          id: {
-                            in: variantTypeIds,
-                          },
-                        },
-                        limit: 100,
-                      });
-                      requiredVariantFields = variantTypes.docs.map((vt: any) => vt.name || vt.slug);
-                    }
-                  }
-                }
-              } catch (e) {
-                // Ignore category fetch errors
-              }
-            }
 
             parsedErrors = error.errors.map((err: any) => {
               // Extract field name from path (e.g., "variants.0.variantData.size" -> "Size in Variant 1")
@@ -1096,56 +992,7 @@ export const vendorRouter = createTRPCRouter({
           }
           // Format 2: error.data?.errors (alternative Payload format)
           else if (error?.data?.errors && Array.isArray(error.data.errors)) {
-            // Fetch category variant config - use existing product's category or updateData.category
             let requiredVariantFields: string[] = [];
-            const categoryId = (updateData as any).category || existingProduct.category;
-            if (categoryId) {
-              try {
-                const categoryIdStr = typeof categoryId === 'string' ? categoryId : categoryId.id || categoryId;
-                const category = await ctx.db.findByID({
-                  collection: "categories",
-                  id: categoryIdStr,
-                  depth: 1, // Populate relationships to get variant type names
-                });
-                if (category?.variantConfig?.requiredVariants) {
-                  // Handle both populated objects and IDs
-                  const requiredVariants = Array.isArray(category.variantConfig.requiredVariants)
-                    ? category.variantConfig.requiredVariants
-                    : [];
-                  
-                  requiredVariantFields = requiredVariants.map((vt: any) => {
-                    // If it's a populated object, use the name
-                    if (typeof vt === 'object' && vt !== null && 'name' in vt) {
-                      return vt.name;
-                    }
-                    // If it's an ID string, we can't resolve it here, so return a generic message
-                    return null;
-                  }).filter((name: string | null): name is string => name !== null);
-                  
-                  // If we couldn't get names, fetch variant types separately
-                  if (requiredVariantFields.length === 0 && requiredVariants.length > 0) {
-                    const variantTypeIds = requiredVariants
-                      .map((vt: any) => typeof vt === 'string' ? vt : vt.id)
-                      .filter(Boolean);
-                    
-                    if (variantTypeIds.length > 0) {
-                      const variantTypes = await ctx.db.find({
-                        collection: "variant-types",
-                        where: {
-                          id: {
-                            in: variantTypeIds,
-                          },
-                        },
-                        limit: 100,
-                      });
-                      requiredVariantFields = variantTypes.docs.map((vt: any) => vt.name || vt.slug);
-                    }
-                  }
-                }
-              } catch (e) {
-                // Ignore category fetch errors
-              }
-            }
 
             parsedErrors = error.data.errors.map((err: any) => {
               if (err.path) {
@@ -1271,7 +1118,7 @@ export const vendorRouter = createTRPCRouter({
           });
         }
 
-        const requiredFields = ['name', 'price', 'category'];
+        const requiredFields = ['name', 'price'];
         const missingFields = requiredFields.filter(field => !headers.includes(field));
         
         if (missingFields.length > 0) {
@@ -1315,8 +1162,8 @@ export const vendorRouter = createTRPCRouter({
             const firstRow = rows[0].rowData;
 
             // Validate required fields
-            if (!firstRow.name || !firstRow.price || !firstRow.category) {
-              throw new Error('Missing required fields: name, price, or category');
+            if (!firstRow.name || !firstRow.price) {
+              throw new Error('Missing required fields: name or price');
             }
 
             // Parse price
@@ -1325,42 +1172,8 @@ export const vendorRouter = createTRPCRouter({
               throw new Error(`Invalid price: ${firstRow.price}`);
             }
 
-            // Find category by name or slug
-            const categories = await ctx.db.find({
-              collection: "categories",
-              where: {
-                or: [
-                  { name: { equals: firstRow.category } },
-                  { slug: { equals: firstRow.category.toLowerCase().replace(/\s+/g, '-') } },
-                ],
-              },
-              limit: 1,
-            });
-
-            if (categories.docs.length === 0) {
-              throw new Error(`Category not found: ${firstRow.category}`);
-            }
-
-            const categoryId = String(categories.docs[0].id);
-
-            // Find subcategory if provided
-            let subcategoryId: string | undefined;
-            if (firstRow.subcategory) {
-              const subcategories = await ctx.db.find({
-                collection: "categories",
-                where: {
-                  or: [
-                    { name: { equals: firstRow.subcategory } },
-                    { slug: { equals: firstRow.subcategory.toLowerCase().replace(/\s+/g, '-') } },
-                  ],
-                },
-                limit: 1,
-              });
-              subcategoryId = subcategories.docs[0]?.id ? String(subcategories.docs[0].id) : undefined;
-            }
-
             // Convert description to Lexical format if provided
-            let description: any = undefined;
+            let description: unknown = undefined;
             if (firstRow.description) {
               description = {
                 root: {
@@ -1435,7 +1248,6 @@ export const vendorRouter = createTRPCRouter({
               }
             }
 
-            // Ensure vendorId is a string
             const vendorIdString = String(vendorId);
 
             // Create product with variants
@@ -1445,8 +1257,6 @@ export const vendorRouter = createTRPCRouter({
                 name: String(firstRow.name),
                 description,
                 price,
-                category: categoryId,
-                subcategory: subcategoryId || undefined,
                 vendor: vendorIdString,
                 isPrivate: true, // All imports are drafts
                 isArchived: false,

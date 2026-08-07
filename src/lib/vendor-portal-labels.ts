@@ -23,7 +23,6 @@ export const vendorNavLabels = {
   products: "My Products",
   orders: "My Orders",
   storeAppearance: "My Website Appearance",
-  support: "Contact & chat with BDO",
   analytics: "My Analytics",
   payouts: "My Payouts",
   notifications: "My Notifications",
@@ -34,7 +33,6 @@ export const vendorNavLabels = {
 export const vendorNavGroupLabels = {
   business: "My Business",
   store: "Customize my Website",
-  support: "My Support",
   account: "My Account",
 } as const;
 
@@ -45,8 +43,6 @@ export const vendorPageTitles = {
   orders: "My Orders",
   orderDetail: "My Order",
   storeAppearance: "My Website Appearance",
-  support: "My Support & Tasks",
-  newSupportTask: "New Support Task",
   analytics: "My Analytics & Reports",
   settings: "My Settings",
   importProducts: "Import My Products",
@@ -58,5 +54,4 @@ export const vendorPageTitles = {
 
 export const vendorBackLabels = {
   orders: "Back to My Orders",
-  support: "Back to My Support & Tasks",
 } as const;

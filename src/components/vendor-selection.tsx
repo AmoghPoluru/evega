@@ -16,27 +16,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { Vendor } from "@/payload-types";
+import type { AppRouter } from "@/trpc/routers/_app";
+import type { inferRouterOutputs } from "@trpc/server";
 
-function extractLexicalPlainText(content: Vendor["description"]): string {
-  if (!content?.root?.children) return "";
-
-  const walk = (nodes: unknown[]): string =>
-    nodes
-      .map((node) => {
-        if (typeof node !== "object" || node === null) return "";
-        const n = node as { text?: string; children?: unknown[] };
-        return (n.text ?? "") + (n.children ? walk(n.children) : "");
-      })
-      .join(" ");
-
-  return walk(content.root.children).trim();
-}
-
-function getVendorLogoUrl(logo: Vendor["logo"]): string | null {
-  if (!logo || typeof logo === "string") return null;
-  return logo.url ?? null;
-}
+type VendorListItem = inferRouterOutputs<AppRouter>["vendor"]["list"]["vendors"][number];
 
 function VendorCardSkeleton() {
   return (
@@ -50,13 +33,46 @@ function VendorCardSkeleton() {
   );
 }
 
+function VendorSelectionHeader() {
+  return (
+    <div className="text-center mb-8 sm:mb-10">
+      <h1 className="text-3xl sm:text-4xl font-semibold text-foreground tracking-tight">
+        Select a Vendor
+      </h1>
+      <p className="mt-3 text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto">
+        Browse our marketplace vendors and shop their storefronts.
+      </p>
+    </div>
+  );
+}
+
+function VendorCardSkeletonGrid() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <VendorCardSkeleton key={index} />
+      ))}
+    </div>
+  );
+}
+
+/** Suspense fallback: renders the page shell while the vendor list streams in. */
+export function VendorSelectionSkeleton() {
+  return (
+    <div className="flex-1 w-full max-w-6xl mx-auto px-4 py-10 sm:py-14">
+      <VendorSelectionHeader />
+      <VendorCardSkeletonGrid />
+    </div>
+  );
+}
+
 export function VendorSelection() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [open, setOpen] = useState(false);
   const { data, isLoading, error } = trpc.vendor.list.useQuery({ limit: 50 });
 
-  const vendors = (data?.vendors ?? []) as Vendor[];
+  const vendors: VendorListItem[] = data?.vendors ?? [];
 
   const filteredVendors = useMemo(() => {
     if (!searchQuery.trim()) return vendors;
@@ -65,7 +81,7 @@ export function VendorSelection() {
     return vendors.filter((vendor) => vendor.name.toLowerCase().includes(query));
   }, [vendors, searchQuery]);
 
-  const handleVendorSelect = (vendor: Vendor) => {
+  const handleVendorSelect = (vendor: VendorListItem) => {
     setOpen(false);
     setSearchQuery("");
     router.push(`/vendors/${vendor.slug || vendor.id}`);
@@ -73,14 +89,7 @@ export function VendorSelection() {
 
   return (
     <div className="flex-1 w-full max-w-6xl mx-auto px-4 py-10 sm:py-14">
-      <div className="text-center mb-8 sm:mb-10">
-        <h1 className="text-3xl sm:text-4xl font-semibold text-foreground tracking-tight">
-          Select a Vendor
-        </h1>
-        <p className="mt-3 text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto">
-          Browse our marketplace vendors and shop their storefronts.
-        </p>
-      </div>
+      <VendorSelectionHeader />
 
       {!isLoading && !error && vendors.length > 0 && (
         <div className="max-w-md mx-auto mb-8">
@@ -156,13 +165,7 @@ export function VendorSelection() {
         </div>
       )}
 
-      {isLoading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <VendorCardSkeleton key={index} />
-          ))}
-        </div>
-      )}
+      {isLoading && <VendorCardSkeletonGrid />}
 
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-6 text-center text-sm text-destructive">
@@ -180,8 +183,7 @@ export function VendorSelection() {
       {!isLoading && !error && vendors.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {vendors.map((vendor) => {
-            const logoUrl = getVendorLogoUrl(vendor.logo);
-            const description = extractLexicalPlainText(vendor.description);
+            const { logoUrl, descriptionText } = vendor;
             const href = `/vendors/${vendor.slug || vendor.id}`;
 
             return (
@@ -204,9 +206,9 @@ export function VendorSelection() {
                       <h2 className="text-lg font-medium text-foreground group-hover:text-primary transition-colors">
                         {vendor.name}
                       </h2>
-                      {description && (
+                      {descriptionText && (
                         <p className="text-sm text-muted-foreground line-clamp-3">
-                          {description}
+                          {descriptionText}
                         </p>
                       )}
                     </div>

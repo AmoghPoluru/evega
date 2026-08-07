@@ -7,18 +7,11 @@ import { useProductFilters } from "../../hooks/use-product-filters";
 import { TagsFilter } from "./tags-filter";
 import { PriceFilter } from "./price-filter";
 
-interface ProductFiltersProps {
-  category?: string;
-}
-
-export const ProductFilters = ({ category }: ProductFiltersProps) => {
+export const ProductFilters = () => {
   const [filters, setFilters] = useProductFilters();
 
-  // Fetch products to calculate price range (for the current category if provided)
   const { data: productsData } = trpc.products.getMany.useQuery({
     limit: 1000,
-    category: category || undefined,
-    // Don't apply price/tag filters here - we want the full price range
   });
 
   // Calculate min/max price from products

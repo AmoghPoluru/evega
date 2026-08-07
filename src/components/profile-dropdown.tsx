@@ -162,7 +162,7 @@ export function ProfileDropdown() {
         )}
         {showAdminConsole && (
           <DropdownMenuItem asChild>
-            <Link href="/staff/tasks" className="flex items-center cursor-pointer">
+            <Link href="/staff/digital-marketing" className="flex items-center cursor-pointer">
               <Shield className="mr-2 h-4 w-4" />
               Admin Console
             </Link>

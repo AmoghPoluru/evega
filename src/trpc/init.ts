@@ -1,9 +1,8 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-import { getPayload } from 'payload';
-import config from "@payload-config";
 import superjson from "superjson";
 import { headers as getHeaders } from 'next/headers';
 import { isAppAdmin, isAppStaff } from '@/lib/access';
+import { getCachedPayload } from '@/lib/payload-client';
 import type { User } from '@/payload-types';
 
 import { cache } from 'react';
@@ -14,7 +13,7 @@ export const createTRPCContext = cache(async () => {
    * The procedures will extend this context with db, session, etc.
    */
   try {
-    const payload = await getPayload({ config });
+    const payload = await getCachedPayload();
     const headers = await getHeaders();
     
     return {
@@ -47,8 +46,8 @@ const t = initTRPC.create({
 export const createTRPCRouter = t.router;
 export const createCallerFactory = t.createCallerFactory;
 export const baseProcedure = t.procedure.use(async ({ ctx, next }) => {
-  // Use db from context if available, otherwise create new instance
-  const db = (ctx as any).db || await getPayload({ config });
+  // Reuse the shared Payload instance from context; never open a second one
+  const db = (ctx as any).db || await getCachedPayload();
   // Use headers from context if available, otherwise get them
   const headers = (ctx as any).headers || await getHeaders();
 
@@ -151,7 +150,7 @@ export const vendorProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   });
 });
 
-/** Platform staff (admin + BDO) — app admin console at /staff/* */
+/** Platform staff — app admin console at /staff/* */
 export const staffProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   const user = ctx.session.user as User;
 
@@ -165,7 +164,7 @@ export const staffProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   return next({ ctx });
 });
 
-/** Platform admins only (never BDO) — sensitive actions such as impersonation. */
+/** Platform admins only — sensitive actions such as impersonation. */
 export const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   const user = ctx.session.user as User;
 

@@ -76,7 +76,7 @@ export function ProductImportView() {
       }
     } catch (error) {
       // Fallback template with proper format
-      const template = `name,price,category,subcategory,description,size,color,variant_stock,variant_price,SKU,refundPolicy,tags
+      const template = `name,price,description,size,color,variant_stock,variant_price,SKU,refundPolicy,tags
 "Kanchipuram Silk Saree - Traditional Red","899.99","Sarees","Kanchipuram Silk","Exquisite handwoven Kanchipuram silk saree with intricate zari work. Perfect for weddings and special occasions.","","","15","","SKU-SAR-KAN-001","30-day","silk,traditional,wedding,premium"
 "Bridal Lehenga - Heavy Embroidered Red","3499.99","Lehengas","Heavy Embroidered","Stunning bridal lehenga with heavy embroidery. Perfect for your special day.","S","Red","20","3499.99","SKU-LEH-HE-RED-S","30-day","bridal,heavy-embroidered,wedding"
 "Bridal Lehenga - Heavy Embroidered Red","3499.99","Lehengas","Heavy Embroidered","Stunning bridal lehenga with heavy embroidery. Perfect for your special day.","M","Red","15","3499.99","SKU-LEH-HE-RED-M","30-day","bridal,heavy-embroidered,wedding"
@@ -125,7 +125,7 @@ export function ProductImportView() {
           setIsValidating(true);
 
           // Validate required fields
-          const requiredFields = ["name", "price", "category"];
+          const requiredFields = ["name", "price"];
           const headers = results.meta.fields || [];
           const missingFields = requiredFields.filter((field) => !headers.includes(field));
 
@@ -138,8 +138,8 @@ export function ProductImportView() {
           // Validate first few rows
           const errors: string[] = [];
           data.forEach((row: any, index: number) => {
-            if (!row.name || !row.price || !row.category) {
-              errors.push(`Row ${index + 2}: Missing required fields (name, price, category)`);
+            if (!row.name || !row.price) {
+              errors.push(`Row ${index + 2}: Missing required fields (name, price)`);
             }
             const price = parseFloat(row.price);
             if (isNaN(price) || price <= 0) {
@@ -211,10 +211,9 @@ export function ProductImportView() {
         <CardContent>
           <ol className="list-decimal list-inside space-y-2 text-sm">
             <li>Download the CSV template below (includes sample data for all categories)</li>
-            <li>Fill in your product information (name, price, category are required)</li>
+            <li>Fill in your product information (name and price are required)</li>
             <li><strong>For products with variants:</strong> Add multiple rows with same product name, different size/color, and variant_stock</li>
             <li><strong>For products without variants:</strong> Leave size/color empty, use variant_stock for inventory</li>
-            <li><strong>Subcategories:</strong> Use leaf-level subcategories (categories with no children) - see category hierarchy diagram</li>
             <li>Upload your completed CSV file</li>
             <li>Review the preview and click Import</li>
             <li>Edit each product individually to add images and finalize</li>

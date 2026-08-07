@@ -51,8 +51,7 @@ export function StorefrontNavbarLogo() {
         <VendorStoreLogo
           vendorName={branding.vendorName}
           templateLogo={branding.templateLogo}
-          size={52}
-          preferWideTemplate
+          size={56}
         />
       ) : branding?.uploadLogoUrl ? (
         <VendorStoreLogo

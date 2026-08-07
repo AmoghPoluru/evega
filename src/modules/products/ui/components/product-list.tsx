@@ -11,11 +11,10 @@ import { ProductCard, ProductCardSkeleton } from "./product-card";
 import { useProductFilters } from "../../hooks/use-product-filters";
 
 interface Props {
-  category?: string;
   narrowView?: boolean;
 };
 
-export const ProductList = ({ category, narrowView }: Props) => {
+export const ProductList = ({ narrowView }: Props) => {
   const [filters] = useProductFilters();
 
   const { 
@@ -26,7 +25,6 @@ export const ProductList = ({ category, narrowView }: Props) => {
   } = trpc.products.getMany.useInfiniteQuery(
     {
       ...filters,
-      category,
       limit: DEFAULT_LIMIT,
     },
     {

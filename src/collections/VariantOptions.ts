@@ -38,15 +38,6 @@ export const VariantOptions: CollectionConfig = {
       },
     },
     {
-      name: "category",
-      type: "relationship",
-      relationTo: "categories",
-      required: false,
-      admin: {
-        description: "If set, this option is specific to this category. If null, it's global.",
-      },
-    },
-    {
       name: "hexCode",
       type: "text",
       required: false,

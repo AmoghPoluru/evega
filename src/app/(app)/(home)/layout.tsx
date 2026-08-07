@@ -1,11 +1,6 @@
 /// <reference types="next" />
-import { getPayload } from "payload";
-import config from "@payload-config";
-
-import {
-  resolveSiteTemplate,
-  resolveSiteRootCSSVariables,
-} from "@/lib/templates/template-engine";
+import { resolveSiteRootCSSVariables } from "@/lib/templates/template-engine";
+import { getCachedSiteTemplate } from "@/lib/templates/site-template-cache";
 import { cssVariablesToString } from "@/lib/templates/css-variables";
 
 interface Props {
@@ -13,8 +8,7 @@ interface Props {
 }
 
 const Layout = async ({ children }: Props) => {
-  const payload = await getPayload({ config });
-  const siteTemplate = await resolveSiteTemplate(payload);
+  const siteTemplate = await getCachedSiteTemplate();
   const cssVariables = cssVariablesToString(resolveSiteRootCSSVariables(siteTemplate));
   const bodyFont = siteTemplate.templateConfig.fonts?.body;
 

@@ -69,7 +69,6 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
-    categories: Category;
     products: Product;
     tags: Tag;
     'hero-banners': HeroBanner;
@@ -79,8 +78,6 @@ export interface Config {
     customers: Customer;
     'variant-types': VariantType;
     'variant-options': VariantOption;
-    'vendor-tasks': VendorTask;
-    'vendor-task-messages': VendorTaskMessage;
     'vendor-hero-banners': VendorHeroBanner;
     'vendor-templates': VendorTemplate;
     'happy-banners': HappyBanner;
@@ -95,15 +92,10 @@ export interface Config {
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {
-    categories: {
-      subcategories: 'categories';
-    };
-  };
+  collectionsJoins: {};
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
-    categories: CategoriesSelect<false> | CategoriesSelect<true>;
     products: ProductsSelect<false> | ProductsSelect<true>;
     tags: TagsSelect<false> | TagsSelect<true>;
     'hero-banners': HeroBannersSelect<false> | HeroBannersSelect<true>;
@@ -113,8 +105,6 @@ export interface Config {
     customers: CustomersSelect<false> | CustomersSelect<true>;
     'variant-types': VariantTypesSelect<false> | VariantTypesSelect<true>;
     'variant-options': VariantOptionsSelect<false> | VariantOptionsSelect<true>;
-    'vendor-tasks': VendorTasksSelect<false> | VendorTasksSelect<true>;
-    'vendor-task-messages': VendorTaskMessagesSelect<false> | VendorTaskMessagesSelect<true>;
     'vendor-hero-banners': VendorHeroBannersSelect<false> | VendorHeroBannersSelect<true>;
     'vendor-templates': VendorTemplatesSelect<false> | VendorTemplatesSelect<true>;
     'happy-banners': HappyBannersSelect<false> | HappyBannersSelect<true>;
@@ -174,7 +164,7 @@ export interface User {
   id: string;
   username?: string | null;
   name?: string | null;
-  role: 'user' | 'vendor' | 'admin' | 'bdo';
+  role: 'user' | 'vendor' | 'admin';
   /**
    * Authentication method used by this user
    */
@@ -662,7 +652,7 @@ export interface Media {
   focalY?: number | null;
 }
 /**
- * South Asian logo designs vendors can customize with two keywords
+ * Colorful South Asian monogram designs — vendors pick one initial letter
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "vendor-logo-templates".
@@ -673,7 +663,22 @@ export interface VendorLogoTemplate {
   slug: string;
   description?: string | null;
   previewImage?: (string | null) | Media;
-  preset: 'lotus-grace' | 'peacock-royal' | 'mandala-gold' | 'silk-emblem' | 'temple-arch';
+  preset:
+    | 'lotus-grace'
+    | 'peacock-royal'
+    | 'mandala-gold'
+    | 'silk-emblem'
+    | 'temple-arch'
+    | 'rangoli-star'
+    | 'diya-lamp'
+    | 'jasmine-wreath'
+    | 'paisley-curve'
+    | 'kite-sankranti'
+    | 'henna-scroll'
+    | 'marigold-ring'
+    | 'chakra-wheel'
+    | 'hex-kolam'
+    | 'elephant-emblem';
   vendorWords?: {
     word1?: {
       label?: string | null;
@@ -692,6 +697,8 @@ export interface VendorLogoTemplate {
     primary?: string | null;
     secondary?: string | null;
     accent?: string | null;
+    tertiary?: string | null;
+    highlight?: string | null;
     background?: string | null;
   };
   isDefault?: boolean | null;
@@ -723,7 +730,21 @@ export interface HappyBanner {
    * Optional thumbnail shown in the vendor banner picker. Recommended ~1200×400px.
    */
   previewImage?: (string | null) | Media;
-  preset: 'mega-sale' | 'summer-sale' | 'hue-editorial' | 'tropical-hot-sale';
+  preset:
+    | 'mega-sale'
+    | 'summer-sale'
+    | 'hue-editorial'
+    | 'tropical-hot-sale'
+    | 'new-arrivals'
+    | 'ethnic-festive'
+    | 'flash-sale'
+    | 'bridal-edit'
+    | 'linen-edit'
+    | 'kurta-print'
+    | 'luxury-boutique'
+    | 'boho-chic'
+    | 'clearance-eoss'
+    | 'handloom-heritage';
   /**
    * Same two-word slot pattern for every banner design. Each vendor sets their own values after selecting this design.
    */
@@ -788,14 +809,6 @@ export interface Product {
    * The vendor/shop that owns this product
    */
   vendor: string | Vendor;
-  /**
-   * Select a category for this product
-   */
-  category: string | Category;
-  /**
-   * Select a subcategory for this product (optional)
-   */
-  subcategory?: (string | null) | Category;
   image?: (string | null) | Media;
   cover?: (string | Media)[] | null;
   /**
@@ -854,12 +867,12 @@ export interface Product {
    */
   tags?: (string | Tag)[] | null;
   /**
-   * ⚠️ Use the Vendor Dashboard (/vendor/products) to create products with variants. Variant fields are dynamically generated based on the selected category. This field is for advanced users only.
+   * ⚠️ Use the Vendor Dashboard (/vendor/products) to create products with variants. This field is for advanced users only.
    */
   variants?:
     | {
         /**
-         * Dynamic variant data based on category variant types (e.g., { size: 'M', color: 'Red', material: 'Silk' })
+         * Variant attributes (e.g., { size: 'M', color: 'Red', material: 'Silk' })
          */
         variantData:
           | {
@@ -881,113 +894,6 @@ export interface Product {
         id?: string | null;
       }[]
     | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Manage product categories and their variant configurations
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories".
- */
-export interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  color?: string | null;
-  parent?: (string | null) | Category;
-  subcategories?: {
-    docs?: (string | Category)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  variantConfig?: {
-    /**
-     * Variant types that are required for products in this category
-     */
-    requiredVariants?: (string | VariantType)[] | null;
-    /**
-     * Variant types that are optional for products in this category
-     */
-    optionalVariants?: (string | VariantType)[] | null;
-    /**
-     * Mapping of variant types to their allowed options (JSON format)
-     */
-    variantOptions?:
-      | {
-          [k: string]: unknown;
-        }
-      | unknown[]
-      | string
-      | number
-      | boolean
-      | null;
-    pricingRules?: {
-      /**
-       * Use base price from product
-       */
-      basePrice?: boolean | null;
-      /**
-       * Price overrides by size (e.g., { 'XL': 5, '2XL': 10 })
-       */
-      sizeOverrides?:
-        | {
-            [k: string]: unknown;
-          }
-        | unknown[]
-        | string
-        | number
-        | boolean
-        | null;
-      /**
-       * Price overrides by color (e.g., { 'Rose Gold': 20, 'Gold': 10 })
-       */
-      colorOverrides?:
-        | {
-            [k: string]: unknown;
-          }
-        | unknown[]
-        | string
-        | number
-        | boolean
-        | null;
-      /**
-       * Price overrides by material (e.g., { 'Silk': 20, 'Silver': 50 })
-       */
-      materialOverrides?:
-        | {
-            [k: string]: unknown;
-          }
-        | unknown[]
-        | string
-        | number
-        | boolean
-        | null;
-    };
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Define variant types (e.g., Size, Color, Material). These are assigned to categories.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "variant-types".
- */
-export interface VariantType {
-  id: string;
-  name: string;
-  slug: string;
-  type: 'select' | 'number' | 'text';
-  /**
-   * Unit for number type (e.g., 'inches', 'meters')
-   */
-  unit?: string | null;
-  /**
-   * Order in which this variant type should be displayed
-   */
-  displayOrder: number;
-  description?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1521,6 +1427,29 @@ export interface Customer {
   createdAt: string;
 }
 /**
+ * Define variant types (e.g., Size, Color, Material). These are assigned to categories.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "variant-types".
+ */
+export interface VariantType {
+  id: string;
+  name: string;
+  slug: string;
+  type: 'select' | 'number' | 'text';
+  /**
+   * Unit for number type (e.g., 'inches', 'meters')
+   */
+  unit?: string | null;
+  /**
+   * Order in which this variant type should be displayed
+   */
+  displayOrder: number;
+  description?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Manage variant option values (e.g., 'Small', 'Red', 'Silk'). These appear in product variant dropdowns.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1538,10 +1467,6 @@ export interface VariantOption {
    */
   variantType: string | VariantType;
   /**
-   * If set, this option is specific to this category. If null, it's global.
-   */
-  category?: (string | null) | Category;
-  /**
    * Hex color code (for color variant options)
    */
   hexCode?: string | null;
@@ -1553,109 +1478,6 @@ export interface VariantOption {
    * Order in which this option should be displayed
    */
   displayOrder?: number | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Support tasks and communication between vendors and BDO/admin.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "vendor-tasks".
- */
-export interface VendorTask {
-  id: string;
-  title: string;
-  /**
-   * Describe your question, issue, or request in detail.
-   */
-  description: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  };
-  type: 'question' | 'feature-request' | 'bug' | 'onboarding' | 'other';
-  status: 'open' | 'in-progress' | 'waiting-on-vendor' | 'waiting-on-admin' | 'closed';
-  priority: 'low' | 'normal' | 'high' | 'urgent';
-  /**
-   * Vendor associated with this task.
-   */
-  vendor: string | Vendor;
-  createdBy: string | User;
-  /**
-   * Admin/BDO responsible for this task.
-   */
-  assignedTo?: (string | null) | User;
-  /**
-   * Optional tags, e.g. 'category', 'upload-help', 'payments'.
-   */
-  tags?:
-    | {
-        value?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  visibility: 'vendor-and-admin' | 'admin-only';
-  closedAt?: string | null;
-  lastReadAtByVendor?: string | null;
-  /**
-   * Map of admin user IDs to last read timestamps.
-   */
-  lastReadAtByAdmin?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Messages and notes attached to vendor tasks.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "vendor-task-messages".
- */
-export interface VendorTaskMessage {
-  id: string;
-  task: string | VendorTask;
-  author: string | User;
-  role: 'vendor' | 'admin';
-  /**
-   * Message content.
-   */
-  body: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  };
-  attachments?: (string | Media)[] | null;
-  /**
-   * When checked, this note is visible only to admins/BDOs.
-   */
-  isInternal?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1823,10 +1645,6 @@ export interface PayloadLockedDocument {
         value: string | Media;
       } | null)
     | ({
-        relationTo: 'categories';
-        value: string | Category;
-      } | null)
-    | ({
         relationTo: 'products';
         value: string | Product;
       } | null)
@@ -1861,14 +1679,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'variant-options';
         value: string | VariantOption;
-      } | null)
-    | ({
-        relationTo: 'vendor-tasks';
-        value: string | VendorTask;
-      } | null)
-    | ({
-        relationTo: 'vendor-task-messages';
-        value: string | VendorTaskMessage;
       } | null)
     | ({
         relationTo: 'vendor-hero-banners';
@@ -2010,34 +1820,6 @@ export interface MediaSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories_select".
- */
-export interface CategoriesSelect<T extends boolean = true> {
-  name?: T;
-  slug?: T;
-  color?: T;
-  parent?: T;
-  subcategories?: T;
-  variantConfig?:
-    | T
-    | {
-        requiredVariants?: T;
-        optionalVariants?: T;
-        variantOptions?: T;
-        pricingRules?:
-          | T
-          | {
-              basePrice?: T;
-              sizeOverrides?: T;
-              colorOverrides?: T;
-              materialOverrides?: T;
-            };
-      };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "products_select".
  */
 export interface ProductsSelect<T extends boolean = true> {
@@ -2045,8 +1827,6 @@ export interface ProductsSelect<T extends boolean = true> {
   description?: T;
   price?: T;
   vendor?: T;
-  category?: T;
-  subcategory?: T;
   image?: T;
   cover?: T;
   videoSource?: T;
@@ -2371,50 +2151,9 @@ export interface VariantOptionsSelect<T extends boolean = true> {
   value?: T;
   label?: T;
   variantType?: T;
-  category?: T;
   hexCode?: T;
   image?: T;
   displayOrder?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "vendor-tasks_select".
- */
-export interface VendorTasksSelect<T extends boolean = true> {
-  title?: T;
-  description?: T;
-  type?: T;
-  status?: T;
-  priority?: T;
-  vendor?: T;
-  createdBy?: T;
-  assignedTo?: T;
-  tags?:
-    | T
-    | {
-        value?: T;
-        id?: T;
-      };
-  visibility?: T;
-  closedAt?: T;
-  lastReadAtByVendor?: T;
-  lastReadAtByAdmin?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "vendor-task-messages_select".
- */
-export interface VendorTaskMessagesSelect<T extends boolean = true> {
-  task?: T;
-  author?: T;
-  role?: T;
-  body?: T;
-  attachments?: T;
-  isInternal?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2537,6 +2276,8 @@ export interface VendorLogoTemplatesSelect<T extends boolean = true> {
         primary?: T;
         secondary?: T;
         accent?: T;
+        tertiary?: T;
+        highlight?: T;
         background?: T;
       };
   isDefault?: T;

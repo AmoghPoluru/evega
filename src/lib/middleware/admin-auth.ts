@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { getPayload } from "payload";
-import config from "@payload-config";
 import { isAppStaff } from "@/lib/access";
+import { getCachedSession } from "@/lib/auth-server";
 
 /**
  * Require app admin (super admin / BDO)
@@ -11,8 +10,7 @@ import { isAppStaff } from "@/lib/access";
  */
 export async function requireAppAdmin(fallbackPath: string = "/staff/products") {
   const headersList = await headers();
-  const payload = await getPayload({ config });
-  const session = await payload.auth({ headers: headersList });
+  const session = await getCachedSession();
 
   if (!session.user) {
     const returnTo =

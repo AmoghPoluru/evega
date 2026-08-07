@@ -23,16 +23,13 @@ export default function VendorProductsPage() {
     }
   }, [statusParam]);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<"name" | "price" | "createdAt" | "updatedAt">("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  const { data: categoriesData } = trpc.categories.useQuery();
   const { data, isLoading, error } = trpc.vendor.products.list.useQuery({
     status,
     search: search || undefined,
-    category,
     page,
     limit: 20,
     sortBy,
@@ -135,9 +132,6 @@ export default function VendorProductsPage() {
         onStatusChange={setStatus}
         search={search}
         onSearchChange={setSearch}
-        category={category}
-        onCategoryChange={setCategory}
-        categories={categoriesData?.map((cat: { id: string; name: string }) => ({ id: cat.id, name: cat.name })) || []}
         sortBy={sortBy}
         sortOrder={sortOrder}
         onSortChange={(field, order) => {

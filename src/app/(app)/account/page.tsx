@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { getPayload } from "payload";
-import config from "@payload-config";
-import { headers as getHeaders } from "next/headers";
+import { getCachedSession } from "@/lib/auth-server";
 import { AccountView } from "@/modules/addresses/ui/views/account-view";
 
 function AccountViewSkeleton() {
@@ -24,17 +22,15 @@ function AccountViewSkeleton() {
 }
 
 export default async function AccountPage() {
-  const headers = await getHeaders();
-  const payload = await getPayload({ config });
-  const user = await payload.auth({ headers });
+  const session = await getCachedSession();
 
-  if (!user?.user) {
+  if (!session?.user) {
     redirect("/sign-in?redirect=/account");
   }
 
   return (
     <Suspense fallback={<AccountViewSkeleton />}>
-      <AccountView userId={user.user.id} />
+      <AccountView userId={session.user.id} />
     </Suspense>
   );
 }

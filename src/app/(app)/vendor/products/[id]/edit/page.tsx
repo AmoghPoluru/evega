@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { getPayload } from "payload";
-import config from "@payload-config";
+import { getCachedPayload } from "@/lib/payload-client";
 import { ProductForm } from "../../components/ProductForm";
 import { requireVendor } from "@/lib/middleware/vendor-auth";
 import { vendorPageTitles } from "@/lib/vendor-portal-labels";
@@ -21,7 +20,7 @@ export default async function EditProductPage({ params }: Props) {
     const { vendor } = await requireVendor();
     
     // Use Payload directly for server-side access
-    const payload = await getPayload({ config });
+    const payload = await getCachedPayload();
     
     console.log("[EDIT PAGE] Fetching product via Payload...");
     const product = await payload.findByID({

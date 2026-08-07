@@ -43,11 +43,6 @@ import {
   productToDraft,
 } from "../product-utils";
 
-interface CategoryOption {
-  id: string;
-  name: string;
-}
-
 interface VendorOption {
   id: string;
   name: string;
@@ -69,11 +64,8 @@ interface AdminProductsTableProps {
   onStatusChange: (status: "all" | "published" | "draft" | "archived") => void;
   search: string;
   onSearchChange: (search: string) => void;
-  category?: string;
-  onCategoryChange: (category: string | undefined) => void;
   vendorId?: string;
   onVendorChange: (vendorId: string | undefined) => void;
-  categories: CategoryOption[];
   vendors: VendorOption[];
   sortBy: "name" | "price" | "createdAt" | "updatedAt";
   sortOrder: "asc" | "desc";
@@ -91,11 +83,8 @@ export function AdminProductsTable({
   onStatusChange,
   search,
   onSearchChange,
-  category,
-  onCategoryChange,
   vendorId,
   onVendorChange,
-  categories,
   vendors,
   sortBy,
   sortOrder,
@@ -291,22 +280,6 @@ export function AdminProductsTable({
               ))}
             </SelectContent>
           </Select>
-          <Select
-            value={category || "all"}
-            onValueChange={(v) => onCategoryChange(v === "all" ? undefined : v)}
-          >
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All categories</SelectItem>
-              {categories.map((cat) => (
-                <SelectItem key={cat.id} value={cat.id}>
-                  {cat.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
         <Button asChild>
           <Link href="/staff/products/new">
@@ -333,7 +306,6 @@ export function AdminProductsTable({
                 </Button>
               </TableHead>
               <TableHead>Vendor</TableHead>
-              <TableHead>Category</TableHead>
               <TableHead>
                 <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => handleSort("price")}>
                   Price
@@ -362,7 +334,7 @@ export function AdminProductsTable({
               ))
             ) : products.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="py-12 text-center text-gray-500">
+                <TableCell colSpan={8} className="py-12 text-center text-gray-500">
                   No products found. Click &quot;Add product&quot; to create one.
                 </TableCell>
               </TableRow>
@@ -376,7 +348,6 @@ export function AdminProductsTable({
                   draft={editingRowId === product.id && draft ? draft : productToDraft(product)}
                   fieldErrors={editingRowId === product.id ? fieldErrors : {}}
                   vendors={vendors}
-                  categories={categories}
                   onStartEdit={() => startEdit(product)}
                   onCancelEdit={cancelEdit}
                   onSaveRow={() => handleSaveRow(product)}

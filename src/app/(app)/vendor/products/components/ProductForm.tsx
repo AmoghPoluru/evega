@@ -36,15 +36,17 @@ import { X, Plus, Upload, Eye, Copy, Zap, CheckSquare } from "lucide-react";
 import Image from "next/image";
 import type { Product } from "@/payload-types";
 import { ProductPreviewModal } from "./ProductPreviewModal";
-import { BulkVariantGenerator } from "./BulkVariantGenerator";
 import { isValidYouTubeUrl, isValidTimeFormat, timeToSeconds, secondsToTime, extractYouTubeVideoId } from "@/lib/youtube-utils";
+
+const DEFAULT_VARIANT_TYPES = [
+  { slug: "size", name: "Size" },
+  { slug: "color", name: "Color" },
+];
 
 const productFormSchema = z.object({
   name: z.string().min(1, "Product name is required"),
   description: z.string().optional(),
   price: z.number().min(0.01, "Price must be greater than 0"),
-  category: z.string().min(1, "Category is required"),
-  subcategory: z.string().optional(),
   image: z.string().optional(),
   cover: z.array(z.string()).optional(),
   videoSource: z.enum(["upload", "youtube"]).optional().default("upload"),
@@ -135,7 +137,6 @@ export function ProductForm({
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [bulkGeneratorOpen, setBulkGeneratorOpen] = useState(false);
   const [selectedVariants, setSelectedVariants] = useState<Set<number>>(new Set());
 
   const queryClient = trpc.useUtils();
@@ -172,8 +173,6 @@ export function ProductForm({
         return "";
       })(),
       price: product?.price || 0,
-      category: typeof product?.category === "string" ? product.category : product?.category?.id || "",
-      subcategory: typeof product?.subcategory === "string" ? product.subcategory : product?.subcategory?.id || "",
       image: typeof product?.image === "string" ? product.image : product?.image?.id || "",
       cover: Array.isArray(product?.cover) 
         ? product.cover.map((c: any) => typeof c === "string" ? c : c?.id || "").filter(Boolean)
@@ -197,15 +196,7 @@ export function ProductForm({
     },
   });
 
-  const { data: categoriesData } = trpc.categories.useQuery();
   const { data: tagsData } = trpc.tags.getMany.useQuery({ limit: 100 });
-  
-  // Fetch category variant config when category is selected
-  const selectedCategoryId = form.watch("category");
-  const { data: categoryData } = trpc.getCategory.useQuery(
-    { id: selectedCategoryId },
-    { enabled: !!selectedCategoryId }
-  );
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -570,50 +561,24 @@ export function ProductForm({
       description = undefined;
     }
 
-    // Get required variant slugs for validation
-    const requiredVariantSlugs = categoryData?.variantConfig?.requiredVariants
-      ?.map((vt: any) => typeof vt === 'object' ? vt.slug : vt)
-      .filter(Boolean) || [];
-
-    // Ensure variantData is always an object and includes all required fields
+    // Ensure variantData is always an object
     const normalizedVariants = values.variants?.map((variant, index) => {
-      // Get the current variantData from form state to ensure we have the latest values
-      // This is important because React Hook Form might have nested field values that aren't in variant.variantData
       const formVariantData = form.getValues(`variants.${index}.variantData`) || {};
-      
-      // Merge form values with variant data to capture all nested fields
-      // This ensures that fields like variants.0.variantData.size and variants.0.variantData.color are captured
-      const variantData: Record<string, any> = {
-        ...(variant.variantData && typeof variant.variantData === 'object' ? variant.variantData : {}),
-        ...(formVariantData && typeof formVariantData === 'object' ? formVariantData : {}),
+      const variantData: Record<string, unknown> = {
+        ...(variant.variantData && typeof variant.variantData === "object" ? variant.variantData : {}),
+        ...(formVariantData && typeof formVariantData === "object" ? formVariantData : {}),
       };
-      
-      // Also check for nested field values directly from form state
-      // React Hook Form might store them as separate fields
-      if (categoryData?.variantConfig?.variantTypes) {
-        categoryData.variantConfig.variantTypes.forEach((vt: any) => {
-          const nestedFieldValue = form.getValues(`variants.${index}.variantData.${vt.slug}`);
-          if (nestedFieldValue !== undefined && nestedFieldValue !== null && nestedFieldValue !== '') {
-            variantData[vt.slug] = nestedFieldValue;
-          }
-        });
-      }
-      
-      // Check if all required variant fields are present
-      const missingRequired = requiredVariantSlugs.filter(
-        (slug: string) => !variantData[slug] || variantData[slug] === ''
-      );
-      
-      if (missingRequired.length > 0 && process.env.NODE_ENV === 'development') {
-        console.warn(`[ProductForm] Variant ${index + 1} missing required fields:`, missingRequired);
-        console.warn(`[ProductForm] Current variantData:`, variantData);
-        console.warn(`[ProductForm] Form variantData:`, formVariantData);
-        console.warn(`[ProductForm] Variant from values:`, variant.variantData);
-      }
+
+      DEFAULT_VARIANT_TYPES.forEach((vt) => {
+        const nestedFieldValue = form.getValues(`variants.${index}.variantData.${vt.slug}`);
+        if (nestedFieldValue !== undefined && nestedFieldValue !== null && nestedFieldValue !== "") {
+          variantData[vt.slug] = nestedFieldValue;
+        }
+      });
 
       return {
         ...variant,
-        variantData: variantData, // Always an object, never undefined, with all nested fields
+        variantData,
       };
     });
 
@@ -635,7 +600,6 @@ export function ProductForm({
     if (process.env.NODE_ENV === 'development') {
       console.log('[ProductForm] Submitting data:', {
         variants: submitData.variants,
-        requiredVariantSlugs,
         videoFields: {
           videoSource: submitData.videoSource,
           video: submitData.video,
@@ -669,7 +633,6 @@ export function ProductForm({
     }
   };
 
-  const categories = categoriesData || [];
   const tags = tagsData?.docs || [];
 
   return (
@@ -826,82 +789,6 @@ export function ProductForm({
                         <SelectItem value="3-day">3-day</SelectItem>
                         <SelectItem value="1-day">1-day</SelectItem>
                         <SelectItem value="no-refunds">No refunds</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Category & Tags */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Category & Tags</CardTitle>
-            <CardDescription>Organize your product</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {categories.map((cat: { id: string; name: string }) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="subcategory"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Subcategory</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select subcategory (optional)" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {categories
-                          .flatMap((cat: { id: string; subcategories?: any }) => {
-                            const subs = Array.isArray(cat.subcategories)
-                              ? cat.subcategories
-                              : cat.subcategories?.docs || [];
-                            return subs.map((sub: { id: string; name: string }) => ({
-                              id: sub.id,
-                              name: sub.name,
-                              parentId: cat.id,
-                            }));
-                          })
-                          .filter((sub: { parentId: string }) => {
-                            const selectedCategory = form.watch("category");
-                            return !selectedCategory || sub.parentId === selectedCategory;
-                          })
-                          .map((sub: { id: string; name: string }) => (
-                            <SelectItem key={sub.id} value={sub.id}>
-                              {sub.name}
-                            </SelectItem>
-                          ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -1264,35 +1151,15 @@ export function ProductForm({
           </CardContent>
         </Card>
 
-        {/* Variants - Dynamic based on category */}
+        {/* Product Variants */}
         <Card>
           <CardHeader>
             <CardTitle>Product Variants</CardTitle>
             <CardDescription>
-              {!selectedCategoryId 
-                ? "⚠️ Please select a category first to see available variant options."
-                : categoryData?.variantConfig?.requiredVariants?.length 
-                  ? `Required variants: ${categoryData.variantConfig.requiredVariants.map((vt: any) => typeof vt === 'object' ? vt.name : vt).join(', ')}`
-                  : categoryData?.variantConfig
-                    ? "Add variants based on category requirements (optional variants available)"
-                    : "⚠️ Selected category doesn't have variant configuration. You can still add variants manually."}
+              Add size and color variants with stock and optional per-variant pricing.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {!selectedCategoryId ? (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p className="text-sm text-yellow-800">
-                  <strong>Step 1:</strong> Select a category above to see dynamic variant fields (Size, Color, Material, etc.)
-                </p>
-              </div>
-            ) : !categoryData?.variantConfig ? (
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-sm text-blue-800">
-                  This category doesn't have variant configuration. You can add variants manually using the JSON format, or configure variants for this category in the Categories collection.
-                </p>
-              </div>
-            ) : null}
-
             {/* Bulk Actions Bar */}
             {fields.length > 0 && (
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border mb-4">
@@ -1369,26 +1236,14 @@ export function ProductForm({
                       </Button>
                     </>
                   )}
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    onClick={() => setBulkGeneratorOpen(true)}
-                    className="ml-2"
-                  >
-                    <Zap className="h-4 w-4 mr-2" />
-                    Bulk Generate
-                  </Button>
                 </div>
               </div>
             )}
             
             {fields.map((field, index) => {
               const variantData = form.watch(`variants.${index}.variantData`) || {};
-              const variantTypes = categoryData?.variantConfig?.variantTypes || [];
-              const requiredVariantSlugs = (categoryData?.variantConfig?.requiredVariants || [])
-                .map((vt: any) => typeof vt === 'object' ? vt.slug : vt)
-                .filter(Boolean);
+              const variantTypes = DEFAULT_VARIANT_TYPES;
+              const requiredVariantSlugs: string[] = [];
               
               // Get errors for this variant
               const variantErrors = form.formState.errors.variants?.[index];
@@ -1494,7 +1349,7 @@ export function ProductForm({
                   {variantTypes.length > 0 ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {variantTypes.map((variantType: any) => {
-                        const options = categoryData.variantConfig?.variantOptionsMap?.[variantType.slug] || [];
+                        const options: Array<{ value: string; label: string }> = [];
                         const isRequired = requiredVariantSlugs.includes(variantType.slug);
                         const currentValue = variantData[variantType.slug] || "";
                         
@@ -1724,7 +1579,7 @@ export function ProductForm({
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => append({ variantData: {}, stock: 0 })}
+                    onClick={() => append({ variantData: { size: "", color: "" }, stock: 0 })}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Add Variant
@@ -1790,21 +1645,6 @@ export function ProductForm({
         open={previewOpen && isEditing && !!product?.id}
         onOpenChange={setPreviewOpen}
       />
-
-      {/* Bulk Variant Generator */}
-      {categoryData?.variantConfig && (
-        <BulkVariantGenerator
-          open={bulkGeneratorOpen}
-          onOpenChange={setBulkGeneratorOpen}
-          variantTypes={categoryData.variantConfig.variantTypes || []}
-          variantOptionsMap={categoryData.variantConfig.variantOptionsMap || {}}
-          onGenerate={(variants) => {
-            variants.forEach(variant => {
-              append(variant);
-            });
-          }}
-        />
-      )}
     </Form>
   );
 }

@@ -1,5 +1,6 @@
 import type { CollectionConfig } from "payload";
 import { isSuperAdmin } from "@/lib/access";
+import { HAPPY_BANNER_PRESET_OPTIONS } from "@/lib/happy-banner/presets";
 
 export const HappyBanners: CollectionConfig = {
   slug: "happy-banners",
@@ -97,12 +98,10 @@ export const HappyBanners: CollectionConfig = {
       type: "select",
       required: true,
       defaultValue: "mega-sale",
-      options: [
-        { label: "Mega Sale", value: "mega-sale" },
-        { label: "Summer Big Sale", value: "summer-sale" },
-        { label: "Hue Are You Editorial", value: "hue-editorial" },
-        { label: "Tropical Hot Sale", value: "tropical-hot-sale" },
-      ],
+      options: HAPPY_BANNER_PRESET_OPTIONS.map((option) => ({
+        label: option.label,
+        value: option.value,
+      })),
     },
     {
       name: "vendorWords",

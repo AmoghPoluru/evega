@@ -46,12 +46,12 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
 
   const form = useForm<FormValues>({
     resolver: zodResolver(vendorLogoTextSchema),
-    defaultValues: { word1: "ANAYA", word2: "SILKS" },
+    defaultValues: { word1: "A" },
   });
 
   useEffect(() => {
     if (!data) return;
-    form.reset({ word1: data.word1, word2: data.word2 });
+    form.reset({ word1: data.word1 });
     setSourceMode(data.logoSource === "upload" ? "upload" : "template");
     if (data.uploadLogoUrl) setLogoPreview(data.uploadLogoUrl);
     if (data.logoSource === "template" && data.selectedTemplateId && !embedded) {
@@ -61,11 +61,11 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
 
   const selectMutation = trpc.vendor.logoTemplate.select.useMutation({
     onSuccess: (result) => {
-      toast.success("Logo selected — choose your words below");
+      toast.success("Logo selected — choose your initial below");
       utils.vendor.logoTemplate.list.invalidate();
       utils.vendor.logoTemplate.get.invalidate();
       utils.vendor.dashboard.getMarketingProfile.invalidate();
-      form.reset({ word1: result.word1, word2: result.word2 });
+      form.reset({ word1: result.word1 });
       setSourceMode("template");
       setViewMode("customize");
       wordsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -75,9 +75,9 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
 
   const updateWordsMutation = trpc.vendor.logoTemplate.updateWords.useMutation({
     onSuccess: (result) => {
-      toast.success("Logo words saved");
+      toast.success("Logo initial saved");
       utils.vendor.logoTemplate.get.invalidate();
-      form.reset({ word1: result.word1, word2: result.word2 });
+      form.reset({ word1: result.word1 });
     },
     onError: (error) => toast.error(error.message || "Failed to save logo words"),
   });
@@ -100,14 +100,12 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
   });
 
   const watchedWord1 = form.watch("word1");
-  const watchedWord2 = form.watch("word2");
   const selectedTemplateId = data?.selectedTemplateId ?? listData?.selectedTemplateId ?? null;
 
   const { data: livePreview } = trpc.vendor.logoTemplate.previewTemplate.useQuery(
     {
       templateId: selectedTemplateId ?? "",
       word1: watchedWord1,
-      word2: watchedWord2,
     },
     { enabled: Boolean(selectedTemplateId) && sourceMode === "template" },
   );
@@ -204,8 +202,8 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
                   isSelected ? "ring-2 ring-primary" : "hover:border-primary/40",
                 )}
               >
-                <div className="relative h-32 bg-muted">
-                  <div className="h-full p-2">
+                <div className="relative aspect-square bg-muted">
+                  <div className="absolute inset-0 flex items-center justify-center p-3">
                     <VendorLogoDisplay
                       logo={{
                         templateId: template.id,
@@ -213,13 +211,9 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
                         preset: template.preset,
                         word1: template.defaultWord1,
                         word2: template.defaultWord2,
-                        theme: {
-                          primary: template.theme?.primary ?? "#7B1E3A",
-                          secondary: template.theme?.secondary ?? "#D4AF37",
-                          accent: template.theme?.accent ?? "#F5E6D3",
-                          background: template.theme?.background ?? "#FFFBF7",
-                        },
+                        theme: template.theme,
                       }}
+                      className="h-full w-full"
                     />
                   </div>
                   {isSelected ? (
@@ -249,7 +243,7 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
                         wordsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                       }}
                     >
-                      Edit your words
+                      Edit your initial
                     </Button>
                   ) : (
                     <Button
@@ -259,7 +253,7 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
                       disabled={selectMutation.isPending}
                       onClick={() => selectMutation.mutate({ templateId: template.id })}
                     >
-                      {selectMutation.isPending ? "Selecting…" : "Select & choose words"}
+                      {selectMutation.isPending ? "Selecting…" : "Select & choose initial"}
                     </Button>
                   )}
                 </CardContent>
@@ -276,11 +270,11 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
       <div ref={wordsSectionRef} className="space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Choose logo words</h2>
+            <h2 className="text-lg font-semibold text-foreground">Choose your initial</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {selectedTemplate
-                ? `Design: ${selectedTemplate.name} — enter two keywords for your logo.`
-                : "Enter two keywords for your selected logo design."}
+                ? `Design: ${selectedTemplate.name} — one colorful letter for your monogram.`
+                : "Enter one letter for your selected monogram design."}
             </p>
           </div>
           {!embedded ? (
@@ -295,11 +289,10 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                {data?.vendorWordSlots?.word1.label ?? "Word 1"} &{" "}
-                {data?.vendorWordSlots?.word2.label ?? "Word 2"}
+                {data?.vendorWordSlots?.word1.label ?? "Your brand initial"}
               </CardTitle>
               <CardDescription>
-                These words appear on your storefront logo. Each vendor can use different words.
+                One letter appears large in the center of your colorful South Asian monogram.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -309,28 +302,19 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
               >
                 <div>
                   <Label htmlFor="logo-word1">
-                    {data?.vendorWordSlots?.word1.label ?? "Word 1"}
+                    {data?.vendorWordSlots?.word1.label ?? "Your brand initial"}
                   </Label>
                   <Input
                     id="logo-word1"
                     {...form.register("word1")}
-                    className="mt-1 uppercase"
+                    maxLength={1}
+                    className="mt-1 w-20 text-center text-2xl font-semibold uppercase"
+                    autoComplete="off"
+                    spellCheck={false}
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {data?.vendorWordSlots?.word1.hint}
-                  </p>
-                </div>
-                <div>
-                  <Label htmlFor="logo-word2">
-                    {data?.vendorWordSlots?.word2.label ?? "Word 2"}
-                  </Label>
-                  <Input
-                    id="logo-word2"
-                    {...form.register("word2")}
-                    className="mt-1 uppercase"
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {data?.vendorWordSlots?.word2.hint}
+                    {data?.vendorWordSlots?.word1.hint ??
+                      "One letter — e.g. A for Anaya, M for Maruthi"}
                   </p>
                 </div>
                 <Button type="submit" disabled={updateWordsMutation.isPending}>
@@ -340,7 +324,7 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
                       Saving…
                     </>
                   ) : (
-                    "Save logo words"
+                    "Save initial"
                   )}
                 </Button>
               </form>
@@ -352,14 +336,17 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
               <CardTitle className="text-base">Live preview</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-hidden rounded-lg border bg-muted/30 p-4">
+              <div className="mx-auto flex max-w-[200px] flex-col items-center gap-3 rounded-lg border bg-muted/30 p-4">
                 {livePreview ? (
-                  <VendorLogoDisplay logo={livePreview} className="h-32 w-full" />
+                  <VendorLogoDisplay logo={livePreview} className="aspect-square w-full" />
                 ) : (
-                  <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+                  <div className="flex aspect-square w-full items-center justify-center text-sm text-muted-foreground">
                     Preview unavailable
                   </div>
                 )}
+                <p className="text-center text-xs text-muted-foreground">
+                  How your monogram appears on your storefront
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -462,7 +449,7 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
       <div>
         <h2 className="text-lg font-semibold text-foreground">Choose a logo design</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pick a South Asian logo template, then customize it with two keywords.
+          Pick a colorful South Asian monogram, then add your shop&apos;s initial letter.
         </p>
       </div>
       {templateGrid}
@@ -489,8 +476,8 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
     return (
       <section className="space-y-6">
         <p className="text-sm text-muted-foreground">
-          Pick a logo design or upload your own, then customize it with two keywords for your
-          store.
+          Pick a colorful monogram or upload your own logo, then set your shop&apos;s initial
+          letter.
         </p>
         {body}
       </section>
@@ -502,8 +489,8 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
       <CardHeader>
         <CardTitle>Your store logo</CardTitle>
         <CardDescription>
-          Upload your own logo or choose an elegant South Asian logo template and personalize it
-          with two keywords.
+          Upload your own logo or choose a colorful South Asian monogram and personalize it with
+          one initial letter.
         </CardDescription>
       </CardHeader>
       <CardContent>{body}</CardContent>

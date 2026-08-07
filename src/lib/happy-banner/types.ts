@@ -1,4 +1,18 @@
-export type HappyBannerPreset = "mega-sale" | "summer-sale" | "hue-editorial" | "tropical-hot-sale";
+export type HappyBannerPreset =
+  | "mega-sale"
+  | "summer-sale"
+  | "hue-editorial"
+  | "tropical-hot-sale"
+  | "new-arrivals"
+  | "ethnic-festive"
+  | "flash-sale"
+  | "bridal-edit"
+  | "linen-edit"
+  | "kurta-print"
+  | "luxury-boutique"
+  | "boho-chic"
+  | "clearance-eoss"
+  | "handloom-heritage";
 
 export type HappyBannerTheme = {
   backgroundColor: string;

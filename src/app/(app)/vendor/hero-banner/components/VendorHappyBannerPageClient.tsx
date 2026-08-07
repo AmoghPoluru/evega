@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, Loader2, ArrowLeft, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { trpc } from "@/trpc/client";
 import type { AppRouter } from "@/trpc/routers/_app";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -15,12 +15,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { HappyBannerDisplay } from "@/components/happy-banner/HappyBannerDisplay";
 import { HappyBannerThumbnail } from "@/components/happy-banner/HappyBannerThumbnail";
+import { getVendorWord2InputMode } from "@/lib/happy-banner/validate-vendor-words";
 import { toast } from "sonner";
 
 type FormValues = z.infer<typeof vendorHappyBannerTextSchema>;
-type ViewMode = "pick" | "customize";
 
 type VendorHappyBannerPageClientProps = {
   embedded?: boolean;
@@ -31,11 +39,10 @@ type HappyBannerListItem =
 
 export function VendorHappyBannerPageClient({ embedded = false }: VendorHappyBannerPageClientProps) {
   const utils = trpc.useUtils();
-  const wordsSectionRef = useRef<HTMLDivElement>(null);
+  const [wordsDialogOpen, setWordsDialogOpen] = useState(false);
+
   const { data: listData, isLoading: listLoading } = trpc.vendor.happyBanner.list.useQuery();
   const { data, isLoading } = trpc.vendor.happyBanner.get.useQuery();
-
-  const [viewMode, setViewMode] = useState<ViewMode>("pick");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(vendorHappyBannerTextSchema),
@@ -45,19 +52,19 @@ export function VendorHappyBannerPageClient({ embedded = false }: VendorHappyBan
   useEffect(() => {
     if (!data) return;
     form.reset({ word1: data.word1, word2: data.word2 });
-    if (data.selectedBannerId && !embedded) {
-      setViewMode("customize");
-    }
-  }, [data, form, embedded]);
+  }, [data, form]);
+
+  const openWordsDialog = (word1: string, word2: string) => {
+    form.reset({ word1, word2 });
+    setWordsDialogOpen(true);
+  };
 
   const selectMutation = trpc.vendor.happyBanner.select.useMutation({
     onSuccess: (result) => {
-      toast.success("Banner selected — fill in your words below");
+      toast.success("Banner selected — customize your words");
       utils.vendor.happyBanner.list.invalidate();
       utils.vendor.happyBanner.get.invalidate();
-      form.reset({ word1: result.word1, word2: result.word2 });
-      setViewMode("customize");
-      wordsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      openWordsDialog(result.word1, result.word2);
     },
     onError: (error) => toast.error(error.message || "Failed to select banner"),
   });
@@ -68,6 +75,7 @@ export function VendorHappyBannerPageClient({ embedded = false }: VendorHappyBan
       utils.vendor.happyBanner.get.invalidate();
       utils.vendor.happyBanner.list.invalidate();
       form.reset({ word1: result.word1, word2: result.word2 });
+      setWordsDialogOpen(false);
     },
     onError: (error) => toast.error(error.message || "Failed to save banner text"),
   });
@@ -77,7 +85,7 @@ export function VendorHappyBannerPageClient({ embedded = false }: VendorHappyBan
       toast.success("Happy Banner removed from your storefront");
       utils.vendor.happyBanner.list.invalidate();
       utils.vendor.happyBanner.get.invalidate();
-      setViewMode("pick");
+      setWordsDialogOpen(false);
       form.reset({ word1: "MEGA", word2: "50" });
     },
     onError: (error) => toast.error(error.message || "Failed to remove banner"),
@@ -86,7 +94,10 @@ export function VendorHappyBannerPageClient({ embedded = false }: VendorHappyBan
   const watchedWord1 = form.watch("word1");
   const watchedWord2 = form.watch("word2");
   const selectedBannerId = data?.selectedBannerId ?? null;
-  const isWebsiteWord2 = data?.selectedPreset === "hue-editorial";
+  const word2InputMode = data?.selectedPreset
+    ? getVendorWord2InputMode(data.selectedPreset)
+    : "numeric";
+  const isNumericWord2 = word2InputMode === "numeric";
   const savedWord1 = data?.word1 ?? listData?.word1 ?? null;
   const savedWord2 = data?.word2 ?? listData?.word2 ?? null;
 
@@ -96,7 +107,7 @@ export function VendorHappyBannerPageClient({ embedded = false }: VendorHappyBan
       word1: watchedWord1,
       word2: watchedWord2,
     },
-    { enabled: Boolean(selectedBannerId) },
+    { enabled: Boolean(selectedBannerId) && wordsDialogOpen },
   );
 
   const selectedBanner = useMemo(
@@ -120,6 +131,112 @@ export function VendorHappyBannerPageClient({ embedded = false }: VendorHappyBan
 
   const word1Slot = data.vendorWordSlots?.[0];
   const word2Slot = data.vendorWordSlots?.[1];
+
+  const wordsDialog = (
+    <Dialog
+      open={wordsDialogOpen}
+      onOpenChange={(open) => {
+        setWordsDialogOpen(open);
+        if (open && savedWord1 && savedWord2) {
+          form.reset({ word1: savedWord1, word2: savedWord2 });
+        }
+      }}
+    >
+      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-2xl" showCloseButton>
+        <DialogHeader className="space-y-1 border-b px-6 py-4 text-left">
+          <DialogTitle>Edit your banner words</DialogTitle>
+          <DialogDescription>
+            {selectedBanner
+              ? `${selectedBanner.name} — your words appear on your storefront banner.`
+              : "Enter your words for the selected banner design."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="max-h-[min(70vh,640px)] overflow-y-auto px-6 py-4">
+          <form
+            id="banner-words-form"
+            className="space-y-4"
+            onSubmit={form.handleSubmit((values) => updateMutation.mutate(values))}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="banner-word1">{word1Slot?.label ?? "Word 1"}</Label>
+              <Input
+                id="banner-word1"
+                {...form.register("word1")}
+                className="uppercase"
+                autoComplete="off"
+              />
+              {form.formState.errors.word1 ? (
+                <p className="text-sm text-destructive">{form.formState.errors.word1.message}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">{word1Slot?.hint}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="banner-word2">{word2Slot?.label ?? "Word 2"}</Label>
+              <Input
+                id="banner-word2"
+                {...form.register("word2")}
+                inputMode={isNumericWord2 ? "numeric" : "text"}
+                className={isNumericWord2 ? undefined : "uppercase"}
+                autoComplete="off"
+              />
+              {form.formState.errors.word2 ? (
+                <p className="text-sm text-destructive">{form.formState.errors.word2.message}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">{word2Slot?.hint}</p>
+              )}
+            </div>
+          </form>
+
+          <div className="mt-5 space-y-2">
+            <p className="text-sm font-medium text-foreground">Live preview</p>
+            <div className="overflow-hidden rounded-lg border">
+              {livePreview ? (
+                <HappyBannerDisplay banner={livePreview} />
+              ) : (
+                <div className="flex h-36 items-center justify-center text-sm text-muted-foreground">
+                  Preview unavailable
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="border-t px-6 py-4 sm:justify-between">
+          <Button
+            type="button"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            disabled={clearMutation.isPending}
+            onClick={() => clearMutation.mutate()}
+          >
+            {clearMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <XCircle className="mr-2 h-4 w-4" />
+            )}
+            Remove banner
+          </Button>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <Button type="button" variant="outline" onClick={() => setWordsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" form="banner-words-form" disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save words"
+              )}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 
   const bannerList = (
     <>
@@ -190,7 +307,7 @@ export function VendorHappyBannerPageClient({ embedded = false }: VendorHappyBan
                 {isSelected && savedWord1 && savedWord2 ? (
                   <p className="text-xs font-medium text-primary">
                     Your words: {savedWord1} / {savedWord2}
-                    {!isWebsiteWord2 ? "%" : ""}
+                    {isNumericWord2 ? "%" : ""}
                   </p>
                 ) : banner.vendorWordSlots ? (
                   <p className="text-xs text-muted-foreground">
@@ -213,9 +330,13 @@ export function VendorHappyBannerPageClient({ embedded = false }: VendorHappyBan
                 </Button>
                 {isSelected ? (
                   <Button
-                    variant="link"
-                    className="mt-2 w-full"
-                    onClick={() => setViewMode("customize")}
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      if (savedWord1 && savedWord2) {
+                        openWordsDialog(savedWord1, savedWord2);
+                      }
+                    }}
                   >
                     Edit your words
                   </Button>
@@ -236,139 +357,23 @@ export function VendorHappyBannerPageClient({ embedded = false }: VendorHappyBan
     </>
   );
 
-  const customizeSection =
-    viewMode === "customize" && selectedBannerId ? (
-      <div ref={wordsSectionRef} className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Your banner words</h2>
-            <p className="text-sm text-gray-600">
-              {selectedBanner
-                ? `Design: ${selectedBanner.name} — your words are unique to your store.`
-                : "Enter your words for the selected banner design."}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {embedded ? (
-              <Button variant="outline" size="sm" onClick={() => setViewMode("pick")}>
-                Hide word editor
-              </Button>
-            ) : (
-              <Button variant="outline" size="sm" onClick={() => setViewMode("pick")}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Change banner
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive hover:text-destructive"
-              disabled={clearMutation.isPending}
-              onClick={() => clearMutation.mutate()}
-            >
-              {clearMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <XCircle className="mr-2 h-4 w-4" />
-              )}
-              Remove banner
-            </Button>
-          </div>
+  return (
+    <section className="space-y-6">
+      {!embedded ? (
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Choose a banner design</h2>
+          <p className="text-sm text-gray-600">
+            Pick a design, then customize your words in the editor popup.
+          </p>
         </div>
-
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-          <Card>
-            <CardHeader>
-              <CardTitle>{word1Slot?.label ?? "Word 1"} & {word2Slot?.label ?? "Word 2"}</CardTitle>
-              <CardDescription>
-                Your values for this design. Other vendors using the same design can enter
-                different words.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form
-                className="space-y-4"
-                onSubmit={form.handleSubmit((values) => updateMutation.mutate(values))}
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="word1">{word1Slot?.label ?? "Word 1"}</Label>
-                  <Input id="word1" {...form.register("word1")} className="uppercase" />
-                  {form.formState.errors.word1 ? (
-                    <p className="text-sm text-destructive">{form.formState.errors.word1.message}</p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">{word1Slot?.hint}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="word2">{word2Slot?.label ?? "Word 2"}</Label>
-                  <Input
-                    id="word2"
-                    {...form.register("word2")}
-                    inputMode={isWebsiteWord2 ? "text" : "numeric"}
-                    className={isWebsiteWord2 ? "uppercase" : undefined}
-                  />
-                  {form.formState.errors.word2 ? (
-                    <p className="text-sm text-destructive">{form.formState.errors.word2.message}</p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">{word2Slot?.hint}</p>
-                  )}
-                </div>
-
-                <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending ? "Saving..." : "Save words"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Storefront preview</CardTitle>
-              <CardDescription>Live preview with your Word 1 and Word 2.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-hidden rounded-lg border">
-                {livePreview ? (
-                  <HappyBannerDisplay banner={livePreview} />
-                ) : (
-                  <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-                    Preview unavailable
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    ) : null;
-
-  if (embedded) {
-    return (
-      <section className="space-y-6">
+      ) : (
         <p className="text-sm text-muted-foreground">
           Pick a banner design and enter your words. Each vendor&apos;s text is unique to their
           store.
         </p>
-        {bannerList}
-        {customizeSection}
-      </section>
-    );
-  }
-
-  if (viewMode === "customize" && selectedBannerId) {
-    return customizeSection;
-  }
-
-  return (
-    <section className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900">Choose a banner design</h2>
-        <p className="text-sm text-gray-600">
-          Pick a design first. Multiple vendors can share the same design with different Word 1
-          and Word 2.
-        </p>
-      </div>
+      )}
       {bannerList}
+      {wordsDialog}
     </section>
   );
 }

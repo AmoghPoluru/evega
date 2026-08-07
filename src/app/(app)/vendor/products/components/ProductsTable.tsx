@@ -52,11 +52,6 @@ import {
 import type { Product } from "@/payload-types";
 import { PostToSocialsDialog } from "./PostToSocialsDialog";
 
-interface CategoryOption {
-  id: string;
-  name: string;
-}
-
 interface ProductsTableProps {
   products: Product[];
   isLoading: boolean;
@@ -68,9 +63,6 @@ interface ProductsTableProps {
   onStatusChange: (status: "all" | "published" | "draft" | "archived") => void;
   search: string;
   onSearchChange: (search: string) => void;
-  category?: string;
-  onCategoryChange: (category: string | undefined) => void;
-  categories?: CategoryOption[];
   sortBy: "name" | "price" | "createdAt" | "updatedAt";
   sortOrder: "asc" | "desc";
   onSortChange: (field: "name" | "price" | "createdAt" | "updatedAt", order: "asc" | "desc") => void;
@@ -87,9 +79,6 @@ export function ProductsTable({
   onStatusChange,
   search,
   onSearchChange,
-  category,
-  onCategoryChange,
-  categories = [],
   sortBy,
   sortOrder,
   onSortChange,
@@ -235,19 +224,6 @@ export function ProductsTable({
               <SelectItem value="published">Published</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
               <SelectItem value="archived">Archived</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={category || "all"} onValueChange={(value) => onCategoryChange(value === "all" ? undefined : value)}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {categories.map((cat) => (
-                <SelectItem key={cat.id} value={cat.id}>
-                  {cat.name}
-                </SelectItem>
-              ))}
             </SelectContent>
           </Select>
         </div>

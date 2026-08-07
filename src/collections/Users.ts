@@ -50,7 +50,6 @@ export const Users: CollectionConfig = {
         { label: "User", value: "user" },
         { label: "Vendor", value: "vendor" },
         { label: "Admin", value: "admin" },
-        { label: "BDO", value: "bdo" },
       ],
       defaultValue: "user",
       required: true,
@@ -93,7 +92,7 @@ export const Users: CollectionConfig = {
           "The vendor/shop this user belongs to. Not used for admin or BDO accounts.",
         condition: (data) => {
           const r = data?.role;
-          return r !== "admin" && r !== "bdo";
+          return r !== "admin";
         },
       },
     },

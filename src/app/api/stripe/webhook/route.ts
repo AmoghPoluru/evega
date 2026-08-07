@@ -2,8 +2,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-import { getPayload } from "payload";
-import config from "@payload-config";
+import { getCachedPayload } from "@/lib/payload-client";
 import { stripe } from "@/lib/stripe";
 import type { User, Order } from "@/payload-types";
 import { generateOrderNumber } from "@/lib/order-number";
@@ -47,7 +46,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const payload = await getPayload({ config });
+  const payload = await getCachedPayload();
 
   // Handle the event
   switch (event.type) {

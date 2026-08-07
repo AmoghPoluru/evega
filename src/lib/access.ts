@@ -37,17 +37,9 @@ export function isAppAdmin(user: User | undefined | null): boolean {
   return getUserRole(user) === "admin";
 }
 
-/**
- * Business development / operations staff — in-app admin tasks with vendors, not Payload CMS.
- */
-export function isBdo(user: User | undefined | null): boolean {
-  return getUserRole(user) === "bdo";
-}
-
-/** Admin or BDO — staff routes (vendor tasks, navbar admin-tasks, requireAppAdmin). */
+/** Platform staff — admin-only access to /staff/* routes. */
 export function isAppStaff(user: User | undefined | null): boolean {
-  const r = getUserRole(user);
-  return r === "admin" || r === "bdo";
+  return isAppAdmin(user);
 }
 
 /**

@@ -7,14 +7,11 @@ import sharp from "sharp";
 
 import { Users } from "./collections/Users";
 import { Media } from "./collections/Media";
-import { Categories } from "./collections/Categories";
 import { Products } from "./collections/Products";
 import { Tags } from "./collections/Tags";
 import { HeroBanners } from "./collections/HeroBanners";
 import { Orders } from "./collections/Orders";
 import { Vendors } from "./collections/Vendors";
-import { VendorTasks } from "./collections/VendorTasks";
-import { VendorTaskMessages } from "./collections/VendorTaskMessages";
 import { VendorHeroBanners } from "./collections/VendorHeroBanners";
 import { VendorTemplates } from "./collections/VendorTemplates";
 import { PotentialVendorRegions } from "./collections/PotentialVendorRegions";
@@ -55,7 +52,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Categories, Products, Tags, HeroBanners, Orders, Vendors, Roles, Customers, VariantTypes, VariantOptions, VendorTasks, VendorTaskMessages, VendorHeroBanners, VendorTemplates, HappyBanners, VendorLogoTemplates, PotentialVendorRegions, Favorites, ProductLikes, ProductComments, SocialPosts],
+  collections: [Users, Media, Products, Tags, HeroBanners, Orders, Vendors, Roles, Customers, VariantTypes, VariantOptions, VendorHeroBanners, VendorTemplates, HappyBanners, VendorLogoTemplates, PotentialVendorRegions, Favorites, ProductLikes, ProductComments, SocialPosts],
   globals: [HeroBannerConfig],
   editor: lexicalEditor(),
   // Use placeholder during build (must be at least 32 chars), actual secret at runtime
