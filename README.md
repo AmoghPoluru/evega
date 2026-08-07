@@ -1036,6 +1036,8 @@ WhatsApp messages:
 | Variable | Default |
 | --- | --- |
 | `WHATSAPP_TEMPLATE_ORDER` | `order_notification` |
+| `WHATSAPP_TEMPLATE_LANGUAGE` | `en` — must match the locale shown in WhatsApp Manager (e.g. `en`, `en_US`, `en_GB`) |
+| `WHATSAPP_ORDER_HEADER` | `none` — header handling for `order_notification` (`none` for static headers, `text` or `image` if your Meta template has header variables) |
 | `WHATSAPP_TEMPLATE_LIKE` | `product_liked` |
 | `WHATSAPP_TEMPLATE_FAVORITE` | `product_favorited` |
 | `WHATSAPP_TEMPLATE_COMMENT` | `product_commented` |
@@ -1058,7 +1060,10 @@ Notes:
   `WHATSAPP_TEMPLATE_COMMENT` in the WhatsApp Manager. Order template body should
   accept 6 parameters (order number, product name, quantity, total, customer name,
   order URL); like/favorite templates take 1 (product name); comment template takes
-  3 (product name, commenter name, comment preview).
+  3 (product name, commenter name, comment preview). The **language code** in API
+  requests must match the template locale exactly (e.g. `en` vs `en_US`). For
+  `order_notification`, set `WHATSAPP_ORDER_HEADER` to match your template header
+  (`text` sends the order number as the header variable; `image` requires a public product URL).
 - **Instagram publishing requires a publicly hosted image URL** — the product's
   media URL is used.
 

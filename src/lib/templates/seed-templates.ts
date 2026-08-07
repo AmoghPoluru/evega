@@ -84,12 +84,16 @@ export interface TemplateSeedData {
         showDescription: boolean;
         borderRadius: string;
       };
-      navigation: {
-        style: "top" | "sidebar" | "sticky";
-        backgroundColor: string;
-      };
+    navigation: {
+      style: "top" | "sidebar" | "sticky";
+      backgroundColor: string;
     };
-    backgroundStyle: {
+  };
+  sections?: {
+    collectionTitle?: string;
+    collectionEyebrow?: string;
+  };
+  backgroundStyle: {
       type: "solid" | "gradient" | "mesh-gradient" | "pattern" | "image";
       value?: string;
       animation?: {
@@ -904,6 +908,126 @@ export const templateSeeds: TemplateSeedData[] = [
       productCard: "detailed",
       navigation: "sticky",
       footer: "elegant",
+    },
+  },
+  {
+    name: "Elegant White",
+    slug: "elegant-white",
+    description:
+      "A refined luxury collection grid with Cormorant Garamond headings, bordered product tiles, centered pricing, and color swatches. Clean white editorial catalog aesthetic.",
+    category: "elegant",
+    isDefault: false,
+    isActive: true,
+    version: "1.0.0",
+    author: "Evega Team",
+    templateConfig: {
+      colors: {
+        primary: "#1C1B19",
+        secondary: "#6F6A61",
+        accent: "#B08D57",
+        background: "#FBFAF8",
+        text: "#1A1A1A",
+        textSecondary: "#111111",
+        border: "#E7E4DD",
+        cardBackground: "#FFFFFF",
+      },
+      fonts: {
+        heading: '"Cormorant Garamond", serif',
+        body: "Jost, sans-serif",
+      },
+      spacing: {
+        sectionPadding: "64px 24px 32px",
+        cardGap: "0px",
+        containerMaxWidth: "1240px",
+      },
+      layout: {
+        productGridColumns: 4,
+        showBanner: false,
+        showCategories: false,
+        showFilters: false,
+        showReviews: false,
+      },
+      components: {
+        heroBanner: {
+          style: "minimal",
+          height: "0px",
+        },
+        productCard: {
+          style: "minimal",
+          showPrice: true,
+          showRating: false,
+          showDescription: false,
+          borderRadius: "0px",
+        },
+        navigation: {
+          style: "top",
+          backgroundColor: "#FBFAF8",
+        },
+      },
+      sections: {
+        collectionTitle: "All pieces",
+        collectionEyebrow: "The Collection",
+      },
+      textStyles: {
+        heading1: {
+          fontSize: "2.517rem",
+          fontWeight: "500",
+          letterSpacing: "-0.02em",
+          lineHeight: "1.15",
+          textTransform: "none",
+        },
+        heading2: {
+          fontSize: "1.5rem",
+          fontWeight: "500",
+          letterSpacing: "-0.01em",
+          lineHeight: "1.2",
+          textTransform: "none",
+        },
+        body: {
+          fontSize: "1.063rem",
+          fontWeight: "400",
+          letterSpacing: "0",
+          lineHeight: "1.5",
+        },
+      },
+      backgroundStyle: {
+        type: "solid",
+        value: "#FBFAF8",
+        animation: {
+          enabled: false,
+        },
+      },
+    },
+    cssVariables: {
+      "--template-primary": "#1C1B19",
+      "--template-secondary": "#6F6A61",
+      "--template-accent": "#B08D57",
+      "--template-background": "#FBFAF8",
+      "--template-text": "#1A1A1A",
+      "--template-text-secondary": "#111111",
+      "--template-border": "#E7E4DD",
+      "--template-card-bg": "#FFFFFF",
+      "--template-font-heading": '"Cormorant Garamond", serif',
+      "--template-font-body": "Jost, sans-serif",
+      "--template-spacing-section": "64px 24px 32px",
+      "--template-spacing-card-gap": "40px",
+      "--template-container-width": "1240px",
+      "--template-card-radius": "0px",
+      "--template-border-width": "1px",
+      "--template-image-aspect": "4 / 5",
+      "--template-type-base": "1.063rem",
+      "--template-h1-size": "2.517rem",
+      "--template-h1-weight": "500",
+      "--template-h1-spacing": "-0.02em",
+      "--template-h1-height": "1.15",
+      "--template-body-size": "1.063rem",
+    },
+    componentMapping: {
+      layout: "collection",
+      heroBanner: "minimal",
+      productCard: "minimal",
+      navigation: "top",
+      footer: "minimal",
     },
   },
 ];

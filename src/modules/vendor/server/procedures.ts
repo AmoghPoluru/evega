@@ -20,6 +20,46 @@ import { manualOrderCreateInputSchema } from "@/modules/orders/manual-order-sche
 import { payloadReqFromUser } from "@/lib/payload-req";
 import { toMarketingProfileResponse, updateVendorMarketingProfile, marketingProfileUpdateBodySchema } from "@/modules/marketing/marketing-profile-trpc";
 import type { Vendor } from "@/payload-types";
+import type { HappyBannerDocFields } from "@/lib/happy-banner/types";
+import { getHappyBannerPlatformConfig } from "@/lib/happy-banner/config";
+import { buildResolvedHappyBanner } from "@/lib/happy-banner/format-banner";
+import { formatHappyBannerListItem } from "@/lib/happy-banner/preview-image";
+import {
+  getHappyBannerVendorWordDefaults,
+  getHappyBannerVendorWordSlots,
+  resolveVendorHappyBannerWords,
+} from "@/lib/happy-banner/vendor-words";
+import { resolveHappyBannerForVendor } from "@/lib/happy-banner/resolve";
+import { getHappyBannerRelationshipId } from "@/lib/happy-banner/relationship-id";
+import {
+  vendorHappyBannerSelectSchema,
+  vendorHappyBannerTextSchema,
+} from "@/lib/happy-banner/schema";
+import { normalizeVendorHappyBannerWords } from "@/lib/happy-banner/validate-vendor-words";
+import type { HappyBannerPreset } from "@/lib/happy-banner/types";
+import type { Payload } from "payload";
+import { revalidatePath } from "next/cache";
+
+type VendorHappyBannerState = {
+  selectedBanner?: string | { id: string } | null;
+  word1?: string | null;
+  word2?: string | null;
+};
+
+async function revalidateVendorHappyBannerStorefront(db: Payload, vendorId: string) {
+  const vendor = await db.findByID({
+    collection: "vendors",
+    id: vendorId,
+    depth: 0,
+  });
+  if (vendor.slug) {
+    revalidatePath(`/vendors/${vendor.slug}`);
+  }
+}
+
+type VendorWithHappyBanner = Vendor & {
+  happyBanner?: VendorHappyBannerState | null;
+};
 
 /** Treat empty strings as undefined so optional URL fields don't fail Zod in production. */
 const optionalUrl = z.preprocess(
@@ -3176,6 +3216,286 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
       }),
   },
 
+  happyBanner: createTRPCRouter({
+    list: vendorProcedure.query(async ({ ctx }) => {
+      const vendorId =
+        typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+      const vendor = (await ctx.db.findByID({
+        collection: "vendors",
+        id: vendorId,
+        depth: 0,
+      })) as VendorWithHappyBanner;
+
+      const platformConfig = await getHappyBannerPlatformConfig(ctx.db);
+      const selectedId = getHappyBannerRelationshipId(vendor.happyBanner?.selectedBanner);
+
+      const result = await ctx.db.find({
+        collection: "happy-banners",
+        where: { isActive: { equals: true } },
+        sort: "name",
+        limit: 100,
+        depth: 1,
+      });
+
+      return {
+        platformEnabled: platformConfig.enabled !== false,
+        selectedBannerId: selectedId,
+        word1: vendor.happyBanner?.word1?.trim() || null,
+        word2: vendor.happyBanner?.word2?.trim() || null,
+        docs: result.docs
+          .map((banner: Record<string, unknown> & { id: string }) =>
+            formatHappyBannerListItem(banner as HappyBannerDocFields & { id: string }),
+          )
+          .map((item: ReturnType<typeof formatHappyBannerListItem>) => ({
+            ...item,
+            isSelected: item.id === selectedId,
+          })),
+      };
+    }),
+
+    get: vendorProcedure.query(async ({ ctx }) => {
+      const vendorId =
+        typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+      const vendor = (await ctx.db.findByID({
+        collection: "vendors",
+        id: vendorId,
+        depth: 0,
+      })) as VendorWithHappyBanner;
+
+      const platformConfig = await getHappyBannerPlatformConfig(ctx.db);
+      const selectedId = getHappyBannerRelationshipId(vendor.happyBanner?.selectedBanner);
+      let vendorWordSlots: ReturnType<typeof getHappyBannerVendorWordSlots> | null = null;
+      let resolved = null;
+      let bannerForWords: HappyBannerDocFields | null = null;
+
+      if (selectedId) {
+        const bannerDoc = await ctx.db
+          .findByID({
+            collection: "happy-banners",
+            id: selectedId,
+            depth: 0,
+          })
+          .catch(() => null);
+
+        if (bannerDoc) {
+          bannerForWords = bannerDoc as HappyBannerDocFields;
+          vendorWordSlots = getHappyBannerVendorWordSlots(bannerForWords);
+          resolved = await resolveHappyBannerForVendor(ctx.db, vendor);
+        }
+      }
+
+      const words = bannerForWords
+        ? resolveVendorHappyBannerWords(bannerForWords, vendor.happyBanner)
+        : { word1: "MEGA", word2: "50" };
+
+      return {
+        platformEnabled: platformConfig.enabled !== false,
+        selectedBannerId: selectedId,
+        selectedPreset: (bannerForWords?.preset ?? null) as HappyBannerPreset | null,
+        word1: vendor.happyBanner?.word1?.trim() || words.word1,
+        word2: vendor.happyBanner?.word2?.trim() || words.word2,
+        vendorWordSlots,
+        preview: resolved,
+        fixedCopy: resolved
+          ? {
+              eyebrowText: resolved.eyebrowText,
+              secondaryWord: resolved.secondaryWord,
+              ctaLabel: resolved.ctaLabel,
+              discountPrefix: resolved.discountPrefix,
+              discountSuffix: resolved.discountSuffix,
+              bannerName: resolved.bannerName,
+            }
+          : null,
+      };
+    }),
+
+    select: vendorProcedure
+      .input(vendorHappyBannerSelectSchema)
+      .mutation(async ({ ctx, input }) => {
+        const vendorId =
+          typeof ctx.session.vendor === "string"
+            ? ctx.session.vendor
+            : ctx.session.vendor.id;
+
+        const banner = await ctx.db
+          .findByID({
+            collection: "happy-banners",
+            id: input.bannerId,
+            depth: 0,
+          })
+          .catch(() => null);
+
+        if (!banner || banner.isActive === false) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Selected banner is not available",
+          });
+        }
+
+        const bannerDoc = banner as HappyBannerDocFields;
+        const defaults = getHappyBannerVendorWordDefaults(bannerDoc);
+
+        const updated = await ctx.db.update({
+          collection: "vendors",
+          id: vendorId,
+          data: {
+            happyBanner: {
+              selectedBanner: input.bannerId,
+              word1: defaults.word1,
+              word2: defaults.word2,
+            },
+          },
+        });
+
+        await revalidateVendorHappyBannerStorefront(ctx.db, vendorId);
+
+        const resolved = await resolveHappyBannerForVendor(ctx.db, updated as VendorWithHappyBanner);
+
+        return {
+          selectedBannerId: input.bannerId,
+          word1: updated.happyBanner?.word1 ?? defaults.word1,
+          word2: updated.happyBanner?.word2 ?? defaults.word2,
+          vendorWordSlots: getHappyBannerVendorWordSlots(bannerDoc),
+          preview: resolved,
+        };
+      }),
+
+    update: vendorProcedure
+      .input(vendorHappyBannerTextSchema)
+      .mutation(async ({ ctx, input }) => {
+        const vendorId =
+          typeof ctx.session.vendor === "string"
+            ? ctx.session.vendor
+            : ctx.session.vendor.id;
+
+        const vendor = (await ctx.db.findByID({
+          collection: "vendors",
+          id: vendorId,
+          depth: 0,
+        })) as VendorWithHappyBanner;
+
+        if (!vendor.happyBanner?.selectedBanner) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Select a Happy Banner design before saving Word 1 and Word 2",
+          });
+        }
+
+        const selectedBannerId = getHappyBannerRelationshipId(vendor.happyBanner.selectedBanner);
+        if (!selectedBannerId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Select a Happy Banner design before saving Word 1 and Word 2",
+          });
+        }
+
+        const bannerDoc = await ctx.db
+          .findByID({
+            collection: "happy-banners",
+            id: selectedBannerId,
+            depth: 0,
+          })
+          .catch(() => null);
+
+        const preset = (bannerDoc?.preset ?? "mega-sale") as HappyBannerPreset;
+        const normalized = normalizeVendorHappyBannerWords(
+          preset,
+          input.word1,
+          input.word2,
+        );
+
+        const updated = await ctx.db.update({
+          collection: "vendors",
+          id: vendorId,
+          data: {
+            happyBanner: {
+              selectedBanner: selectedBannerId,
+              word1: normalized.word1,
+              word2: normalized.word2,
+            },
+          },
+        });
+
+        await revalidateVendorHappyBannerStorefront(ctx.db, vendorId);
+
+        const resolved = await resolveHappyBannerForVendor(ctx.db, updated as VendorWithHappyBanner);
+
+        return {
+          word1: updated.happyBanner?.word1 ?? input.word1,
+          word2: updated.happyBanner?.word2 ?? input.word2,
+          preview: resolved,
+        };
+      }),
+
+    previewBanner: vendorProcedure
+      .input(
+        z.object({
+          bannerId: z.string(),
+          word1: z.string().optional(),
+          word2: z.string().optional(),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const banner = await ctx.db
+          .findByID({
+            collection: "happy-banners",
+            id: input.bannerId,
+            depth: 0,
+          })
+          .catch(() => null);
+
+        if (!banner || banner.isActive === false) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Banner not found" });
+        }
+
+        const vendorId =
+          typeof ctx.session.vendor === "string"
+            ? ctx.session.vendor
+            : ctx.session.vendor.id;
+
+        const vendor = await ctx.db.findByID({
+          collection: "vendors",
+          id: vendorId,
+          depth: 0,
+        });
+
+        return buildResolvedHappyBanner(banner as HappyBannerDocFields & { id: string }, {
+          word1: input.word1,
+          word2: input.word2,
+          vendorSlug: vendor.slug ?? "",
+        });
+      }),
+
+    clear: vendorProcedure.mutation(async ({ ctx }) => {
+      const vendorId =
+        typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+      await ctx.db.update({
+        collection: "vendors",
+        id: vendorId,
+        data: {
+          happyBanner: {
+            selectedBanner: null,
+            word1: null,
+            word2: null,
+          },
+        },
+      });
+
+      await revalidateVendorHappyBannerStorefront(ctx.db, vendorId);
+
+      return { success: true };
+    }),
+  }),
+
   // Template Management
   templates: createTRPCRouter({
     // List all available templates
@@ -3213,17 +3533,27 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
           ];
         }
 
-        const templates = await ctx.db.find({
-          collection: "vendor-templates",
+        const { fetchAllVendorTemplates } = await import("@/lib/templates/fetch-all-templates");
+        const allTemplates = await fetchAllVendorTemplates(ctx.db, {
           where,
-          sort: "-createdAt",
+          sort: "name",
+          depth: 1,
         });
 
+        const selectedTemplateId =
+          typeof vendor.selectedTemplate === "string"
+            ? vendor.selectedTemplate
+            : vendor.selectedTemplate?.id ?? null;
+
+        const docs = allTemplates.map((template) => ({
+          ...template,
+          isSelected: template.id === selectedTemplateId,
+        }));
+
         return {
-          docs: templates.docs.map((template: any) => ({
-            ...template,
-            isSelected: template.id === vendor.selectedTemplate,
-          })),
+          docs,
+          totalDocs: docs.length,
+          vendorSlug: vendor.slug ?? null,
         };
       }),
 

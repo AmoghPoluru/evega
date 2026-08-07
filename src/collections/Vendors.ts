@@ -172,6 +172,41 @@ export const Vendors: CollectionConfig = {
       },
     },
     {
+      name: "happyBanner",
+      type: "group",
+      label: "Happy Banner",
+      admin: {
+        description: "Vendor-selected Happy Banner design and editable words.",
+      },
+      fields: [
+        {
+          name: "selectedBanner",
+          type: "relationship",
+          relationTo: "happy-banners",
+          label: "Selected banner",
+          admin: {
+            description: "Banner design shown on the vendor storefront",
+          },
+        },
+        {
+          name: "word1",
+          type: "text",
+          label: "Word 1",
+          admin: {
+            description: "Primary headline word (e.g. MEGA, SUMMER)",
+          },
+        },
+        {
+          name: "word2",
+          type: "text",
+          label: "Word 2",
+          admin: {
+            description: "Discount number shown before % (e.g. 50, 35)",
+          },
+        },
+      ],
+    },
+    {
       name: "heroBanner",
       type: "group",
       label: "Hero Banner Configuration",

@@ -3,9 +3,11 @@ import Image from "next/image";
 import { Suspense } from "react";
 import { ProductsList } from "@/components/product-filters/products-list";
 import { VendorHeroBannersSection } from "@/components/vendor-hero-banners-section";
+import { HappyBannerDisplay } from "@/components/happy-banner/HappyBannerDisplay";
 import { cssVariablesToString } from "@/lib/templates/css-variables";
 import type { VendorLayoutProps } from "./types";
 import { getDescriptionText } from "./utils";
+import { VENDOR_HEAD_BANNER_ENABLED } from "@/lib/templates/vendor-storefront-flags";
 
 /**
  * DefaultLayout
@@ -14,7 +16,7 @@ import { getDescriptionText } from "./utils";
  * filterable product grid. This is the fallback layout for every template that
  * does not declare a specific structural layout.
  */
-export function DefaultLayout({ vendor, template, products }: VendorLayoutProps) {
+export function DefaultLayout({ vendor, template, products, happyBanner }: VendorLayoutProps) {
   const cssVariables = cssVariablesToString(template.cssVariables);
   const descriptionText = getDescriptionText(vendor.description);
 
@@ -122,7 +124,7 @@ export function DefaultLayout({ vendor, template, products }: VendorLayoutProps)
           line-height: var(--template-h1-height, 1.2) !important;
           text-transform: var(--template-h1-transform, none) !important;
         }
-        .vendor-page-template h2 {
+        .vendor-page-template h2:not([class*="happy-banner__"]):not([class*="summer-banner__"]):not([class*="hue-banner__"]):not([class*="tropical-banner__"]) {
           font-family: var(--template-font-heading) !important;
           color: var(--template-text) !important;
           font-size: var(--template-h2-size, 2rem) !important;
@@ -138,13 +140,30 @@ export function DefaultLayout({ vendor, template, products }: VendorLayoutProps)
           font-family: var(--template-font-heading) !important;
           color: var(--template-text) !important;
         }
-        .vendor-page-template p,
-        .vendor-page-template span,
-        .vendor-page-template div {
+        .vendor-page-template p:not([class*="happy-banner__"]):not([class*="summer-banner__"]):not([class*="hue-banner__"]):not([class*="tropical-banner__"]),
+        .vendor-page-template span:not([class*="happy-banner__"]):not([class*="summer-banner__"]):not([class*="hue-banner__"]):not([class*="tropical-banner__"]),
+        .vendor-page-template div:not([class*="happy-banner__"]):not([class*="summer-banner__"]):not([class*="hue-banner__"]):not([class*="tropical-banner__"]) {
           font-size: var(--template-body-size, 1rem) !important;
           font-weight: var(--template-body-weight, 400) !important;
           letter-spacing: var(--template-body-spacing, 0) !important;
           line-height: var(--template-body-height, 1.6) !important;
+        }
+
+        /* Happy Banner promos control their own typography */
+        .vendor-page-template .happy-banner,
+        .vendor-page-template .summer-banner,
+        .vendor-page-template .hue-banner,
+        .vendor-page-template .tropical-banner {
+          font-size: initial;
+        }
+        .vendor-page-template .happy-banner *,
+        .vendor-page-template .summer-banner *,
+        .vendor-page-template .hue-banner *,
+        .vendor-page-template .tropical-banner * {
+          font-family: inherit;
+          letter-spacing: inherit;
+          line-height: inherit;
+          text-transform: inherit;
         }
 
         /* Override for hero banner text - must be white and visible */
@@ -157,8 +176,8 @@ export function DefaultLayout({ vendor, template, products }: VendorLayoutProps)
         }
         .vendor-page-template [class*="hero"] h2,
         .vendor-page-template [class*="hero"] p,
-        .vendor-page-template [class*="banner"] h2,
-        .vendor-page-template [class*="banner"] p,
+        .vendor-page-template [class*="banner"] h2:not([class*="happy-banner__"]):not([class*="summer-banner__"]):not([class*="hue-banner__"]):not([class*="tropical-banner__"]),
+        .vendor-page-template [class*="banner"] p:not([class*="happy-banner__"]):not([class*="summer-banner__"]):not([class*="hue-banner__"]):not([class*="tropical-banner__"]),
         .vendor-page-template [class*="text-white"] {
           color: white !important;
           font-size: var(--template-hero-subtitle-size, 1.5rem) !important;
@@ -180,8 +199,8 @@ export function DefaultLayout({ vendor, template, products }: VendorLayoutProps)
             .vendor-page-template [class*="hero"] h2,
             .vendor-page-template [class*="hero"] p,
             .vendor-page-template [class*="banner"] h1,
-            .vendor-page-template [class*="banner"] h2,
-            .vendor-page-template [class*="banner"] p,
+            .vendor-page-template [class*="banner"] h2:not([class*="happy-banner__"]):not([class*="summer-banner__"]),
+            .vendor-page-template [class*="banner"] p:not([class*="happy-banner__"]):not([class*="summer-banner__"]),
             .vendor-page-template [class*="text-white"] {
               color: white !important;
               text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7), 0 0 8px rgba(0, 0, 0, 0.5) !important;
@@ -302,7 +321,10 @@ export function DefaultLayout({ vendor, template, products }: VendorLayoutProps)
         </div>
       </div>
 
+      {happyBanner ? <HappyBannerDisplay banner={happyBanner} /> : null}
+
       {/* Hero Banner - Try vendor hero banners first, fallback to default */}
+      {VENDOR_HEAD_BANNER_ENABLED ? (
       <Suspense
         fallback={
           <div className="relative w-full overflow-hidden">
@@ -330,9 +352,10 @@ export function DefaultLayout({ vendor, template, products }: VendorLayoutProps)
       >
         <VendorHeroBannersSection vendorSlug={vendor.slug} />
       </Suspense>
+      ) : null}
 
       {/* Fallback Banner (if no vendor hero banners) */}
-      {!fallbackBackgroundImageUrl && fallbackFeaturedProducts.length === 0 && (
+      {VENDOR_HEAD_BANNER_ENABLED && !fallbackBackgroundImageUrl && fallbackFeaturedProducts.length === 0 && (
         <div className="relative w-full overflow-hidden">
           <div
             className="h-[400px] lg:h-[500px] flex items-center justify-center"
@@ -368,6 +391,7 @@ export function DefaultLayout({ vendor, template, products }: VendorLayoutProps)
 
       {/* Products Section */}
       <div
+        id="products"
         className="container mx-auto px-4 py-8 vendor-main-container"
         style={{
           maxWidth: "var(--template-container-width)",
@@ -392,7 +416,7 @@ export function DefaultLayout({ vendor, template, products }: VendorLayoutProps)
               >
                 Products ({totalDocs})
               </h2>
-              <ProductsList products={products as any} title={``} />
+              <ProductsList products={products as any} title="" showFilters={false} />
             </div>
           )}
         </div>

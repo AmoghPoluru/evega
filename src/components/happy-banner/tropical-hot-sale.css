@@ -1,0 +1,202 @@
+.tropical-banner {
+  width: 100%;
+  overflow: hidden;
+  background: var(--hb-bg, #f5f0e8);
+  container-type: inline-size;
+  container-name: tropical-banner;
+}
+
+.tropical-banner__inner {
+  position: relative;
+  min-height: clamp(300px, 36vw, 400px);
+  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1rem, 3vw, 2rem) clamp(5rem, 12vw, 7rem);
+  overflow: hidden;
+}
+
+.tropical-banner__top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.tropical-banner .tropical-banner__tag {
+  font-size: clamp(0.55rem, 1.6cqi, 0.72rem) !important;
+  font-weight: 600 !important;
+  font-style: italic !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--hb-green, #1a5c32) !important;
+  line-height: 1.2 !important;
+  white-space: nowrap;
+}
+
+.tropical-banner .tropical-banner__hot {
+  font-size: clamp(2rem, 7cqi, 3.75rem) !important;
+  font-weight: 400 !important;
+  font-family: "Brush Script MT", "Segoe Script", cursive !important;
+  color: var(--hb-red, #e31c23) !important;
+  line-height: 1 !important;
+  text-transform: none !important;
+  transform: rotate(-4deg);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.tropical-banner__main {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tropical-banner__copy {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.tropical-banner .tropical-banner__word1 {
+  margin: 0;
+  font-size: clamp(
+    2rem,
+    calc(10cqi * var(--hb-word1-scale, 1)),
+    4.5rem
+  ) !important;
+  font-weight: 700 !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  color: var(--hb-green, #1a5c32) !important;
+  letter-spacing: 0.02em !important;
+  line-height: 0.95 !important;
+  text-transform: uppercase !important;
+  white-space: nowrap;
+}
+
+.tropical-banner .tropical-banner__cta {
+  display: inline-flex;
+  margin-top: 1rem;
+  padding: 0.55rem 1.35rem;
+  background: var(--hb-red, #e31c23);
+  color: #fff !important;
+  font-size: clamp(0.65rem, 1.8cqi, 0.8rem) !important;
+  font-weight: 700 !important;
+  font-family: "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  text-decoration: none !important;
+  line-height: 1.2 !important;
+}
+
+.tropical-banner .tropical-banner__cta:hover {
+  opacity: 0.92;
+}
+
+.tropical-banner__badge {
+  flex: 0 0 auto;
+  position: relative;
+  width: clamp(110px, 22cqi, 168px);
+  height: clamp(110px, 22cqi, 168px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #fff;
+  line-height: 1.05;
+  transform: rotate(-6deg);
+  margin-top: 0.25rem;
+}
+
+.tropical-banner__badge-blob {
+  position: absolute;
+  inset: 0;
+  background: var(--hb-red, #e31c23);
+  border-radius: 48% 52% 50% 50% / 52% 48% 52% 48%;
+  box-shadow: 0 8px 24px rgba(227, 28, 35, 0.25);
+}
+
+.tropical-banner__badge-text {
+  position: relative;
+  z-index: 1;
+  padding: 0.5rem;
+}
+
+.tropical-banner .tropical-banner__badge-prefix,
+.tropical-banner .tropical-banner__badge-suffix {
+  display: block;
+  font-size: clamp(0.5rem, 1.4cqi, 0.65rem) !important;
+  font-weight: 700 !important;
+  font-family: "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: #fff !important;
+  line-height: 1.1 !important;
+}
+
+.tropical-banner .tropical-banner__badge-value {
+  display: block;
+  font-size: clamp(1.75rem, 5.5cqi, 2.75rem) !important;
+  font-weight: 900 !important;
+  font-family: "Helvetica Neue", Arial, sans-serif !important;
+  color: #fff !important;
+  line-height: 1 !important;
+  margin: 0.15rem 0;
+}
+
+.tropical-banner__foliage {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: clamp(80px, 18cqi, 130px);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.tropical-banner__flower {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.tropical-banner__flower--left {
+  left: 8%;
+  bottom: 18%;
+  width: 28px;
+  height: 28px;
+}
+
+.tropical-banner__flower--center {
+  left: 42%;
+  bottom: 12%;
+  width: 32px;
+  height: 32px;
+}
+
+.tropical-banner__flower--right {
+  right: 12%;
+  bottom: 20%;
+  width: 30px;
+  height: 30px;
+}
+
+@media (max-width: 640px) {
+  .tropical-banner__top-row {
+    flex-wrap: wrap;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .tropical-banner__main {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .tropical-banner__badge {
+    align-self: center;
+  }
+}

@@ -3,13 +3,15 @@ import Image from "next/image";
 import { formatCurrency } from "@/lib/utils";
 import type { VendorLayoutProps } from "./types";
 import { getDescriptionText, getMediaUrl } from "./utils";
+import { VENDOR_HEAD_BANNER_ENABLED } from "@/lib/templates/vendor-storefront-flags";
+import { HappyBannerDisplay } from "@/components/happy-banner/HappyBannerDisplay";
 
 /**
  * RunwayLayout
  * An editorial fashion lookbook: a full-bleed hero banner followed by oversized
  * alternating product tiles for a magazine-style, image-led presentation.
  */
-export function RunwayLayout({ vendor, template, products }: VendorLayoutProps) {
+export function RunwayLayout({ vendor, template, products, happyBanner }: VendorLayoutProps) {
   const tagline = getDescriptionText(vendor.description);
   const coverUrl = getMediaUrl(vendor.coverImage) || getMediaUrl(vendor.logo);
 
@@ -23,7 +25,10 @@ export function RunwayLayout({ vendor, template, products }: VendorLayoutProps) 
         fontFamily: "var(--template-font-body)",
       }}
     >
+      {happyBanner ? <HappyBannerDisplay banner={happyBanner} /> : null}
+
       {/* Full-bleed hero */}
+      {VENDOR_HEAD_BANNER_ENABLED ? (
       <section className="relative h-[70vh] min-h-[440px] w-full overflow-hidden">
         {coverUrl ? (
           <Image src={coverUrl} alt={vendor.name} fill priority className="object-cover" />
@@ -48,6 +53,7 @@ export function RunwayLayout({ vendor, template, products }: VendorLayoutProps) 
           )}
         </div>
       </section>
+      ) : null}
 
       {/* Section label */}
       <div className="mx-auto max-w-[1440px] px-6 pt-16 text-center">

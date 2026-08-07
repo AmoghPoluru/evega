@@ -1,0 +1,162 @@
+.summer-banner {
+  width: 100%;
+  overflow: hidden;
+  background: var(--hb-bg, #2f5536);
+  container-type: inline-size;
+  container-name: summer-banner;
+}
+
+.summer-banner__inner {
+  position: relative;
+  min-height: 320px;
+  height: clamp(280px, 38vw, 420px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem 3.5rem;
+  overflow: hidden;
+}
+
+.summer-banner__leaf {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.95;
+}
+
+.summer-banner__leaf--tl {
+  top: -1.5rem;
+  left: -1rem;
+  width: clamp(120px, 22vw, 200px);
+  transform: rotate(-18deg);
+}
+
+.summer-banner__leaf--tr {
+  top: -1rem;
+  right: -1.25rem;
+  width: clamp(110px, 20vw, 180px);
+  transform: rotate(22deg) scaleX(-1);
+}
+
+.summer-banner__leaf--bl {
+  bottom: 2.5rem;
+  left: -0.5rem;
+  width: clamp(100px, 18vw, 160px);
+  transform: rotate(145deg);
+}
+
+.summer-banner__leaf--br {
+  bottom: 2.75rem;
+  right: -0.75rem;
+  width: clamp(95px, 17vw, 150px);
+  transform: rotate(-135deg) scaleX(-1);
+}
+
+.summer-banner__waves {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 72px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.summer-banner__flowers {
+  position: absolute;
+  left: 50%;
+  bottom: 1.35rem;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.65rem;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.summer-banner__flower {
+  width: 22px;
+  height: 22px;
+}
+
+.summer-banner__content {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.35rem;
+  max-width: min(100%, 36rem);
+}
+
+.summer-banner__headline {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+
+.summer-banner .summer-banner__word1 {
+  font-size: clamp(
+    3rem,
+    calc(18cqi * var(--hb-word1-scale, 1)),
+    7rem
+  ) !important;
+  font-weight: 900 !important;
+  font-family: "Arial Black", "Helvetica Neue", Impact, sans-serif !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: #fff !important;
+  white-space: nowrap;
+  line-height: 0.95 !important;
+  text-shadow:
+    0 3px 0 rgba(20, 58, 28, 0.55),
+    0 0 18px rgba(20, 58, 28, 0.35);
+  paint-order: stroke fill;
+  -webkit-text-stroke: 2px rgba(34, 88, 44, 0.4);
+}
+
+.summer-banner .summer-banner__secondary {
+  margin-top: 0.12em;
+  font-size: clamp(2rem, 8cqi, 3.75rem) !important;
+  font-weight: 400 !important;
+  font-family: "Snell Roundhand", "Brush Script MT", "Segoe Script", cursive !important;
+  color: #fff !important;
+  text-transform: none !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1 !important;
+  white-space: nowrap;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.summer-banner .summer-banner__offer {
+  margin-top: 0.85rem;
+  padding: 0.55rem 1.35rem;
+  border: 2px solid var(--hb-accent, #9fd356);
+  border-radius: 9999px;
+  background: rgba(20, 58, 28, 0.22);
+  color: #fff !important;
+  font-size: clamp(0.85rem, 2.8cqi, 1.1rem) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  line-height: 1.2 !important;
+  white-space: nowrap;
+}
+
+.summer-banner .summer-banner__offer-value {
+  font-size: 1.15em !important;
+  font-weight: 900 !important;
+}
+
+@media (max-width: 480px) {
+  .summer-banner__inner {
+    min-height: 260px;
+    padding-bottom: 3rem;
+  }
+
+  .summer-banner .summer-banner__offer {
+    padding-inline: 1rem;
+  }
+}

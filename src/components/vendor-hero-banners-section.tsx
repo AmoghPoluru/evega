@@ -6,6 +6,7 @@ import Link from "next/link";
 import { trpc } from "@/trpc/client";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { VENDOR_HEAD_BANNER_ENABLED } from "@/lib/templates/vendor-storefront-flags";
 
 function VendorHeroBannerProductCard({
   id,
@@ -50,6 +51,8 @@ interface VendorHeroBannersSectionProps {
 }
 
 export function VendorHeroBannersSection({ vendorSlug }: VendorHeroBannersSectionProps) {
+  if (!VENDOR_HEAD_BANNER_ENABLED) return null;
+
   const { data: banners, isLoading, error } = trpc.vendorHeroBanners.useQuery({ vendorSlug });
   const [currentIndex, setCurrentIndex] = React.useState(0);
 

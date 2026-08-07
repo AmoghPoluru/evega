@@ -9,6 +9,8 @@
 import type { BasePayload } from "payload";
 import type { Product, Vendor } from "@/payload-types";
 
+const DEFAULT_TEMPLATE_LANGUAGE =
+  process.env.WHATSAPP_TEMPLATE_LANGUAGE?.trim() || "en";
 const GRAPH_API_VERSION = process.env.META_GRAPH_API_VERSION || "v21.0";
 const DEFAULT_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 const DEFAULT_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
@@ -82,7 +84,16 @@ async function postToGraph(
       typeof payload.template === "object" &&
       payload.template !== null &&
       "name" in payload.template
-        ? (payload.template as { name?: string }).name
+        ? {
+            name: (payload.template as { name?: string }).name,
+            language:
+              "language" in payload.template &&
+              typeof payload.template.language === "object" &&
+              payload.template.language !== null &&
+              "code" in payload.template.language
+                ? (payload.template.language as { code?: string }).code
+                : undefined,
+          }
         : undefined,
   });
 
@@ -97,15 +108,20 @@ async function postToGraph(
 
   const data = (await res.json().catch(() => ({}))) as {
     messages?: Array<{ id?: string }>;
-    error?: { message?: string };
+    error?: {
+      message?: string;
+      error_data?: { details?: string };
+    };
   };
 
   if (!res.ok) {
+    const details = data?.error?.error_data?.details;
     console.error(`${LOG_PREFIX} Meta API error`, {
       status: res.status,
       to: payload.to,
       type: payload.type,
       message: data?.error?.message || "unknown error",
+      ...(details ? { details } : {}),
     });
     throw new Error(
       `WhatsApp API error (${res.status}): ${data?.error?.message || "unknown error"}`
@@ -128,8 +144,38 @@ export interface SendWhatsAppTemplateArgs extends WhatsAppCreds {
   /** Body text parameters, in order. */
   params?: string[];
   languageCode?: string;
+  /** TEXT header variable (must match template header type in Meta). */
+  headerText?: string;
   /** Publicly hosted image URL for an IMAGE header component. */
   headerImageUrl?: string;
+}
+
+function isPublicHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    const host = parsed.hostname.toLowerCase();
+    return (
+      host !== "localhost" &&
+      host !== "127.0.0.1" &&
+      !host.endsWith(".local") &&
+      !host.startsWith("192.168.") &&
+      !host.startsWith("10.")
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** WhatsApp may reject delivery when template variables contain localhost URLs. */
+function formatWhatsAppOrderUrl(orderUrl?: string): string {
+  if (!orderUrl) return "View order in your vendor dashboard";
+  if (isPublicHttpUrl(orderUrl)) return orderUrl;
+  const orderIdMatch = orderUrl.match(/\/orders\/([^/?#]+)/);
+  if (orderIdMatch?.[1]) {
+    return `Order ID ${orderIdMatch[1]}`;
+  }
+  return "View order in your vendor dashboard";
 }
 
 /**
@@ -145,7 +191,16 @@ export async function sendWhatsAppTemplate(
   const parameterless = isParameterlessTemplate(args.template);
   const components: Record<string, unknown>[] = [];
 
-  if (!parameterless && args.headerImageUrl) {
+  if (!parameterless && args.headerText) {
+    components.push({
+      type: "header",
+      parameters: [{ type: "text", text: args.headerText }],
+    });
+  } else if (
+    !parameterless &&
+    args.headerImageUrl &&
+    isPublicHttpUrl(args.headerImageUrl)
+  ) {
     components.push({
       type: "header",
       parameters: [{ type: "image", image: { link: args.headerImageUrl } }],
@@ -170,7 +225,7 @@ export async function sendWhatsAppTemplate(
     type: "template",
     template: {
       name: args.template,
-      language: { code: args.languageCode || "en_US" },
+      language: { code: args.languageCode || DEFAULT_TEMPLATE_LANGUAGE },
       ...(components.length > 0 ? { components } : {}),
     },
   });
@@ -339,6 +394,10 @@ const TEMPLATE_FAVORITE =
   process.env.WHATSAPP_TEMPLATE_FAVORITE?.trim() || "product_favorited";
 const TEMPLATE_COMMENT =
   process.env.WHATSAPP_TEMPLATE_COMMENT?.trim() || "product_commented";
+/** order_notification header in Meta: text | image | none (static headers use none) */
+const ORDER_HEADER_MODE = (
+  process.env.WHATSAPP_ORDER_HEADER?.trim().toLowerCase() || "none"
+) as "text" | "image" | "none";
 /** When set (e.g. hello_world), overrides all event templates for testing. */
 const TEST_TEMPLATE_OVERRIDE = process.env.WHATSAPP_TEST_TEMPLATE?.trim();
 
@@ -362,6 +421,10 @@ function normalizeWhatsAppRecipient(phone: string): string {
   return phone.replace(/\D/g, "");
 }
 
+export type WhatsAppTemplateHeader =
+  | { type: "text"; text: string }
+  | { type: "image"; imageUrl: string };
+
 /**
  * Send a vendor WhatsApp notification for a template if the vendor has
  * notifications enabled and a business number configured. Returns null (no-op)
@@ -371,7 +434,7 @@ export async function notifyVendorWhatsApp(
   vendor: ResolvedVendorWhatsApp | null,
   template: string,
   params: string[],
-  headerImageUrl?: string
+  header?: WhatsAppTemplateHeader
 ): Promise<{ id?: string } | null> {
   if (!vendor) {
     logWhatsApp("Skipped notification — no vendor config resolved");
@@ -398,14 +461,15 @@ export async function notifyVendorWhatsApp(
     to: vendor.businessNumber,
     template,
     params,
-    hasHeaderImage: Boolean(headerImageUrl),
+    headerType: header?.type ?? "none",
   });
 
   return sendWhatsAppTemplate({
     to: vendor.businessNumber,
     template,
     params,
-    headerImageUrl,
+    headerText: header?.type === "text" ? header.text : undefined,
+    headerImageUrl: header?.type === "image" ? header.imageUrl : undefined,
     phoneNumberId: vendor.phoneNumberId,
     accessToken: vendor.accessToken,
   });
@@ -438,9 +502,13 @@ export function notifyVendorNewOrder(
       String(args.quantity),
       `$${args.total.toFixed(2)}`,
       args.customerName,
-      args.orderUrl || "",
+      formatWhatsAppOrderUrl(args.orderUrl),
     ],
-    args.imageUrl
+    ORDER_HEADER_MODE === "image" && args.imageUrl && isPublicHttpUrl(args.imageUrl)
+      ? { type: "image", imageUrl: args.imageUrl }
+      : ORDER_HEADER_MODE === "text"
+        ? { type: "text", text: args.orderNumber }
+        : undefined
   );
 }
 

@@ -2,21 +2,29 @@ import { notFound } from "next/navigation";
 import { getPayload } from "payload";
 import config from "@payload-config";
 import type { TemplateCustomization } from "@/types/template-customization";
-import { resolveVendorTemplate } from "@/lib/templates/template-engine";
+import {
+  resolveVendorTemplate,
+  resolveVendorTemplatePreview,
+} from "@/lib/templates/template-engine";
 import { buildFallbackResolvedTemplate } from "@/lib/templates/default-template";
 import { cssVariablesToString } from "@/lib/templates/css-variables";
+import { canPreviewVendorTemplate } from "@/lib/templates/template-preview-auth";
+import { resolveHappyBannerForVendor } from "@/lib/happy-banner/resolve";
 import { VendorStorefront } from "@/components/vendor/VendorStorefront";
+
+export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ previewTemplate?: string }>;
 }
 
-export default async function VendorPage({ params }: Props) {
+export default async function VendorPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const { previewTemplate } = await searchParams;
 
   const payload = await getPayload({ config });
 
-  // Find vendor by slug with depth to populate heroBanner relationships
   const vendorsResult = await payload.find({
     collection: "vendors",
     where: {
@@ -25,7 +33,7 @@ export default async function VendorPage({ params }: Props) {
       isActive: { equals: true },
     },
     limit: 1,
-    depth: 2, // Populate heroBanner.products and heroBanner.backgroundImage
+    depth: 2,
   });
 
   if (vendorsResult.docs.length === 0) {
@@ -34,7 +42,6 @@ export default async function VendorPage({ params }: Props) {
 
   const vendor = vendorsResult.docs[0];
 
-  // Fetch products for this vendor directly from Payload
   const productsData = await payload.find({
     collection: "products",
     where: {
@@ -43,14 +50,24 @@ export default async function VendorPage({ params }: Props) {
       isArchived: { equals: false },
     },
     limit: 100,
-    depth: 2, // Populate image, category, vendor relationships
+    depth: 2,
     sort: "-createdAt",
   });
 
-  // Resolve vendor template (always yields a valid config; built-in fallback as last resort)
+  const previewAllowed =
+    Boolean(previewTemplate) && (await canPreviewVendorTemplate(payload, vendor.id));
+
   let resolvedTemplate;
   try {
-    resolvedTemplate = await resolveVendorTemplate(vendor.id, payload);
+    if (previewAllowed && previewTemplate) {
+      resolvedTemplate = await resolveVendorTemplatePreview(
+        vendor.id,
+        previewTemplate,
+        payload,
+      );
+    } else {
+      resolvedTemplate = await resolveVendorTemplate(vendor.id, payload);
+    }
   } catch (error) {
     console.error("❌ Error resolving vendor template:", error);
     const customization =
@@ -59,9 +76,15 @@ export default async function VendorPage({ params }: Props) {
   }
 
   const cssVariables = cssVariablesToString(resolvedTemplate.cssVariables);
+  const happyBanner = await resolveHappyBannerForVendor(payload, vendor);
 
   return (
     <>
+      {previewAllowed ? (
+        <div className="sticky top-0 z-50 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
+          Template preview — this layout is not saved until you click Select.
+        </div>
+      ) : null}
       <style>{`:root {
           ${cssVariables}
         }`}</style>
@@ -69,6 +92,7 @@ export default async function VendorPage({ params }: Props) {
         vendor={vendor}
         template={resolvedTemplate}
         products={productsData.docs}
+        happyBanner={happyBanner}
       />
     </>
   );
