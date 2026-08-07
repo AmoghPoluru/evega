@@ -198,8 +198,12 @@ export const vendorRouter = createTRPCRouter({
           description: true,
         },
         populate: {
+          // `url` is virtual and derived from `filename`/`mimeType`, so those
+          // have to be selected for it to be resolved.
           media: {
             url: true,
+            filename: true,
+            mimeType: true,
           },
         },
       });

@@ -14,15 +14,11 @@ const VENDOR_LIST_INPUT = { limit: 50 } as const;
 async function VendorSelectionSection() {
   const queryClient = getQueryClient();
   const vendorList = trpc.vendor.list.queryOptions(VENDOR_LIST_INPUT);
-  const session = trpc.auth.session.queryOptions();
 
-  await Promise.all([
-    queryClient.prefetchQuery(vendorList),
-    queryClient.prefetchQuery(session),
-  ]);
+  await queryClient.prefetchQuery(vendorList);
 
   return (
-    <HydrateQueries keys={[vendorList.queryKey, session.queryKey]}>
+    <HydrateQueries keys={[vendorList.queryKey]}>
       <VendorSelection />
     </HydrateQueries>
   );
@@ -50,11 +46,26 @@ export default async function Home() {
     }
   }
 
+  const queryClient = getQueryClient();
+  // The navbar and impersonation banner live in the parent layout, so their
+  // queries have to be hydrated in the first flush — anything dehydrated inside
+  // the streamed Suspense boundary below arrives after they have already
+  // mounted and fetched.
+  const authSession = trpc.auth.session.queryOptions();
+  const impersonationStatus = trpc.admin.users.impersonationStatus.queryOptions();
+
+  await Promise.all([
+    queryClient.prefetchQuery(authSession),
+    queryClient.prefetchQuery(impersonationStatus),
+  ]);
+
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <Suspense fallback={<VendorSelectionSkeleton />}>
-        <VendorSelectionSection />
-      </Suspense>
-    </div>
+    <HydrateQueries keys={[authSession.queryKey, impersonationStatus.queryKey]}>
+      <div className="flex flex-col min-h-screen bg-background">
+        <Suspense fallback={<VendorSelectionSkeleton />}>
+          <VendorSelectionSection />
+        </Suspense>
+      </div>
+    </HydrateQueries>
   );
 }
