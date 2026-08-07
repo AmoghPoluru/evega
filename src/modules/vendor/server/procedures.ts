@@ -68,6 +68,32 @@ const optionalUrl = z.preprocess(
   z.string().url().optional(),
 );
 
+/** Fields selected by the public `vendor.list` query. */
+type VendorListFields = Pick<Vendor, "id" | "name" | "slug" | "logo" | "description">;
+
+const VENDOR_DESCRIPTION_PREVIEW_LENGTH = 240;
+
+/** Flatten a Lexical description into a short preview string for listing cards. */
+function extractVendorDescriptionText(description: Vendor["description"]): string | null {
+  if (!description?.root?.children) return null;
+
+  const walk = (nodes: unknown[]): string =>
+    nodes
+      .map((node) => {
+        if (typeof node !== "object" || node === null) return "";
+        const n = node as { text?: string; children?: unknown[] };
+        return (n.text ?? "") + (n.children ? walk(n.children) : "");
+      })
+      .join(" ");
+
+  const text = walk(description.root.children).replace(/\s+/g, " ").trim();
+  if (!text) return null;
+
+  return text.length > VENDOR_DESCRIPTION_PREVIEW_LENGTH
+    ? `${text.slice(0, VENDOR_DESCRIPTION_PREVIEW_LENGTH).trimEnd()}…`
+    : text;
+}
+
 const vendorRegistrationSchema = z.object({
   businessName: z.string().min(2, "Business name is required"),
   email: z.string().email("Valid email is required"),
@@ -164,11 +190,29 @@ export const vendorRouter = createTRPCRouter({
         where,
         limit: input.limit,
         sort: "-createdAt",
-        depth: 0,
+        depth: 1,
+        select: {
+          name: true,
+          slug: true,
+          logo: true,
+          description: true,
+        },
+        populate: {
+          media: {
+            url: true,
+          },
+        },
       });
 
       return {
-        vendors: result.docs,
+        vendors: (result.docs as VendorListFields[]).map((vendor) => ({
+          id: vendor.id,
+          name: vendor.name,
+          slug: vendor.slug ?? null,
+          logoUrl:
+            vendor.logo && typeof vendor.logo !== "string" ? vendor.logo.url ?? null : null,
+          descriptionText: extractVendorDescriptionText(vendor.description),
+        })),
         total: result.totalDocs,
       };
     }),

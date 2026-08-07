@@ -1,15 +1,36 @@
+import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getPayload } from "payload";
-import config from "@payload-config";
 
 import { getUserRole, hasVendor, isAppStaff } from "@/lib/access";
+import { getCachedPayload } from "@/lib/payload-client";
 import { resolveUserVendor } from "@/lib/middleware/vendor-auth";
-import { VendorSelection } from "@/components/vendor-selection";
+import { VendorSelection, VendorSelectionSkeleton } from "@/components/vendor-selection";
+import { HydrateQueries } from "@/trpc/hydrate";
+import { getQueryClient, trpc } from "@/trpc/server";
+
+const VENDOR_LIST_INPUT = { limit: 50 } as const;
+
+async function VendorSelectionSection() {
+  const queryClient = getQueryClient();
+  const vendorList = trpc.vendor.list.queryOptions(VENDOR_LIST_INPUT);
+  const session = trpc.auth.session.queryOptions();
+
+  await Promise.all([
+    queryClient.prefetchQuery(vendorList),
+    queryClient.prefetchQuery(session),
+  ]);
+
+  return (
+    <HydrateQueries keys={[vendorList.queryKey, session.queryKey]}>
+      <VendorSelection />
+    </HydrateQueries>
+  );
+}
 
 export default async function Home() {
   const headersList = await headers();
-  const payload = await getPayload({ config });
+  const payload = await getCachedPayload();
   const session = await payload.auth({ headers: headersList });
   const user = session.user;
 
@@ -31,7 +52,9 @@ export default async function Home() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <VendorSelection />
+      <Suspense fallback={<VendorSelectionSkeleton />}>
+        <VendorSelectionSection />
+      </Suspense>
     </div>
   );
 }
