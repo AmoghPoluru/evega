@@ -1,7 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import type { Sort, Where } from 'payload';
-import type { Product, User, Vendor } from '@/payload-types';
+import type { Product, User, Vendor, VendorTemplate } from '@/payload-types';
 import { createLocalReq, getFieldsToSign, jwtSign } from 'payload';
 import { addSessionToUser } from 'payload/shared';
 import { adminProcedure, baseProcedure, createTRPCRouter, staffProcedure } from '@/trpc/init';
@@ -30,6 +30,23 @@ import {
   listPotentialVendorRegions,
   potentialVendorRegionInputSchema,
 } from '@/modules/marketing/potential-vendors-trpc';
+import {
+  getHappyBannerPlatformConfig,
+  updateHappyBannerPlatformConfig,
+} from '@/lib/happy-banner/config';
+import { buildResolvedHappyBanner } from '@/lib/happy-banner/format-banner';
+import { normalizeHappyBannerWriteData } from '@/lib/happy-banner/normalize-banner-data';
+import {
+  formatHappyBannerListItem,
+  getHappyBannerPreviewImageId,
+  getHappyBannerPreviewImageUrl,
+} from '@/lib/happy-banner/preview-image';
+import {
+  happyBannerCreateSchema,
+  happyBannerPlatformSettingsSchema,
+  happyBannerUpdateSchema,
+} from '@/lib/happy-banner/schema';
+import type { HappyBannerDocFields } from '@/lib/happy-banner/types';
 
 const productStatusSchema = z.enum(['all', 'published', 'draft', 'archived']);
 
@@ -170,6 +187,11 @@ function formatStaffVendor(vendor: Vendor) {
     updatedAt: vendor.updatedAt,
   };
 }
+
+const jsonObjectSchema = z.custom<Record<string, unknown>>(
+  (value) => value !== null && typeof value === 'object' && !Array.isArray(value),
+  { message: 'Must be a JSON object' },
+);
 
 export const adminRouter = createTRPCRouter({
   users: createTRPCRouter({
@@ -644,16 +666,15 @@ export const adminRouter = createTRPCRouter({
     }),
 
     listTemplateOptions: staffProcedure.query(async ({ ctx }) => {
-      const result = await ctx.db.find({
-        collection: 'vendor-templates',
+      const { fetchAllVendorTemplates } = await import('@/lib/templates/fetch-all-templates');
+      const docs = await fetchAllVendorTemplates(ctx.db, {
         where: { isActive: { equals: true } },
-        limit: 100,
         sort: 'name',
         depth: 0,
         overrideAccess: true,
       });
 
-      return result.docs.map((template: { id: string; name: string; slug: string; isDefault?: boolean | null }) => ({
+      return docs.map((template: { id: string; name: string; slug: string; isDefault?: boolean | null }) => ({
         id: template.id,
         name: template.name,
         slug: template.slug,
@@ -1248,6 +1269,301 @@ export const adminRouter = createTRPCRouter({
         );
 
         return { success: true, count: ids.length };
+      }),
+  }),
+
+  templates: createTRPCRouter({
+    list: staffProcedure
+      .input(
+        z
+          .object({
+            search: z.string().optional(),
+            category: z
+              .enum(['minimal', 'elegant', 'bold', 'colorful', 'classic', 'all'])
+              .optional()
+              .default('all'),
+            includeInactive: z.boolean().optional().default(true),
+          })
+          .optional(),
+      )
+      .query(async ({ ctx, input }) => {
+        const where: Where = {};
+
+        if (input?.category && input.category !== 'all') {
+          where.category = { equals: input.category };
+        }
+
+        if (!input?.includeInactive) {
+          where.isActive = { equals: true };
+        }
+
+        if (input?.search?.trim()) {
+          where.or = [
+            { name: { contains: input.search.trim() } },
+            { slug: { contains: input.search.trim() } },
+          ];
+        }
+
+        const { fetchAllVendorTemplates } = await import('@/lib/templates/fetch-all-templates');
+        const allTemplates = await fetchAllVendorTemplates(ctx.db, {
+          where,
+          sort: 'name',
+          depth: 1,
+          overrideAccess: true,
+        });
+
+        return allTemplates.map((template: VendorTemplate) => {
+          const thumb = template.thumbnailImage;
+          const preview = template.previewImage;
+          const thumbnailUrl =
+            typeof thumb === 'object' && thumb?.url
+              ? thumb.url
+              : typeof preview === 'object' && preview?.url
+                ? preview.url
+                : null;
+
+          return {
+            id: template.id,
+            name: template.name,
+            slug: template.slug,
+            description: template.description ?? null,
+            category: template.category,
+            isDefault: template.isDefault ?? false,
+            isActive: template.isActive ?? true,
+            version: template.version ?? '1.0.0',
+            author: template.author ?? null,
+            thumbnailUrl,
+            updatedAt: template.updatedAt,
+          };
+        });
+      }),
+
+    getOne: staffProcedure
+      .input(z.object({ id: z.string() }))
+      .query(async ({ ctx, input }) => {
+        const template = await ctx.db
+          .findByID({
+            collection: 'vendor-templates',
+            id: input.id,
+            depth: 1,
+            overrideAccess: true,
+          })
+          .catch(() => null);
+
+        if (!template) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Template not found' });
+        }
+
+        const doc = template as VendorTemplate;
+
+        return {
+          id: doc.id,
+          name: doc.name,
+          slug: doc.slug,
+          description: doc.description ?? '',
+          category: doc.category,
+          isDefault: doc.isDefault ?? false,
+          isActive: doc.isActive ?? true,
+          version: doc.version ?? '1.0.0',
+          author: doc.author ?? '',
+          templateConfig: doc.templateConfig ?? {},
+          cssVariables: doc.cssVariables ?? {},
+          componentMapping: doc.componentMapping ?? {},
+          updatedAt: doc.updatedAt,
+        };
+      }),
+
+    update: staffProcedure
+      .input(
+        z.object({
+          id: z.string(),
+          name: z.string().min(1).optional(),
+          description: z.string().nullable().optional(),
+          category: z.enum(['minimal', 'elegant', 'bold', 'colorful', 'classic']).optional(),
+          isDefault: z.boolean().optional(),
+          isActive: z.boolean().optional(),
+          version: z.string().min(1).optional(),
+          author: z.string().optional(),
+          templateConfig: jsonObjectSchema.optional(),
+          cssVariables: jsonObjectSchema.optional(),
+          componentMapping: jsonObjectSchema.optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { id, ...data } = input;
+
+        try {
+          const updated = await ctx.db.update({
+            collection: 'vendor-templates',
+            id,
+            data,
+            overrideAccess: true,
+          });
+          return updated as VendorTemplate;
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to update template';
+          throw new TRPCError({ code: 'BAD_REQUEST', message });
+        }
+      }),
+
+    previewVendors: staffProcedure.query(async ({ ctx }) => {
+      const result = await ctx.db.find({
+        collection: 'vendors',
+        where: {
+          status: { equals: 'approved' },
+          isActive: { equals: true },
+        },
+        limit: 200,
+        sort: 'name',
+        depth: 0,
+        overrideAccess: true,
+      });
+
+      return result.docs.map((vendor: Vendor) => ({
+        id: vendor.id,
+        name: vendor.name,
+        slug: vendor.slug ?? '',
+      }));
+    }),
+  }),
+
+  happyBanners: createTRPCRouter({
+    list: staffProcedure
+      .input(
+        z
+          .object({
+            search: z.string().optional(),
+            includeInactive: z.boolean().optional().default(true),
+          })
+          .optional(),
+      )
+      .query(async ({ ctx, input }) => {
+        const where: Where = {};
+
+        if (!input?.includeInactive) {
+          where.isActive = { equals: true };
+        }
+
+        if (input?.search?.trim()) {
+          where.or = [
+            { name: { contains: input.search.trim() } },
+            { slug: { contains: input.search.trim() } },
+          ];
+        }
+
+        const result = await ctx.db.find({
+          collection: 'happy-banners',
+          where,
+          sort: 'name',
+          limit: 100,
+          depth: 1,
+          overrideAccess: true,
+        });
+
+        return result.docs.map((banner: Record<string, unknown> & { id: string; updatedAt: string }) =>
+          formatHappyBannerListItem(banner as HappyBannerDocFields & { id: string; updatedAt: string }),
+        );
+      }),
+
+    getOne: staffProcedure
+      .input(z.object({ id: z.string() }))
+      .query(async ({ ctx, input }) => {
+        const banner = await ctx.db
+          .findByID({
+            collection: 'happy-banners',
+            id: input.id,
+            depth: 1,
+            overrideAccess: true,
+          })
+          .catch(() => null);
+
+        if (!banner) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Happy Banner not found' });
+        }
+
+        const doc = banner as HappyBannerDocFields & { id: string };
+        return {
+          ...doc,
+          previewImageId: getHappyBannerPreviewImageId(doc.previewImage),
+          previewImageUrl: getHappyBannerPreviewImageUrl(doc.previewImage),
+        };
+      }),
+
+    create: staffProcedure.input(happyBannerCreateSchema).mutation(async ({ ctx, input }) => {
+      try {
+        const created = await ctx.db.create({
+          collection: 'happy-banners',
+          data: normalizeHappyBannerWriteData(input),
+          overrideAccess: true,
+        });
+        return created as HappyBannerDocFields & { id: string };
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Failed to create Happy Banner';
+        throw new TRPCError({ code: 'BAD_REQUEST', message });
+      }
+    }),
+
+    update: staffProcedure.input(happyBannerUpdateSchema).mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+
+      try {
+        const updated = await ctx.db.update({
+          collection: 'happy-banners',
+          id,
+          data: normalizeHappyBannerWriteData(data),
+          overrideAccess: true,
+        });
+        return updated as HappyBannerDocFields & { id: string };
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Failed to update Happy Banner';
+        throw new TRPCError({ code: 'BAD_REQUEST', message });
+      }
+    }),
+
+    delete: staffProcedure
+      .input(z.object({ id: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          await ctx.db.delete({
+            collection: 'happy-banners',
+            id: input.id,
+            overrideAccess: true,
+          });
+          return { success: true };
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : 'Failed to delete Happy Banner';
+          throw new TRPCError({ code: 'BAD_REQUEST', message });
+        }
+      }),
+
+    getPlatformSettings: staffProcedure.query(async ({ ctx }) => {
+      return getHappyBannerPlatformConfig(ctx.db);
+    }),
+
+    updatePlatformSettings: staffProcedure
+      .input(happyBannerPlatformSettingsSchema)
+      .mutation(async ({ ctx, input }) => {
+        return updateHappyBannerPlatformConfig(ctx.db, input);
+      }),
+
+    preview: staffProcedure
+      .input(z.object({ id: z.string() }))
+      .query(async ({ ctx, input }) => {
+        const banner = await ctx.db
+          .findByID({
+            collection: 'happy-banners',
+            id: input.id,
+            depth: 0,
+            overrideAccess: true,
+          })
+          .catch(() => null);
+
+        if (!banner) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Happy Banner not found' });
+        }
+
+        return buildResolvedHappyBanner(banner as HappyBannerDocFields & { id: string });
       }),
   }),
 });

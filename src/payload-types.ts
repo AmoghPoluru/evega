@@ -83,6 +83,7 @@ export interface Config {
     'vendor-task-messages': VendorTaskMessage;
     'vendor-hero-banners': VendorHeroBanner;
     'vendor-templates': VendorTemplate;
+    'happy-banners': HappyBanner;
     'potential-vendor-regions': PotentialVendorRegion;
     favorites: Favorite;
     'product-likes': ProductLike;
@@ -115,6 +116,7 @@ export interface Config {
     'vendor-task-messages': VendorTaskMessagesSelect<false> | VendorTaskMessagesSelect<true>;
     'vendor-hero-banners': VendorHeroBannersSelect<false> | VendorHeroBannersSelect<true>;
     'vendor-templates': VendorTemplatesSelect<false> | VendorTemplatesSelect<true>;
+    'happy-banners': HappyBannersSelect<false> | HappyBannersSelect<true>;
     'potential-vendor-regions': PotentialVendorRegionsSelect<false> | PotentialVendorRegionsSelect<true>;
     favorites: FavoritesSelect<false> | FavoritesSelect<true>;
     'product-likes': ProductLikesSelect<false> | ProductLikesSelect<true>;
@@ -129,8 +131,12 @@ export interface Config {
     defaultIDType: string;
   };
   fallbackLocale: null;
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    'hero-banner-config': HeroBannerConfig;
+  };
+  globalsSelect: {
+    'hero-banner-config': HeroBannerConfigSelect<false> | HeroBannerConfigSelect<true>;
+  };
   locale: null;
   user: User & {
     collection: 'users';
@@ -328,6 +334,23 @@ export interface Vendor {
    * Vendor cover/banner image (fallback if hero banner not configured)
    */
   coverImage?: (string | null) | Media;
+  /**
+   * Vendor-selected Happy Banner design and editable words.
+   */
+  happyBanner?: {
+    /**
+     * Banner design shown on the vendor storefront
+     */
+    selectedBanner?: (string | null) | HappyBanner;
+    /**
+     * Primary headline word (e.g. MEGA, SUMMER)
+     */
+    word1?: string | null;
+    /**
+     * Discount number shown before % (e.g. 50, 35)
+     */
+    word2?: string | null;
+  };
   /**
    * Configure a custom hero banner for your vendor page. If not configured, the cover image will be used.
    */
@@ -617,6 +640,63 @@ export interface Media {
   height?: number | null;
   focalX?: number | null;
   focalY?: number | null;
+}
+/**
+ * Promotional banner designs vendors can choose from
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "happy-banners".
+ */
+export interface HappyBanner {
+  id: string;
+  /**
+   * Banner name shown to vendors (e.g. Mega Sale Blue)
+   */
+  name: string;
+  /**
+   * URL-safe identifier
+   */
+  slug: string;
+  /**
+   * Short description for the vendor picker
+   */
+  description?: string | null;
+  /**
+   * Optional thumbnail shown in the vendor banner picker. Recommended ~1200×400px.
+   */
+  previewImage?: (string | null) | Media;
+  preset: 'mega-sale' | 'summer-sale' | 'hue-editorial' | 'tropical-hot-sale';
+  /**
+   * Same two-word slot pattern for every banner design. Each vendor sets their own values after selecting this design.
+   */
+  vendorWords?: {
+    word1?: {
+      label?: string | null;
+      hint?: string | null;
+      defaultValue?: string | null;
+    };
+    word2?: {
+      label?: string | null;
+      hint?: string | null;
+      defaultValue?: string | null;
+    };
+  };
+  defaultWord1?: string | null;
+  defaultWord2?: string | null;
+  eyebrowText?: string | null;
+  secondaryWord?: string | null;
+  ctaLabel?: string | null;
+  discountPrefix?: string | null;
+  discountSuffix?: string | null;
+  theme?: {
+    backgroundColor?: string | null;
+    accentYellow?: string | null;
+    accentPink?: string | null;
+  };
+  isDefault?: boolean | null;
+  isActive?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * You must verify your account before creating products
@@ -1741,6 +1821,10 @@ export interface PayloadLockedDocument {
         value: string | VendorTemplate;
       } | null)
     | ({
+        relationTo: 'happy-banners';
+        value: string | HappyBanner;
+      } | null)
+    | ({
         relationTo: 'potential-vendor-regions';
         value: string | PotentialVendorRegion;
       } | null)
@@ -2042,6 +2126,13 @@ export interface VendorsSelect<T extends boolean = true> {
   description?: T;
   logo?: T;
   coverImage?: T;
+  happyBanner?:
+    | T
+    | {
+        selectedBanner?: T;
+        word1?: T;
+        word2?: T;
+      };
   heroBanner?:
     | T
     | {
@@ -2295,6 +2386,53 @@ export interface VendorTemplatesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "happy-banners_select".
+ */
+export interface HappyBannersSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
+  previewImage?: T;
+  preset?: T;
+  vendorWords?:
+    | T
+    | {
+        word1?:
+          | T
+          | {
+              label?: T;
+              hint?: T;
+              defaultValue?: T;
+            };
+        word2?:
+          | T
+          | {
+              label?: T;
+              hint?: T;
+              defaultValue?: T;
+            };
+      };
+  defaultWord1?: T;
+  defaultWord2?: T;
+  eyebrowText?: T;
+  secondaryWord?: T;
+  ctaLabel?: T;
+  discountPrefix?: T;
+  discountSuffix?: T;
+  theme?:
+    | T
+    | {
+        backgroundColor?: T;
+        accentYellow?: T;
+        accentPink?: T;
+      };
+  isDefault?: T;
+  isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "potential-vendor-regions_select".
  */
 export interface PotentialVendorRegionsSelect<T extends boolean = true> {
@@ -2396,6 +2534,28 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * Master switch for Happy Banners on vendor storefronts.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "hero-banner-config".
+ */
+export interface HeroBannerConfig {
+  id: string;
+  enabled?: boolean | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "hero-banner-config_select".
+ */
+export interface HeroBannerConfigSelect<T extends boolean = true> {
+  enabled?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

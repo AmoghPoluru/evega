@@ -15,7 +15,6 @@ import {
   CreditCard,
   Bell,
   MessageCircle,
-  Image,
   Palette,
   Folder,
   ChevronUp,
@@ -54,10 +53,19 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Your Store Appearance",
+    items: [
+      {
+        href: "/vendor/store-appearance",
+        label: "Choose your store appearance",
+        description: "Template, Happy Banner, and storefront preview",
+        icon: Palette,
+      },
+    ],
+  },
+  {
     label: "Support",
     items: [
-      { href: "/vendor/templates", label: "Templates", icon: Palette },
-      { href: "/vendor/hero-banner", label: "Hero Banner", icon: Image },
       {
         href: "/vendor/tasks",
         label: "Contact & chat with BDO",

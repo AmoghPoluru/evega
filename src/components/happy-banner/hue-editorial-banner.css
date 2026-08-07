@@ -1,0 +1,132 @@
+.hue-banner {
+  width: 100%;
+  overflow: hidden;
+  background: var(--hb-bg, #f5d030);
+  container-type: inline-size;
+  container-name: hue-banner;
+}
+
+.hue-banner__inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  min-height: clamp(260px, 34vw, 380px);
+  height: clamp(260px, 34vw, 380px);
+}
+
+.hue-banner__copy {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1.25rem, 4vw, 3rem);
+}
+
+.hue-banner__headline {
+  margin: 0;
+  color: var(--hb-text, #8b1538);
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+}
+
+.hue-banner .hue-banner__headline-line {
+  display: block;
+  font-size: clamp(2.5rem, calc(11cqi * var(--hb-word1-scale, 1)), 5.5rem) !important;
+  font-weight: 400 !important;
+  font-style: italic !important;
+  font-family: Georgia, "Times New Roman", Times, serif !important;
+  color: var(--hb-text, #8b1538) !important;
+  line-height: 0.92 !important;
+  letter-spacing: -0.02em !important;
+  text-transform: none !important;
+}
+
+.hue-banner__footer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.hue-banner .hue-banner__cta {
+  font-size: clamp(0.72rem, 2cqi, 0.95rem) !important;
+  font-weight: 700 !important;
+  font-family: "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--hb-text, #8b1538) !important;
+  text-decoration: none !important;
+  line-height: 1.2 !important;
+}
+
+.hue-banner .hue-banner__cta:hover {
+  opacity: 0.85;
+}
+
+.hue-banner .hue-banner__website {
+  font-size: clamp(1.35rem, calc(5.5cqi * var(--hb-word2-scale, 1)), 2.75rem) !important;
+  font-weight: 700 !important;
+  font-family: "Helvetica Neue", Arial, sans-serif !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  color: var(--hb-text, #8b1538) !important;
+  line-height: 1 !important;
+  white-space: nowrap;
+}
+
+.hue-banner__visual {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(145deg, #f06a8a 0%, #e84b73 38%, #f4a261 100%);
+}
+
+.hue-banner__visual::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(245, 208, 48, 0.15) 0%, transparent 35%),
+    radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.25) 0%, transparent 45%);
+}
+
+.hue-banner__visual-shape {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.hue-banner__visual-shape--1 {
+  width: 55%;
+  height: 70%;
+  right: -10%;
+  top: 10%;
+}
+
+.hue-banner__visual-shape--2 {
+  width: 35%;
+  height: 45%;
+  left: 10%;
+  bottom: -8%;
+  background: rgba(139, 21, 56, 0.15);
+}
+
+@media (max-width: 768px) {
+  .hue-banner__inner {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 320px;
+  }
+
+  .hue-banner__visual {
+    min-height: 140px;
+    order: -1;
+  }
+
+  .hue-banner__copy {
+    min-height: 220px;
+  }
+}

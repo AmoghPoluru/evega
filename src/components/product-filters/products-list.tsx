@@ -20,9 +20,15 @@ type Product = Omit<PayloadProduct, 'variants'> & {
 interface ProductsListProps {
   products: Product[];
   title?: string;
+  /** When false, renders the product grid only (no filter sidebar). */
+  showFilters?: boolean;
 }
 
-const ProductsListContent = ({ products, title = "Products" }: ProductsListProps) => {
+const ProductsListContent = ({
+  products,
+  title = "Products",
+  showFilters = true,
+}: ProductsListProps) => {
   const [filters, setFilters] = useProductFilters();
 
   // Extract unique tags from products
@@ -175,6 +181,77 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
     return filtered;
   }, [products, filters]);
 
+  const displayProducts = showFilters ? filteredProducts : products;
+
+  const productGrid = (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {displayProducts.map((product) => {
+        const imageUrl =
+          product.image &&
+          typeof product.image === "object" &&
+          product.image.url
+            ? product.image.url
+            : null;
+
+        let normalizedVendor:
+          | string
+          | { id: string; name?: string; slug?: string; logo?: { url?: string } | string | null }
+          | null = null;
+        if (typeof product.vendor === "string") {
+          normalizedVendor = product.vendor;
+        } else if (product.vendor && typeof product.vendor === "object") {
+          const vendor = product.vendor;
+          let logo: { url?: string } | string | null = null;
+          if (vendor.logo) {
+            if (typeof vendor.logo === "string") {
+              logo = vendor.logo;
+            } else if (typeof vendor.logo === "object" && vendor.logo !== null && "url" in vendor.logo) {
+              logo = vendor.logo.url ? { url: vendor.logo.url } : null;
+            }
+          }
+          normalizedVendor = {
+            id: vendor.id,
+            name: vendor.name,
+            slug: vendor.slug,
+            logo,
+          };
+        }
+
+        return (
+          <ProductCard
+            key={product.id}
+            id={product.id}
+            name={product.name}
+            imageUrl={imageUrl}
+            price={product.price}
+            vendor={normalizedVendor}
+          />
+        );
+      })}
+    </div>
+  );
+
+  if (!showFilters) {
+    return (
+      <div className="flex-1">
+        {title ? (
+          <div className="mb-6">
+            <h2 className="text-2xl font-semibold">
+              {title} ({displayProducts.length})
+            </h2>
+          </div>
+        ) : null}
+        {displayProducts.length > 0 ? (
+          productGrid
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <p>No products available.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex gap-8">
       {/* Filters Sidebar */}
@@ -208,55 +285,7 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
         </div>
 
         {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((product) => {
-              // Extract image URL from product.image
-              const imageUrl = 
-                product.image && 
-                typeof product.image === 'object' && 
-                product.image.url 
-                  ? product.image.url 
-                  : null;
-
-              // Normalize vendor data to match ProductCard's expected type
-              let normalizedVendor: string | { id: string; name?: string; slug?: string; logo?: { url?: string } | string | null } | null = null;
-              if (typeof product.vendor === 'string') {
-                normalizedVendor = product.vendor;
-              } else if (product.vendor && typeof product.vendor === 'object') {
-                const vendor = product.vendor;
-                // Normalize logo: Media object with url (which can be null) -> { url?: string }
-                let logo: { url?: string } | string | null = null;
-                if (vendor.logo) {
-                  if (typeof vendor.logo === 'string') {
-                    logo = vendor.logo;
-                  } else if (typeof vendor.logo === 'object' && vendor.logo !== null && 'url' in vendor.logo) {
-                    // Media object: convert url from string | null | undefined to string | undefined
-                    logo = vendor.logo.url ? { url: vendor.logo.url } : null;
-                  }
-                }
-                normalizedVendor = {
-                  id: vendor.id,
-                  name: vendor.name,
-                  slug: vendor.slug,
-                  logo,
-                };
-              }
-
-              return (
-                <ProductCard
-                  key={product.id}
-                  id={product.id}
-                  name={product.name}
-                  imageUrl={imageUrl}
-                  price={product.price}
-                  vendor={normalizedVendor}
-                  // Optional fields - can be added later when you have review data
-                  // reviewRating={product.reviewRating}
-                  // reviewCount={product.reviewCount}
-                />
-              );
-            })}
-          </div>
+          productGrid
         ) : (
           <div className="text-center py-8 text-gray-500">
             <p>No products found matching your filters.</p>
@@ -267,11 +296,15 @@ const ProductsListContent = ({ products, title = "Products" }: ProductsListProps
   );
 };
 
-export const ProductsList = ({ products, title = "Products" }: ProductsListProps) => {
+export const ProductsList = ({
+  products,
+  title = "Products",
+  showFilters = true,
+}: ProductsListProps) => {
   return (
     <div className="bg-gray-50 p-6 rounded-lg">
       <ProductFiltersProvider>
-        <ProductsListContent products={products} title={title} />
+        <ProductsListContent products={products} title={title} showFilters={showFilters} />
       </ProductFiltersProvider>
     </div>
   );

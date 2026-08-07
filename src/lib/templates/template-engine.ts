@@ -1,18 +1,14 @@
 import type { Payload } from "payload";
-import type { ResolvedTemplate, TemplateConfig, TemplateCustomization } from "@/types/template-customization";
+import type { ResolvedTemplate, TemplateCustomization } from "@/types/template-customization";
 import { generateCSSVariables, generateSiteRootCSSVariables } from "./css-variables";
 import {
   BUILTIN_TEMPLATE_DOC,
   buildFallbackResolvedTemplate,
-  mergeTemplateWithCustomization,
 } from "./default-template";
+import { buildResolvedTemplateFromDoc, type TemplateDocLike } from "./resolve-template-doc";
 
-type VendorTemplateDoc = {
-  id: string;
-  slug: string;
+type VendorTemplateDoc = TemplateDocLike & {
   isActive?: boolean | null;
-  templateConfig?: unknown;
-  componentMapping?: unknown;
 };
 
 /**
@@ -83,38 +79,23 @@ async function loadVendorTemplate(
   return getDefaultTemplate(payload);
 }
 
-function buildResolvedTemplateFromDoc(
-  template: VendorTemplateDoc,
-  customization: TemplateCustomization
-): ResolvedTemplate {
-  const mergedConfig = mergeTemplateWithCustomization(
-    template.templateConfig as Partial<TemplateConfig>,
-    customization
-  );
-  const cssVariables = generateCSSVariables(mergedConfig);
+/** Preview a specific template for a vendor (ignores current selection; no customizations). */
+export async function resolveVendorTemplatePreview(
+  _vendorId: string,
+  templateId: string,
+  payload: Payload,
+): Promise<ResolvedTemplate> {
+  const template = (await payload.findByID({
+    collection: "vendor-templates",
+    id: templateId,
+    depth: 0,
+  })) as VendorTemplateDoc;
 
-  const componentMapping =
-    (template.componentMapping as ResolvedTemplate["componentMapping"]) ?? {};
-  const layout =
-    typeof componentMapping.layout === "string" && componentMapping.layout
-      ? componentMapping.layout
-      : "default";
+  if (template.isActive === false) {
+    return buildFallbackResolvedTemplate();
+  }
 
-  return {
-    templateId: template.id,
-    templateSlug: template.slug,
-    templateConfig: mergedConfig,
-    customization,
-    cssVariables,
-    layout,
-    componentMapping: {
-      layout,
-      heroBanner: componentMapping.heroBanner ?? "full-width",
-      productCard: componentMapping.productCard ?? "detailed",
-      navigation: componentMapping.navigation ?? "top",
-      footer: componentMapping.footer ?? "default",
-    },
-  };
+  return buildResolvedTemplateFromDoc(template, {});
 }
 
 /**
