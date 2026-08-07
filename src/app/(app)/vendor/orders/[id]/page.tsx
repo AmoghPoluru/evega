@@ -21,6 +21,7 @@ import {
 import { ArrowLeft, Copy, Mail, MapPin, Printer, Package, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { UpdateStatusModal } from "./components/UpdateStatusModal";
+import { vendorBackLabels, vendorPageTitles } from "@/lib/vendor-portal-labels";
 
 interface Props {
   params: Promise<{
@@ -63,7 +64,7 @@ export default function OrderDetailPage({ params }: Props) {
           <Button variant="ghost" asChild>
             <Link href="/vendor/orders">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Orders
+              {vendorBackLabels.orders}
             </Link>
           </Button>
         </div>
@@ -87,7 +88,7 @@ export default function OrderDetailPage({ params }: Props) {
           <Button variant="ghost" asChild>
             <Link href="/vendor/orders">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Orders
+              {vendorBackLabels.orders}
             </Link>
           </Button>
         </div>
@@ -96,7 +97,7 @@ export default function OrderDetailPage({ params }: Props) {
             <div className="text-center py-12">
               <p className="text-gray-500 mb-4">Order not found</p>
               <Button asChild>
-                <Link href="/vendor/orders">Back to Orders</Link>
+                <Link href="/vendor/orders">{vendorBackLabels.orders}</Link>
               </Button>
             </div>
           </CardContent>
@@ -167,7 +168,7 @@ export default function OrderDetailPage({ params }: Props) {
         <Button variant="ghost" asChild>
           <Link href="/vendor/orders">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Orders
+            {vendorBackLabels.orders}
           </Link>
         </Button>
       </div>
@@ -176,7 +177,7 @@ export default function OrderDetailPage({ params }: Props) {
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Order {orderNumber}</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">{vendorPageTitles.orderDetail} {orderNumber}</h1>
             <p className="text-sm text-gray-600 mt-1">Order Details</p>
           </div>
           {/* Task 4.12.9: Action buttons section with status update button */}

@@ -1,8 +1,9 @@
 "use client"
 
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Poppins } from "next/font/google"
-import Link from "next/link"
+import { vendorNavLabels } from "@/lib/vendor-portal-labels";
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react";
 import NavbarSidebar from "./navbar-sidebar";
@@ -47,7 +48,7 @@ export function Navbar() {
       hasVendor(sessionUser) ||
       getUserRole(sessionUser) === "vendor")
 
-  if (pathname?.startsWith("/vendor/") && !pathname?.startsWith("/vendors/")) {
+  if (pathname === "/vendor" || (pathname?.startsWith("/vendor/") && !pathname?.startsWith("/vendors/"))) {
     return null
   }
 
@@ -74,7 +75,7 @@ export function Navbar() {
               className="border-gray-600 text-white bg-transparent hover:bg-gray-800 hover:text-white"
             >
               <Link href="/vendor/dashboard">
-                Vendor Dashboard
+                {vendorNavLabels.dashboard}
               </Link>
             </Button>
           )}
@@ -126,7 +127,7 @@ export function Navbar() {
               className="border-gray-600 text-white bg-transparent hover:bg-gray-800 hover:text-white px-3 py-2 text-xs"
             >
               <Link href="/vendor/dashboard">
-                Vendor
+                My Dashboard
               </Link>
             </Button>
           )}

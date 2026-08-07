@@ -10,6 +10,7 @@ import { BarChart3, Loader2 } from "lucide-react";
 import { ReportButtons } from "./components/ReportButtons";
 import { ReportSummary } from "./components/ReportSummary";
 import { ReportData } from "./components/ReportData";
+import { vendorPageTitles } from "@/lib/vendor-portal-labels";
 
 export default function VendorAnalyticsPage() {
   // Task 6.2: Store selected report type in component state
@@ -66,7 +67,7 @@ export default function VendorAnalyticsPage() {
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
             <BarChart3 className="h-6 w-6 text-gray-600" />
-            <h1 className="text-2xl font-semibold text-gray-900">Analytics & Reports</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">{vendorPageTitles.analytics}</h1>
           </div>
           <p className="text-sm text-gray-600">
             View your business insights and performance metrics
@@ -94,7 +95,7 @@ export default function VendorAnalyticsPage() {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-2">
           <BarChart3 className="h-6 w-6 text-gray-600" />
-          <h1 className="text-2xl font-semibold text-gray-900">Analytics & Reports</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{vendorPageTitles.analytics}</h1>
         </div>
         <p className="text-sm text-gray-600">
           View your business insights and performance metrics

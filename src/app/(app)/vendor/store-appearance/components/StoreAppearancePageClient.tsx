@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { VendorTemplatesPicker } from "@/app/(app)/vendor/templates/components/VendorTemplatesPicker";
 import { VendorHappyBannerPageClient } from "@/app/(app)/vendor/hero-banner/components/VendorHappyBannerPageClient";
 import { cn } from "@/lib/utils";
+import { vendorPageTitles } from "@/lib/vendor-portal-labels";
 import { StoreAppearancePreview } from "./StoreAppearancePreview";
 
 const TAB_VALUES = ["template", "banner", "preview"] as const;
@@ -55,7 +56,7 @@ export function StoreAppearancePageClient() {
     return (
       <div className="p-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Your Store Appearance</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{vendorPageTitles.storeAppearance}</h1>
           <p className="mt-1 text-sm text-gray-600">
             Configure your storefront template, promotional banner, and preview your live store.
           </p>
@@ -86,7 +87,7 @@ export function StoreAppearancePageClient() {
     <div className={activeTab === "preview" ? "px-6 pb-4 pt-4" : "p-6"}>
       {activeTab !== "preview" ? (
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Your Store Appearance</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{vendorPageTitles.storeAppearance}</h1>
           <p className="mt-1 text-sm text-gray-600">
             Configure your storefront template, promotional banner, and preview your live store.
           </p>

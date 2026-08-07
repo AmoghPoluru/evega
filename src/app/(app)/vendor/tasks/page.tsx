@@ -5,6 +5,7 @@ import { requireVendor } from "@/lib/middleware/vendor-auth";
 import { caller } from "@/trpc/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { vendorPageTitles } from "@/lib/vendor-portal-labels";
 
 export default async function VendorTasksPage() {
   // Enforce vendor auth + approval; redirects to sign-in/vendor flows if not allowed
@@ -22,7 +23,7 @@ export default async function VendorTasksPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Support & Tasks</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{vendorPageTitles.support}</h1>
           <p className="text-sm text-gray-600 mt-1">
             Ask questions or request help from the Evega team. We’ll reply here.
           </p>

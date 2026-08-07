@@ -8,6 +8,7 @@
 import sgMail from '@sendgrid/mail';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { vendorNavLabels } from '@/lib/vendor-portal-labels';
 
 let emailService: 'sendgrid' | 'ses' | null = null;
 let sesTransporter: Transporter | null = null;
@@ -240,14 +241,14 @@ export async function sendVendorApprovalEmail(
             <li>Add products to your store</li>
             <li>Manage orders</li>
             <li>View analytics</li>
-            <li>Access your vendor dashboard</li>
+            <li>Access ${vendorNavLabels.dashboard.toLowerCase()}</li>
           </ul>
           
           <div style="text-align: center; margin: 30px 0;">
             <a href="${process.env.NEXT_PUBLIC_APP_URL}/vendor/dashboard" 
                style="background: #10b981; color: white; padding: 12px 24px; 
                       text-decoration: none; border-radius: 5px; display: inline-block;">
-              Go to Vendor Dashboard
+              Go to ${vendorNavLabels.dashboard}
             </a>
           </div>
           

@@ -5,6 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
+  vendorNavGroupLabels,
+  vendorNavLabels,
+  vendorPortalBrandLabel,
+  vendorStorefrontHref,
+} from "@/lib/vendor-portal-labels";
+import {
   LayoutDashboard,
   Package,
   ShoppingCart,
@@ -36,39 +42,39 @@ type NavGroup = {
 
 const standaloneItem: NavItem = {
   href: "/vendor/dashboard",
-  label: "Dashboard",
+  label: vendorNavLabels.dashboard,
   icon: LayoutDashboard,
 };
 
 const navGroups: NavGroup[] = [
   {
-    label: "Sales",
-    items: [{ href: "/vendor/customers", label: "Customers", icon: Users }],
+    label: vendorNavGroupLabels.sales,
+    items: [{ href: "/vendor/customers", label: vendorNavLabels.customers, icon: Users }],
   },
   {
-    label: "Inventory",
+    label: vendorNavGroupLabels.inventory,
     items: [
-      { href: "/vendor/products", label: "Products", icon: Package },
-      { href: "/vendor/orders", label: "Orders", icon: ShoppingCart },
+      { href: "/vendor/products", label: vendorNavLabels.products, icon: Package },
+      { href: "/vendor/orders", label: vendorNavLabels.orders, icon: ShoppingCart },
     ],
   },
   {
-    label: "Your Store Appearance",
+    label: vendorNavGroupLabels.storeAppearance,
     items: [
       {
         href: "/vendor/store-appearance",
-        label: "Choose your store appearance",
+        label: vendorNavLabels.storeAppearance,
         description: "Template, Happy Banner, and storefront preview",
         icon: Palette,
       },
     ],
   },
   {
-    label: "Support",
+    label: vendorNavGroupLabels.support,
     items: [
       {
         href: "/vendor/tasks",
-        label: "Contact & chat with BDO",
+        label: vendorNavLabels.support,
         description:
           "Create tasks and offline messages for your Business Development Officer",
         icon: MessageCircle,
@@ -76,21 +82,26 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "AI",
-    items: [{ href: "/vendor/analytics", label: "Analytics", icon: BarChart3 }],
+    label: vendorNavGroupLabels.ai,
+    items: [{ href: "/vendor/analytics", label: vendorNavLabels.analytics, icon: BarChart3 }],
   },
   {
-    label: "Account",
+    label: vendorNavGroupLabels.account,
     items: [
-      { href: "/vendor/payouts", label: "Payouts", icon: CreditCard },
-      { href: "/vendor/notifications", label: "Notifications", icon: Bell },
-      { href: "/vendor/settings", label: "Settings", icon: Settings },
+      { href: "/vendor/payouts", label: vendorNavLabels.payouts, icon: CreditCard },
+      { href: "/vendor/notifications", label: vendorNavLabels.notifications, icon: Bell },
+      { href: "/vendor/settings", label: vendorNavLabels.settings, icon: Settings },
     ],
   },
 ];
 
-export function VendorSidebar() {
+type VendorSidebarProps = {
+  vendorSlug?: string | null;
+};
+
+export function VendorSidebar({ vendorSlug }: VendorSidebarProps) {
   const pathname = usePathname();
+  const storefrontHref = vendorStorefrontHref(vendorSlug);
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -128,20 +139,17 @@ export function VendorSidebar() {
 
   return (
     <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col h-screen">
-      {/* Logo/Brand Section */}
       <div className="p-4 border-b border-sidebar-border">
-        <Link href="/vendor/dashboard" className="flex items-center gap-2">
+        <Link href={storefrontHref} className="flex items-center gap-2">
           <Store className="h-6 w-6 text-sidebar-foreground" />
-          <span className="font-semibold text-sidebar-foreground">Vendor Portal</span>
+          <span className="font-semibold text-sidebar-foreground">{vendorPortalBrandLabel}</span>
         </Link>
       </div>
 
-      {/* Prominent Go Shopping Button */}
       <div className="p-4 border-b border-sidebar-border">
         <GoShoppingButton className="w-full" />
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-2">
         <div className="space-y-1">{renderItem(standaloneItem)}</div>
 

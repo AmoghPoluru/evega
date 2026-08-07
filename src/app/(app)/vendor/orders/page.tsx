@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Search, X, Download, Plus } from "lucide-react";
 import { parseAsString, useQueryStates } from "nuqs";
 import { CreateOrderDialog } from "./components/CreateOrderDialog";
+import { vendorPageTitles } from "@/lib/vendor-portal-labels";
 
 export default function VendorOrdersPage() {
   const router = useRouter();
@@ -74,7 +75,7 @@ export default function VendorOrdersPage() {
     return (
       <div className="p-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Orders</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{vendorPageTitles.orders}</h1>
           <p className="text-sm text-gray-600 mt-1">Manage your orders</p>
         </div>
         <Card>
@@ -97,7 +98,7 @@ export default function VendorOrdersPage() {
       {/* Task 4.1.2: Header section with title and description */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Orders</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{vendorPageTitles.orders}</h1>
           <p className="text-sm text-gray-600 mt-1">Manage your orders</p>
         </div>
         <Button onClick={() => setCreateOrderOpen(true)}>

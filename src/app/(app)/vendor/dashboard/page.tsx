@@ -5,6 +5,7 @@ import { GoShoppingButton } from "@/components/go-shopping-button";
 import { StatsCards } from "./components/StatsCards";
 import { VendorLogoCard } from "./components/VendorLogoCard";
 import { DigitalMarketingForm } from "./components/DigitalMarketingForm";
+import { vendorPageTitles } from "@/lib/vendor-portal-labels";
 
 export default async function VendorDashboardPage() {
   const vendorStatus = await getVendorStatus();
@@ -16,7 +17,7 @@ export default async function VendorDashboardPage() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+        <h1 className="text-2xl font-semibold text-foreground">{vendorPageTitles.dashboard}</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Welcome back, {vendorStatus.vendor?.name || "Vendor"}!
         </p>
