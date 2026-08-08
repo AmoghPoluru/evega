@@ -1,5 +1,5 @@
 import { VENDOR_LOGO_PRESET_DEFAULTS } from "./presets";
-import type { VendorLogoDocFields, VendorLogoPreset } from "./types";
+import { isWordmarkLogoPreset, type VendorLogoDocFields, type VendorLogoPreset } from "./types";
 
 export function getVendorLogoWordDefaults(doc: VendorLogoDocFields): {
   word1: string;
@@ -43,11 +43,21 @@ export function resolveVendorLogoWords(
   vendorWords?: { word1?: string | null; word2?: string | null } | null,
 ): { word1: string; word2: string } {
   const defaults = getVendorLogoWordDefaults(doc);
+  const preset = (doc.preset ?? "lotus-grace") as VendorLogoPreset;
   const word1 = vendorWords?.word1?.trim() || defaults.word1;
+  const word2 = vendorWords?.word2?.trim() || defaults.word2;
+
+  if (isWordmarkLogoPreset(preset)) {
+    return {
+      word1: word1 || defaults.word1,
+      word2: (word2 || defaults.word2).toUpperCase(),
+    };
+  }
+
   const letter = getMonogramLetter(word1);
   return {
     word1: letter,
-    word2: vendorWords?.word2?.trim() || letter,
+    word2: letter,
   };
 }
 

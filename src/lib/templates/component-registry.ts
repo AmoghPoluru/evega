@@ -10,6 +10,7 @@ import { ReloopLayout } from "@/components/vendor/layouts/ReloopLayout";
 import { EmporiumLayout } from "@/components/vendor/layouts/EmporiumLayout";
 import { RunwayLayout } from "@/components/vendor/layouts/RunwayLayout";
 import { CollectionLayout } from "@/components/vendor/layouts/CollectionLayout";
+import { MaisonLayout } from "@/components/vendor/layouts/MaisonLayout";
 import type { VendorLayoutProps } from "@/components/vendor/layouts/types";
 
 /**
@@ -22,6 +23,7 @@ const layoutRegistry: Record<string, ComponentType<VendorLayoutProps>> = {
   emporium: EmporiumLayout,
   runway: RunwayLayout,
   collection: CollectionLayout,
+  maison: MaisonLayout,
 };
 
 /**

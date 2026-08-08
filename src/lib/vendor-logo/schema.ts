@@ -1,13 +1,9 @@
 import { z } from "zod";
-import { getMonogramLetter } from "./vendor-words";
 
+/** Client form values — server applies monogram vs wordmark rules from the selected preset. */
 export const vendorLogoTextSchema = z.object({
-  word1: z
-    .string()
-    .trim()
-    .min(1, "Your brand initial is required")
-    .transform(getMonogramLetter),
-  word2: z.string().trim().optional(),
+  word1: z.string().trim().min(1, "Brand text is required").max(40),
+  word2: z.string().trim().max(40).optional(),
 });
 
 export const vendorLogoSelectSchema = z.object({

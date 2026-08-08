@@ -1,6 +1,11 @@
 import { VENDOR_LOGO_PRESET_DEFAULTS } from "./presets";
-import type { ResolvedVendorLogoTemplate, VendorLogoDocFields, VendorLogoPreset, VendorLogoTheme } from "./types";
-import { getMonogramLetter, resolveVendorLogoWords } from "./vendor-words";
+import type {
+  ResolvedVendorLogoTemplate,
+  VendorLogoDocFields,
+  VendorLogoPreset,
+  VendorLogoTheme,
+} from "./types";
+import { resolveVendorLogoWords } from "./vendor-words";
 
 export function resolveVendorLogoTheme(
   doc: VendorLogoDocFields,
@@ -31,14 +36,13 @@ export function buildResolvedVendorLogoTemplate(
     word1: overrides?.word1,
     word2: overrides?.word2,
   });
-  const letter = getMonogramLetter(words.word1);
 
   return {
     templateId: doc.id,
     templateName: doc.name ?? "Logo",
     preset,
-    word1: letter,
-    word2: letter,
+    word1: words.word1,
+    word2: words.word2,
     theme: resolveTheme(doc, preset),
   };
 }

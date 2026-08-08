@@ -27,8 +27,32 @@ export function getDescriptionText(description: any): string | null {
 export function getMediaUrl(media: any): string | null {
   if (!media) return null;
   if (typeof media === "string") return null;
-  if (typeof media === "object" && typeof media.url === "string") return media.url;
+  if (typeof media === "object" && typeof media.url === "string") {
+    return toNextImageSafeUrl(media.url);
+  }
   return null;
+}
+
+/**
+ * Next.js Image Optimization rejects absolute localhost/127.0.0.1 URLs
+ * (private-IP SSRF guard), which blanks locally uploaded media.
+ * Prefer a same-origin relative path for those hosts.
+ */
+export function toNextImageSafeUrl(url: string): string {
+  try {
+    if (
+      url.startsWith("http://localhost") ||
+      url.startsWith("https://localhost") ||
+      url.startsWith("http://127.0.0.1") ||
+      url.startsWith("https://127.0.0.1")
+    ) {
+      const parsed = new URL(url);
+      return `${parsed.pathname}${parsed.search}`;
+    }
+  } catch {
+    // keep original url
+  }
+  return url;
 }
 
 /**

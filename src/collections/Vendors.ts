@@ -945,6 +945,7 @@ export const Vendors: CollectionConfig = {
         { label: "Catalog Shop (emporium)", value: "emporium" },
         { label: "Runway Lookbook (runway)", value: "runway" },
         { label: "Social Gallery (reloop)", value: "reloop" },
+        { label: "Maison Boutique (maison)", value: "maison" },
       ],
       admin: {
         description:

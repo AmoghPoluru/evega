@@ -1030,7 +1030,172 @@ export const templateSeeds: TemplateSeedData[] = [
       footer: "minimal",
     },
   },
+  {
+    name: "Maison Boutique",
+    slug: "maison-boutique",
+    description:
+      "Elegant women's boutique storefront inspired by refined US boutiques: clean white canvas, serif wordmark, promo strip, and a polished 4-column product grid. Selectable by any vendor.",
+    category: "elegant",
+    isDefault: false,
+    isActive: true,
+    version: "1.0.0",
+    author: "Evega Team",
+    templateConfig: {
+      colors: {
+        primary: "#1A1A1A",
+        secondary: "#6B6560",
+        accent: "#8B7355",
+        background: "#FFFFFF",
+        text: "#1A1A1A",
+        textSecondary: "#555555",
+        border: "#E8E4DE",
+        cardBackground: "#FAF9F7",
+      },
+      fonts: {
+        heading: '"Libre Baskerville", Georgia, serif',
+        body: '"DM Sans", system-ui, sans-serif',
+      },
+      spacing: {
+        sectionPadding: "48px 24px",
+        cardGap: "24px",
+        containerMaxWidth: "1200px",
+      },
+      layout: {
+        productGridColumns: 4,
+        showBanner: true,
+        showCategories: false,
+        showFilters: false,
+        showReviews: false,
+      },
+      components: {
+        heroBanner: {
+          style: "minimal",
+          height: "0px",
+        },
+        productCard: {
+          style: "minimal",
+          showPrice: true,
+          showRating: false,
+          showDescription: false,
+          borderRadius: "0px",
+        },
+        navigation: {
+          style: "top",
+          backgroundColor: "#FFFFFF",
+        },
+      },
+      sections: {
+        collectionTitle: "Currently Trending",
+        collectionEyebrow: "Shop the edit",
+      },
+      textStyles: {
+        heading1: {
+          fontSize: "2.25rem",
+          fontWeight: "400",
+          letterSpacing: "0.08em",
+          lineHeight: "1.2",
+          textTransform: "none",
+        },
+        heading2: {
+          fontSize: "1.75rem",
+          fontWeight: "400",
+          letterSpacing: "0.04em",
+          lineHeight: "1.25",
+          textTransform: "none",
+        },
+        body: {
+          fontSize: "0.95rem",
+          fontWeight: "400",
+          letterSpacing: "0.01em",
+          lineHeight: "1.5",
+        },
+      },
+      backgroundStyle: {
+        type: "solid",
+        value: "#FFFFFF",
+        animation: {
+          enabled: false,
+        },
+      },
+    },
+    cssVariables: {
+      "--template-primary": "#1A1A1A",
+      "--template-secondary": "#6B6560",
+      "--template-accent": "#8B7355",
+      "--template-background": "#FFFFFF",
+      "--template-text": "#1A1A1A",
+      "--template-text-secondary": "#555555",
+      "--template-border": "#E8E4DE",
+      "--template-card-bg": "#FAF9F7",
+      "--template-font-heading": '"Libre Baskerville", Georgia, serif',
+      "--template-font-body": '"DM Sans", system-ui, sans-serif',
+      "--template-spacing-section": "48px 24px",
+      "--template-spacing-card-gap": "24px",
+      "--template-container-width": "1200px",
+      "--template-card-radius": "0px",
+      "--template-border-width": "1px",
+      "--template-image-aspect": "3 / 4",
+      "--template-type-base": "0.95rem",
+      "--template-h1-size": "2.25rem",
+      "--template-h1-weight": "400",
+      "--template-h1-spacing": "0.08em",
+      "--template-h1-height": "1.2",
+      "--template-body-size": "0.95rem",
+    },
+    componentMapping: {
+      layout: "maison",
+      heroBanner: "minimal",
+      productCard: "minimal",
+      navigation: "top",
+      footer: "minimal",
+    },
+  },
 ];
+
+/**
+ * Upsert a single template by slug (safe for production — does not wipe others).
+ */
+export async function upsertTemplateBySlug(
+  payload: Payload,
+  templateData: TemplateSeedData,
+): Promise<void> {
+  const existing = await payload.find({
+    collection: "vendor-templates",
+    where: { slug: { equals: templateData.slug } },
+    limit: 1,
+  });
+
+  const data = {
+    name: templateData.name,
+    slug: templateData.slug,
+    description: templateData.description,
+    category: templateData.category,
+    isDefault: templateData.isDefault,
+    isActive: templateData.isActive,
+    version: templateData.version,
+    author: templateData.author,
+    templateConfig: templateData.templateConfig,
+    cssVariables: templateData.cssVariables,
+    componentMapping: templateData.componentMapping,
+  };
+
+  if (existing.docs[0]) {
+    await payload.update({
+      collection: "vendor-templates",
+      id: existing.docs[0].id,
+      data,
+    });
+    console.log(`✅ Updated template: ${templateData.name}`);
+    return;
+  }
+
+  await payload.create({
+    collection: "vendor-templates",
+    draft: false,
+    data,
+  });
+  console.log(`✅ Created template: ${templateData.name}`);
+}
 
 /**
  * Seed templates into the database

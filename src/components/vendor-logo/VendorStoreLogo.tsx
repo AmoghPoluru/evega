@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import type { ResolvedVendorLogoTemplate } from "@/lib/vendor-logo/types";
+import { isWordmarkLogoPreset } from "@/lib/vendor-logo/types";
 import { VendorLogoMark } from "./VendorLogoDisplay";
 
 type VendorStoreLogoProps = {
@@ -11,7 +12,7 @@ type VendorStoreLogoProps = {
   size?: number;
   className?: string;
   showFallbackInitial?: boolean;
-  /** @deprecated Monograms are square; kept for API compatibility. */
+  /** Prefer wider frame for wordmark presets (default true when wordmark). */
   preferWideTemplate?: boolean;
 };
 
@@ -24,9 +25,10 @@ export function VendorStoreLogo({
   showFallbackInitial = true,
 }: VendorStoreLogoProps) {
   if (templateLogo) {
+    const wordmark = isWordmarkLogoPreset(templateLogo.preset);
     return (
       <div className={className}>
-        <VendorLogoMark logo={templateLogo} size={size} />
+        <VendorLogoMark logo={templateLogo} size={wordmark ? Math.max(size, 72) : size} />
       </div>
     );
   }

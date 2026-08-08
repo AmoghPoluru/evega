@@ -11,6 +11,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import { trpc } from "@/trpc/client";
 import type { AppRouter } from "@/trpc/routers/_app";
 import { vendorLogoTextSchema } from "@/lib/vendor-logo/schema";
+import { isWordmarkLogoPreset } from "@/lib/vendor-logo/types";
 import type { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,12 +47,12 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
 
   const form = useForm<FormValues>({
     resolver: zodResolver(vendorLogoTextSchema),
-    defaultValues: { word1: "A" },
+    defaultValues: { word1: "A", word2: "" },
   });
 
   useEffect(() => {
     if (!data) return;
-    form.reset({ word1: data.word1 });
+    form.reset({ word1: data.word1, word2: data.word2 ?? "" });
     setSourceMode(data.logoSource === "upload" ? "upload" : "template");
     if (data.uploadLogoUrl) setLogoPreview(data.uploadLogoUrl);
     if (data.logoSource === "template" && data.selectedTemplateId && !embedded) {
@@ -61,11 +62,16 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
 
   const selectMutation = trpc.vendor.logoTemplate.select.useMutation({
     onSuccess: (result) => {
-      toast.success("Logo selected — choose your initial below");
+      const wordmark = isWordmarkLogoPreset(result.preview?.preset);
+      toast.success(
+        wordmark
+          ? "Logo selected — customize your wordmark below"
+          : "Logo selected — choose your initial below",
+      );
       utils.vendor.logoTemplate.list.invalidate();
       utils.vendor.logoTemplate.get.invalidate();
       utils.vendor.dashboard.getMarketingProfile.invalidate();
-      form.reset({ word1: result.word1 });
+      form.reset({ word1: result.word1, word2: result.word2 ?? "" });
       setSourceMode("template");
       setViewMode("customize");
       wordsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -75,9 +81,9 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
 
   const updateWordsMutation = trpc.vendor.logoTemplate.updateWords.useMutation({
     onSuccess: (result) => {
-      toast.success("Logo initial saved");
+      toast.success("Logo text saved");
       utils.vendor.logoTemplate.get.invalidate();
-      form.reset({ word1: result.word1 });
+      form.reset({ word1: result.word1, word2: result.word2 ?? "" });
     },
     onError: (error) => toast.error(error.message || "Failed to save logo words"),
   });
@@ -100,12 +106,15 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
   });
 
   const watchedWord1 = form.watch("word1");
+  const watchedWord2 = form.watch("word2");
   const selectedTemplateId = data?.selectedTemplateId ?? listData?.selectedTemplateId ?? null;
+  const isWordmark = isWordmarkLogoPreset(data?.selectedPreset);
 
   const { data: livePreview } = trpc.vendor.logoTemplate.previewTemplate.useQuery(
     {
       templateId: selectedTemplateId ?? "",
       word1: watchedWord1,
+      word2: watchedWord2,
     },
     { enabled: Boolean(selectedTemplateId) && sourceMode === "template" },
   );
@@ -194,6 +203,7 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {listData.docs.map((template: LogoTemplateListItem) => {
             const isSelected = template.id === selectedTemplateId;
+            const templateIsWordmark = isWordmarkLogoPreset(template.preset);
             return (
               <Card
                 key={template.id}
@@ -202,7 +212,12 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
                   isSelected ? "ring-2 ring-primary" : "hover:border-primary/40",
                 )}
               >
-                <div className="relative aspect-square bg-muted">
+                <div
+                  className={cn(
+                    "relative bg-muted",
+                    templateIsWordmark ? "aspect-[320/140]" : "aspect-square",
+                  )}
+                >
                   <div className="absolute inset-0 flex items-center justify-center p-3">
                     <VendorLogoDisplay
                       logo={{
@@ -240,10 +255,13 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
                       className="w-full"
                       onClick={() => {
                         setViewMode("customize");
-                        wordsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        wordsSectionRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        });
                       }}
                     >
-                      Edit your initial
+                      {templateIsWordmark ? "Edit wordmark" : "Edit your initial"}
                     </Button>
                   ) : (
                     <Button
@@ -253,7 +271,11 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
                       disabled={selectMutation.isPending}
                       onClick={() => selectMutation.mutate({ templateId: template.id })}
                     >
-                      {selectMutation.isPending ? "Selecting…" : "Select & choose initial"}
+                      {selectMutation.isPending
+                        ? "Selecting…"
+                        : templateIsWordmark
+                          ? "Select wordmark"
+                          : "Select & choose initial"}
                     </Button>
                   )}
                 </CardContent>
@@ -270,11 +292,17 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
       <div ref={wordsSectionRef} className="space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Choose your initial</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              {isWordmark ? "Customize your wordmark" : "Choose your initial"}
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {selectedTemplate
-                ? `Design: ${selectedTemplate.name} — one colorful letter for your monogram.`
-                : "Enter one letter for your selected monogram design."}
+                ? isWordmark
+                  ? `Design: ${selectedTemplate.name} — script brand name with BOUTIQUE caption.`
+                  : `Design: ${selectedTemplate.name} — one colorful letter for your monogram.`
+                : isWordmark
+                  ? "Edit the brand name and tagline for your wordmark."
+                  : "Enter one letter for your selected monogram design."}
             </p>
           </div>
           {!embedded ? (
@@ -289,10 +317,13 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                {data?.vendorWordSlots?.word1.label ?? "Your brand initial"}
+                {data?.vendorWordSlots?.word1.label ??
+                  (isWordmark ? "Brand name" : "Your brand initial")}
               </CardTitle>
               <CardDescription>
-                One letter appears large in the center of your colorful South Asian monogram.
+                {isWordmark
+                  ? "Script wordmark with a spaced caps caption underneath — inspired by classic boutique logos."
+                  : "One letter appears large in the center of your colorful South Asian monogram."}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -302,27 +333,55 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
               >
                 <div>
                   <Label htmlFor="logo-word1">
-                    {data?.vendorWordSlots?.word1.label ?? "Your brand initial"}
+                    {data?.vendorWordSlots?.word1.label ??
+                      (isWordmark ? "Brand name" : "Your brand initial")}
                   </Label>
                   <Input
                     id="logo-word1"
                     {...form.register("word1")}
-                    maxLength={1}
-                    className="mt-1 w-20 text-center text-2xl font-semibold uppercase"
+                    maxLength={isWordmark ? 40 : 1}
+                    className={
+                      isWordmark
+                        ? "mt-1 max-w-xs text-lg"
+                        : "mt-1 w-20 text-center text-2xl font-semibold uppercase"
+                    }
                     autoComplete="off"
                     spellCheck={false}
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
                     {data?.vendorWordSlots?.word1.hint ??
-                      "One letter — e.g. A for Anaya, M for Maruthi"}
+                      (isWordmark
+                        ? "Shown in script — e.g. wingover"
+                        : "One letter — e.g. A for Anaya, M for Maruthi")}
                   </p>
                 </div>
+                {isWordmark ? (
+                  <div>
+                    <Label htmlFor="logo-word2">
+                      {data?.vendorWordSlots?.word2.label ?? "Tagline"}
+                    </Label>
+                    <Input
+                      id="logo-word2"
+                      {...form.register("word2")}
+                      maxLength={40}
+                      className="mt-1 max-w-xs uppercase tracking-[0.2em]"
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {data?.vendorWordSlots?.word2.hint ??
+                        "Shown in caps under the script (default: BOUTIQUE)"}
+                    </p>
+                  </div>
+                ) : null}
                 <Button type="submit" disabled={updateWordsMutation.isPending}>
                   {updateWordsMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Saving…
                     </>
+                  ) : isWordmark ? (
+                    "Save wordmark"
                   ) : (
                     "Save initial"
                   )}
@@ -336,16 +395,26 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
               <CardTitle className="text-base">Live preview</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="mx-auto flex max-w-[200px] flex-col items-center gap-3 rounded-lg border bg-muted/30 p-4">
+              <div
+                className={cn(
+                  "mx-auto flex flex-col items-center gap-3 rounded-lg border bg-muted/30 p-4",
+                  isWordmark ? "max-w-[320px]" : "max-w-[200px]",
+                )}
+              >
                 {livePreview ? (
-                  <VendorLogoDisplay logo={livePreview} className="aspect-square w-full" />
+                  <VendorLogoDisplay
+                    logo={livePreview}
+                    className={isWordmark ? "aspect-[320/140] w-full" : "aspect-square w-full"}
+                  />
                 ) : (
                   <div className="flex aspect-square w-full items-center justify-center text-sm text-muted-foreground">
                     Preview unavailable
                   </div>
                 )}
                 <p className="text-center text-xs text-muted-foreground">
-                  How your monogram appears on your storefront
+                  {isWordmark
+                    ? "How your wordmark appears on your storefront"
+                    : "How your monogram appears on your storefront"}
                 </p>
               </div>
             </CardContent>
@@ -449,7 +518,7 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
       <div>
         <h2 className="text-lg font-semibold text-foreground">Choose a logo design</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pick a colorful South Asian monogram, then add your shop&apos;s initial letter.
+          Pick a colorful monogram or a boutique wordmark, then personalize the text.
         </p>
       </div>
       {templateGrid}
@@ -476,8 +545,7 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
     return (
       <section className="space-y-6">
         <p className="text-sm text-muted-foreground">
-          Pick a colorful monogram or upload your own logo, then set your shop&apos;s initial
-          letter.
+          Pick a colorful monogram or boutique wordmark, or upload your own logo.
         </p>
         {body}
       </section>
@@ -489,8 +557,8 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
       <CardHeader>
         <CardTitle>Your store logo</CardTitle>
         <CardDescription>
-          Upload your own logo or choose a colorful South Asian monogram and personalize it with
-          one initial letter.
+          Upload your own logo or choose a template — monograms use one initial; wordmarks use a
+          brand name and tagline.
         </CardDescription>
       </CardHeader>
       <CardContent>{body}</CardContent>

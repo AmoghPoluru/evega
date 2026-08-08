@@ -264,6 +264,23 @@ export const VENDOR_LOGO_PRESET_DEFAULTS: Record<VendorLogoPreset, VendorLogoPre
     highlight: "#DB2777",
     background: "#FEF2F2",
   },
+  "wingover-boutique": {
+    label: "Wingover Boutique",
+    description:
+      "Elegant script “wingover” with spaced BOUTIQUE caption — refined boutique wordmark on a dark field.",
+    word1Label: "Brand name",
+    word1Hint: "Shown in script (default: wingover)",
+    word1Default: "wingover",
+    word2Label: "Tagline",
+    word2Hint: "Shown in caps under the script (default: BOUTIQUE)",
+    word2Default: "BOUTIQUE",
+    primary: "#D4D0C8",
+    secondary: "#A8A29A",
+    accent: "#EDE9E3",
+    tertiary: "#8A847C",
+    highlight: "#F5F2EC",
+    background: "#0A0A0A",
+  },
 };
 
 export const VENDOR_LOGO_PRESET_OPTIONS = Object.entries(VENDOR_LOGO_PRESET_DEFAULTS).map(

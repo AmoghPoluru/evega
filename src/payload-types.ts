@@ -620,7 +620,7 @@ export interface Vendor {
   /**
    * Optional storefront layout override. When empty, the layout from the selected theme is used.
    */
-  selectedLayoutId?: ('default' | 'collection' | 'emporium' | 'runway' | 'reloop') | null;
+  selectedLayoutId?: ('default' | 'collection' | 'emporium' | 'runway' | 'reloop' | 'maison') | null;
   /**
    * Vendor-specific template customizations (colors, fonts, layout, etc.)
    */
@@ -682,7 +682,8 @@ export interface VendorLogoTemplate {
     | 'marigold-ring'
     | 'chakra-wheel'
     | 'hex-kolam'
-    | 'elephant-emblem';
+    | 'elephant-emblem'
+    | 'wingover-boutique';
   vendorWords?: {
     word1?: {
       label?: string | null;

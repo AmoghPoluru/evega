@@ -13,8 +13,17 @@ export type VendorLogoPreset =
   | "marigold-ring"
   | "chakra-wheel"
   | "hex-kolam"
-  | "elephant-emblem";
+  | "elephant-emblem"
+  | "wingover-boutique";
 
+/** Presets that render a dual-line wordmark (script brand + BOUTIQUE), not a monogram. */
+export const WORDMARK_LOGO_PRESETS: readonly VendorLogoPreset[] = ["wingover-boutique"];
+
+export function isWordmarkLogoPreset(
+  preset: VendorLogoPreset | string | null | undefined,
+): boolean {
+  return Boolean(preset && WORDMARK_LOGO_PRESETS.includes(preset as VendorLogoPreset));
+}
 export type VendorLogoTheme = {
   primary: string;
   secondary: string;

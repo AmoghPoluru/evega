@@ -26,6 +26,7 @@
     "db:seed:prices": "npx tsx src/seed/seed-prices.ts",
     "db:seed:colors": "npx tsx src/seed/seed-colors.ts",
     "db:seed:templates": "npx tsx src/scripts/seed-templates.ts",
+    "db:seed:maison-boutique": "npx tsx src/scripts/seed-maison-boutique-template.ts",
     "db:seed:template-1": "npx tsx src/scripts/seed-template-1.ts",
     "db:seed:elegant-white": "npx tsx src/scripts/seed-template-1.ts",
     "db:seed:whatsapp": "npx tsx src/scripts/set-whatsapp-all-vendors.ts",

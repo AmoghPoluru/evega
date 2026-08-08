@@ -122,6 +122,13 @@ const TEMPLATES: Array<{
     preset: "elephant-emblem",
     isDefault: false,
   },
+  {
+    name: "Wingover Boutique",
+    slug: "wingover-boutique",
+    description: VENDOR_LOGO_PRESET_DEFAULTS["wingover-boutique"].description,
+    preset: "wingover-boutique",
+    isDefault: false,
+  },
 ];
 
 async function main() {

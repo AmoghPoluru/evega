@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
   },
   // Configure images for Payload CMS media
   images: {
+    // Local media is served at /api/media/file/* (see getMediaUrl → relative paths).
+    // Keep localhost remotePatterns for any remaining absolute URLs in older data.
+    dangerouslyAllowLocalIP: process.env.NODE_ENV === "development",
     remotePatterns: [
       // Allow images from the same domain (for Payload media)
       {

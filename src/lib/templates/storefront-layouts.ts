@@ -7,6 +7,7 @@ export const STOREFRONT_LAYOUT_IDS = [
   "emporium",
   "runway",
   "reloop",
+  "maison",
 ] as const;
 
 export type StorefrontLayoutId = (typeof STOREFRONT_LAYOUT_IDS)[number];
@@ -60,6 +61,15 @@ export const STOREFRONT_LAYOUTS: StorefrontLayoutDefinition[] = [
     description: "Tight square image grid with seller profile header.",
     columnsHint: "3 → 5 cols",
     bestFor: "Resellers, Instagram-first sellers",
+  },
+  {
+    id: "maison",
+    label: "Maison Boutique",
+    industryName: "Elegant boutique",
+    description:
+      "Clean white boutique storefront with text wordmark, promo banner strip, and a 4-column trending product grid.",
+    columnsHint: "2 → 4 cols",
+    bestFor: "Women's boutiques, contemporary fashion brands",
   },
 ];
 

@@ -1,7 +1,11 @@
 "use client";
 
 import { useId } from "react";
-import type { ResolvedVendorLogoTemplate, VendorLogoPreset } from "@/lib/vendor-logo/types";
+import {
+  isWordmarkLogoPreset,
+  type ResolvedVendorLogoTemplate,
+  type VendorLogoPreset,
+} from "@/lib/vendor-logo/types";
 import { getMonogramLetter } from "@/lib/vendor-logo/vendor-words";
 import {
   ChakraWheelLogo,
@@ -16,6 +20,7 @@ import {
   RangoliStarLogo,
 } from "./extra-monogram-presets";
 import { MonogramLetter, palette } from "./monogram-svg-utils";
+import { WingoverBoutiqueLogo } from "./WingoverBoutiqueLogo";
 
 type VendorLogoDisplayProps = {
   logo: ResolvedVendorLogoTemplate;
@@ -332,12 +337,21 @@ const presetComponents: Record<VendorLogoPreset, React.ComponentType<{ logo: Res
   "chakra-wheel": ChakraWheelLogo,
   "hex-kolam": HexKolamLogo,
   "elephant-emblem": ElephantEmblemLogo,
+  "wingover-boutique": WingoverBoutiqueLogo,
 };
 
 export function VendorLogoDisplay({ logo, className }: VendorLogoDisplayProps) {
   const Component = presetComponents[logo.preset] ?? LotusGraceLogo;
+  const wordmark = isWordmarkLogoPreset(logo.preset);
   return (
-    <div className={className ?? "aspect-square h-full w-full overflow-hidden rounded-xl"}>
+    <div
+      className={
+        className ??
+        (wordmark
+          ? "aspect-[320/140] h-full w-full overflow-hidden rounded-xl"
+          : "aspect-square h-full w-full overflow-hidden rounded-xl")
+      }
+    >
       <Component logo={logo} />
     </div>
   );
@@ -350,10 +364,16 @@ export function VendorLogoMark({
   logo: ResolvedVendorLogoTemplate;
   size?: number;
 }) {
+  const wordmark = isWordmarkLogoPreset(logo.preset);
+  const width = wordmark ? Math.round(size * 2.35) : size;
   return (
     <div
-      style={{ width: size, height: size }}
-      className="shrink-0 overflow-hidden rounded-xl border border-border/30 shadow-sm"
+      style={{ width, height: size }}
+      className={
+        wordmark
+          ? "shrink-0 overflow-hidden rounded-lg"
+          : "shrink-0 overflow-hidden rounded-xl border border-border/30 shadow-sm"
+      }
     >
       <VendorLogoDisplay logo={logo} className="h-full w-full" />
     </div>

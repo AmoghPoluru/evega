@@ -15,7 +15,7 @@ import {
   vendorLogoSourceSchema,
   vendorLogoTextSchema,
 } from "@/lib/vendor-logo/schema";
-import type { VendorLogoDocFields } from "@/lib/vendor-logo/types";
+import { isWordmarkLogoPreset, type VendorLogoDocFields } from "@/lib/vendor-logo/types";
 import {
   resolveVendorLogoTemplate,
   type VendorWithLogoTemplate,
@@ -137,7 +137,9 @@ export const vendorLogoTemplateRouter = createTRPCRouter({
 
     const templateDoc = template as VendorLogoDocFields;
     const defaults = getVendorLogoWordDefaults(templateDoc);
-    const letter = getMonogramLetter(defaults.word1);
+    const wordmark = isWordmarkLogoPreset(templateDoc.preset);
+    const word1 = wordmark ? defaults.word1 : getMonogramLetter(defaults.word1);
+    const word2 = wordmark ? defaults.word2 : word1;
 
     const updated = await ctx.db.update({
       collection: "vendors",
@@ -146,8 +148,8 @@ export const vendorLogoTemplateRouter = createTRPCRouter({
         logoSource: "template",
         logoTemplate: {
           selectedTemplate: input.templateId,
-          word1: letter,
-          word2: letter,
+          word1,
+          word2,
         },
       },
     });
@@ -158,8 +160,8 @@ export const vendorLogoTemplateRouter = createTRPCRouter({
 
     return {
       selectedTemplateId: input.templateId,
-      word1: updated.logoTemplate?.word1 ?? defaults.word1,
-      word2: updated.logoTemplate?.word2 ?? defaults.word2,
+      word1: updated.logoTemplate?.word1 ?? word1,
+      word2: updated.logoTemplate?.word2 ?? word2,
       vendorWordSlots: getVendorLogoWordSlots(templateDoc),
       preview: resolved,
     };
@@ -183,7 +185,21 @@ export const vendorLogoTemplateRouter = createTRPCRouter({
       });
     }
 
-    const letter = getMonogramLetter(input.word1);
+    const templateDoc = (await ctx.db
+      .findByID({
+        collection: "vendor-logo-templates",
+        id: selectedId,
+        depth: 0,
+      })
+      .catch(() => null)) as VendorLogoDocFields | null;
+
+    const wordmark = isWordmarkLogoPreset(templateDoc?.preset);
+    const word1 = wordmark
+      ? input.word1.trim()
+      : getMonogramLetter(input.word1);
+    const word2 = wordmark
+      ? (input.word2?.trim() || "BOUTIQUE").toUpperCase()
+      : word1;
 
     const updated = await ctx.db.update({
       collection: "vendors",
@@ -192,8 +208,8 @@ export const vendorLogoTemplateRouter = createTRPCRouter({
         logoSource: "template",
         logoTemplate: {
           selectedTemplate: selectedId,
-          word1: letter,
-          word2: letter,
+          word1,
+          word2,
         },
       },
     });
@@ -203,8 +219,8 @@ export const vendorLogoTemplateRouter = createTRPCRouter({
     const resolved = await resolveVendorLogoTemplate(ctx.db, updated as VendorWithLogoTemplate);
 
     return {
-      word1: letter,
-      word2: letter,
+      word1,
+      word2,
       preview: resolved,
     };
   }),
