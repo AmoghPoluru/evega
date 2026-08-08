@@ -6,6 +6,7 @@
  */
 
 import type { Payload } from "payload";
+import { getThemeCatalogEntry } from "./theme-catalog";
 
 export interface TemplateSeedData {
   name: string;
@@ -1056,6 +1057,13 @@ export async function seedTemplates(payload: Payload): Promise<void> {
   // Now create new templates
   for (const templateData of templateSeeds) {
     try {
+      const catalog = getThemeCatalogEntry(templateData.slug);
+      const mappingLayout =
+        typeof templateData.componentMapping.layout === "string" &&
+        (templateData.componentMapping.layout === "modular" || !templateData.componentMapping.layout)
+          ? (catalog?.defaultLayout ?? templateData.componentMapping.layout)
+          : templateData.componentMapping.layout;
+
       // Create template
       const template = await payload.create({
         collection: "vendor-templates",
@@ -1065,13 +1073,19 @@ export async function seedTemplates(payload: Payload): Promise<void> {
           slug: templateData.slug,
           description: templateData.description,
           category: templateData.category,
+          industry: catalog?.industry ?? "general",
+          isFeatured: catalog?.isFeatured ?? false,
+          sortOrder: catalog?.sortOrder ?? 100,
           isDefault: templateData.isDefault,
-          isActive: templateData.isActive,
+          isActive: catalog?.isActive ?? templateData.isActive,
           version: templateData.version,
           author: templateData.author,
           templateConfig: templateData.templateConfig,
           cssVariables: templateData.cssVariables,
-          componentMapping: templateData.componentMapping,
+          componentMapping: {
+            ...templateData.componentMapping,
+            layout: mappingLayout,
+          },
         },
       });
 

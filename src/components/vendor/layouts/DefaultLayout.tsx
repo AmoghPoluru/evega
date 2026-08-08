@@ -5,6 +5,7 @@ import { ProductsList } from "@/components/product-filters/products-list";
 import { VendorHeroBannersSection } from "@/components/vendor-hero-banners-section";
 import { HappyBannerDisplay } from "@/components/happy-banner/HappyBannerDisplay";
 import { cssVariablesToString } from "@/lib/templates/css-variables";
+import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTemplateBackgroundStyles";
 import type { VendorLayoutProps } from "./types";
 import { getDescriptionText } from "./utils";
 import { VENDOR_HEAD_BANNER_ENABLED } from "@/lib/templates/vendor-storefront-flags";
@@ -39,42 +40,11 @@ export function DefaultLayout({ vendor, template, products, happyBanner, resolve
         ...(template.cssVariables as React.CSSProperties),
       }}
     >
+      <VendorTemplateBackgroundStyles scopeClass="vendor-page-template" template={template} />
       <style>{`
         ${cssVariables ? `:root {
           ${cssVariables}
         }` : ''}
-
-        /* The Vibrant Animated Background */
-        .vendor-page-template {
-          background-color: var(--template-primary, #FF6B9D) !important;
-          background-image: 
-            radial-gradient(at 0% 0%, var(--template-secondary, #C44569) 0px, transparent 50%),
-            radial-gradient(at 100% 0%, var(--template-accent, #FFD93D) 0px, transparent 50%),
-            radial-gradient(at 100% 100%, var(--template-primary, #FF6B9D) 0px, transparent 50%),
-            radial-gradient(at 0% 100%, var(--template-secondary, #C44569) 0px, transparent 50%);
-          background-attachment: fixed;
-          background-size: 200% 200%;
-          background-position: 0% 50%;
-          animation: gradientMove 15s ease infinite;
-        }
-
-        @keyframes gradientMove {
-          0% { 
-            background-position: 0% 50%;
-          }
-          25% {
-            background-position: 100% 0%;
-          }
-          50% { 
-            background-position: 100% 100%;
-          }
-          75% {
-            background-position: 0% 100%;
-          }
-          100% { 
-            background-position: 0% 50%;
-          }
-        }
 
         /* Force the container to be transparent so the background shows through */
         .vendor-main-container {

@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/utils";
 import type { VendorLayoutProps } from "./types";
 import { getMediaUrl } from "./utils";
 import { HappyBannerDisplay } from "@/components/happy-banner/HappyBannerDisplay";
+import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTemplateBackgroundStyles";
 
 const headingFont = Cormorant_Garamond({
   subsets: ["latin"],
@@ -60,12 +61,12 @@ export function CollectionLayout({ vendor, template, products, happyBanner }: Ve
       className={`collection-layout min-h-screen ${bodyFont.className}`}
       style={{
         ...(template.cssVariables as React.CSSProperties),
-        backgroundColor: "var(--template-background, #FBFAF8)",
         color: "var(--template-text, #1A1A1A)",
         fontSize: "var(--template-type-base, 1.063rem)",
         WebkitFontSmoothing: "antialiased",
       }}
     >
+      <VendorTemplateBackgroundStyles scopeClass="collection-layout" template={template} />
       {happyBanner ? <HappyBannerDisplay banner={happyBanner} /> : null}
 
       <div

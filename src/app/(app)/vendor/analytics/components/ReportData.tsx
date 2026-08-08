@@ -1,36 +1,21 @@
 "use client";
 
-// Task 6.11: Report data display component
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package, ShoppingCart, DollarSign, TrendingUp, AlertTriangle } from "lucide-react";
+import {
+  Package,
+  ShoppingCart,
+  DollarSign,
+  TrendingUp,
+  AlertTriangle,
+  Heart,
+  Users,
+  Activity,
+} from "lucide-react";
+import type { VendorAnalyticsReport } from "@/lib/vendor-analytics/build-vendor-analytics-report";
 
 interface ReportDataProps {
-  reportData: {
-    orders: {
-      total: number;
-      revenue: number;
-      averageOrderValue: number;
-      statusBreakdown: {
-        pending?: number;
-        processing?: number;
-        complete?: number;
-        canceled?: number;
-      };
-      topProducts?: Array<{ name: string; revenue: number; quantity: number }>;
-    };
-    inventory: {
-      totalProducts: number;
-      lowStockCount: number;
-      outOfStockCount: number;
-      totalInventoryValue: number;
-      lowStockProducts?: Array<{ name: string; stock: number }>;
-    };
-    dateRange: {
-      start: string;
-      end: string;
-    };
-  };
+  reportData: VendorAnalyticsReport;
   reportType: "daily" | "weekly" | "monthly";
 }
 
@@ -41,12 +26,14 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+const periodLabel = (reportType: ReportDataProps["reportType"]) =>
+  reportType === "daily" ? "Today" : reportType === "weekly" ? "This week" : "This month";
+
 export function ReportData({ reportData, reportType }: ReportDataProps) {
-  const { orders, inventory } = reportData;
+  const { orders, inventory, engagement, customers, businessHealth } = reportData;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {/* Order Statistics */}
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
@@ -54,31 +41,75 @@ export function ReportData({ reportData, reportType }: ReportDataProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{orders.total}</div>
-          <p className="text-xs text-gray-600 mt-1">
-            {reportType === "daily" ? "Today" : reportType === "weekly" ? "This week" : "This month"}
+          <p className="mt-1 text-xs text-gray-600">{periodLabel(reportType)}</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">New Likes</CardTitle>
+          <Heart className="h-4 w-4 text-gray-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{engagement.likes}</div>
+          <p className="mt-1 text-xs text-gray-600">{periodLabel(reportType)}</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Potential Customers</CardTitle>
+          <Users className="h-4 w-4 text-gray-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{customers.potential}</div>
+          <p className="mt-1 text-xs text-gray-600">In your customer list</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Business Health</CardTitle>
+          <Activity className="h-4 w-4 text-gray-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{businessHealth.label}</div>
+          <p className="mt-1 text-xs text-gray-600">{formatCurrency(businessHealth.netProfit)} net</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Completed Orders</CardTitle>
+          <TrendingUp className="h-4 w-4 text-gray-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{orders.completedOrders}</div>
+          <p className="mt-1 text-xs text-gray-600">
+            {formatCurrency(businessHealth.revenue)} from completed sales
           </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-          <DollarSign className="h-4 w-4 text-gray-600" />
+          <CardTitle className="text-sm font-medium">Open Orders</CardTitle>
+          <ShoppingCart className="h-4 w-4 text-gray-600" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(orders.revenue)}</div>
-          <p className="text-xs text-gray-600 mt-1">Average: {formatCurrency(orders.averageOrderValue)}</p>
+          <div className="text-2xl font-bold">{orders.openOrders}</div>
+          <p className="mt-1 text-xs text-gray-600">Pending, payment, or processing</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Average Order Value</CardTitle>
-          <TrendingUp className="h-4 w-4 text-gray-600" />
+          <CardTitle className="text-sm font-medium">Awaiting Payment</CardTitle>
+          <DollarSign className="h-4 w-4 text-gray-600" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(orders.averageOrderValue)}</div>
-          <p className="text-xs text-gray-600 mt-1">Per order</p>
+          <div className="text-2xl font-bold">{orders.awaitingPayment}</div>
+          <p className="mt-1 text-xs text-gray-600">{periodLabel(reportType)}</p>
         </CardContent>
       </Card>
 
@@ -89,14 +120,14 @@ export function ReportData({ reportData, reportType }: ReportDataProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{inventory.totalProducts}</div>
-          <div className="flex gap-2 mt-2">
+          <div className="mt-2 flex gap-2">
             {inventory.lowStockCount > 0 && (
-              <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+              <Badge variant="outline" className="border-yellow-600 text-yellow-600">
                 {inventory.lowStockCount} low stock
               </Badge>
             )}
             {inventory.outOfStockCount > 0 && (
-              <Badge variant="outline" className="text-red-600 border-red-600">
+              <Badge variant="outline" className="border-red-600 text-red-600">
                 {inventory.outOfStockCount} out of stock
               </Badge>
             )}
@@ -104,59 +135,37 @@ export function ReportData({ reportData, reportType }: ReportDataProps) {
         </CardContent>
       </Card>
 
-      {/* Status Breakdown */}
       <Card className="md:col-span-2">
         <CardHeader>
           <CardTitle className="text-sm font-medium">Order Status Breakdown</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 flex-wrap">
-            {orders.statusBreakdown.pending !== undefined && (
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                  Pending: {orders.statusBreakdown.pending}
-                </Badge>
-              </div>
-            )}
-            {orders.statusBreakdown.processing !== undefined && (
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                  Processing: {orders.statusBreakdown.processing}
-                </Badge>
-              </div>
-            )}
-            {orders.statusBreakdown.complete !== undefined && (
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
-                  Complete: {orders.statusBreakdown.complete}
-                </Badge>
-              </div>
-            )}
-            {orders.statusBreakdown.canceled !== undefined && (
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">
-                  Canceled: {orders.statusBreakdown.canceled}
-                </Badge>
-              </div>
+          <div className="flex flex-wrap gap-4">
+            {Object.entries(orders.statusBreakdown).map(([status, count]) => (
+              <Badge key={status} variant="outline">
+                {status.replace(/_/g, " ")}: {count}
+              </Badge>
+            ))}
+            {Object.keys(orders.statusBreakdown).length === 0 && (
+              <p className="text-sm text-gray-600">No orders in this period</p>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Inventory Alerts */}
       {inventory.lowStockCount > 0 && (
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
               <AlertTriangle className="h-4 w-4 text-yellow-600" />
               Low Stock Products
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {inventory.lowStockProducts && inventory.lowStockProducts.length > 0 ? (
+            {inventory.lowStockProducts.length > 0 ? (
               <div className="space-y-2">
-                {inventory.lowStockProducts.slice(0, 5).map((product, idx) => (
-                  <div key={idx} className="flex justify-between items-center text-sm">
+                {inventory.lowStockProducts.slice(0, 5).map((product, index) => (
+                  <div key={index} className="flex items-center justify-between text-sm">
                     <span>{product.name}</span>
                     <Badge variant="outline" className="text-yellow-600">
                       {product.stock} left

@@ -1300,7 +1300,7 @@ export const adminRouter = createTRPCRouter({
         const { fetchAllVendorTemplates } = await import('@/lib/templates/fetch-all-templates');
         const allTemplates = await fetchAllVendorTemplates(ctx.db, {
           where,
-          sort: 'name',
+          sort: 'sortOrder',
           depth: 1,
           overrideAccess: true,
         });
@@ -1321,6 +1321,9 @@ export const adminRouter = createTRPCRouter({
             slug: template.slug,
             description: template.description ?? null,
             category: template.category,
+            industry: template.industry ?? 'general',
+            isFeatured: template.isFeatured ?? false,
+            sortOrder: template.sortOrder ?? 100,
             isDefault: template.isDefault ?? false,
             isActive: template.isActive ?? true,
             version: template.version ?? '1.0.0',
@@ -1355,6 +1358,9 @@ export const adminRouter = createTRPCRouter({
           slug: doc.slug,
           description: doc.description ?? '',
           category: doc.category,
+          industry: doc.industry ?? 'general',
+          isFeatured: doc.isFeatured ?? false,
+          sortOrder: doc.sortOrder ?? 100,
           isDefault: doc.isDefault ?? false,
           isActive: doc.isActive ?? true,
           version: doc.version ?? '1.0.0',
@@ -1373,6 +1379,24 @@ export const adminRouter = createTRPCRouter({
           name: z.string().min(1).optional(),
           description: z.string().nullable().optional(),
           category: z.enum(['minimal', 'elegant', 'bold', 'colorful', 'classic']).optional(),
+          industry: z
+            .enum([
+              'general',
+              'fashion-boutique',
+              'ethnic-apparel',
+              'ethnic-heritage',
+              'luxury',
+              'catalog',
+              'neighborhood-retail',
+              'marketplace',
+              'social-resale',
+              'home-lifestyle',
+              'wellness',
+              'events-promo',
+            ])
+            .optional(),
+          isFeatured: z.boolean().optional(),
+          sortOrder: z.number().int().optional(),
           isDefault: z.boolean().optional(),
           isActive: z.boolean().optional(),
           version: z.string().min(1).optional(),

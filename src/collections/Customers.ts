@@ -59,10 +59,11 @@ export const Customers: CollectionConfig = {
       name: "user",
       type: "relationship",
       relationTo: "users",
-      required: true,
+      required: false,
       unique: true,
       admin: {
-        description: "The user account associated with this customer",
+        description:
+          "Linked user account after the customer signs in. Walk-in and vendor-entered customers have no user until then.",
       },
     },
     {
@@ -76,9 +77,9 @@ export const Customers: CollectionConfig = {
     {
       name: "email",
       type: "email",
-      required: true,
+      required: false,
       admin: {
-        description: "Customer email (synced from user)",
+        description: "Customer email when known. Omitted for phone-only walk-in customers.",
       },
     },
     {
@@ -148,6 +149,57 @@ export const Customers: CollectionConfig = {
       admin: {
         description: "Customer tags/segments (can be vendor-specific or global)",
       },
+    },
+    {
+      name: "vendorSegmentOverrides",
+      type: "array",
+      admin: {
+        description: "Per-vendor manual customer category overrides",
+      },
+      fields: [
+        {
+          name: "vendor",
+          type: "relationship",
+          relationTo: "vendors",
+          required: true,
+        },
+        {
+          name: "segment",
+          type: "select",
+          required: true,
+          options: [
+            { label: "Potential customer", value: "visitor" },
+            { label: "Open order customer", value: "pending" },
+            { label: "Loyal customer", value: "completed" },
+          ],
+        },
+        {
+          name: "reason",
+          type: "text",
+          required: true,
+          admin: {
+            description: "Why this category was set manually",
+          },
+        },
+        {
+          name: "setBy",
+          type: "relationship",
+          relationTo: "users",
+          admin: {
+            description: "Vendor user who set this category",
+          },
+        },
+        {
+          name: "setAt",
+          type: "date",
+          required: true,
+          admin: {
+            date: {
+              pickerAppearance: "dayAndTime",
+            },
+          },
+        },
+      ],
     },
     {
       name: "notes",

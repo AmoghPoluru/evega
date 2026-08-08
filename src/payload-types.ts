@@ -82,9 +82,11 @@ export interface Config {
     'vendor-templates': VendorTemplate;
     'happy-banners': HappyBanner;
     'vendor-logo-templates': VendorLogoTemplate;
+    'vendor-expenses': VendorExpense;
     'potential-vendor-regions': PotentialVendorRegion;
     favorites: Favorite;
     'product-likes': ProductLike;
+    'product-views': ProductView;
     'product-comments': ProductComment;
     'social-posts': SocialPost;
     'payload-kv': PayloadKv;
@@ -109,9 +111,11 @@ export interface Config {
     'vendor-templates': VendorTemplatesSelect<false> | VendorTemplatesSelect<true>;
     'happy-banners': HappyBannersSelect<false> | HappyBannersSelect<true>;
     'vendor-logo-templates': VendorLogoTemplatesSelect<false> | VendorLogoTemplatesSelect<true>;
+    'vendor-expenses': VendorExpensesSelect<false> | VendorExpensesSelect<true>;
     'potential-vendor-regions': PotentialVendorRegionsSelect<false> | PotentialVendorRegionsSelect<true>;
     favorites: FavoritesSelect<false> | FavoritesSelect<true>;
     'product-likes': ProductLikesSelect<false> | ProductLikesSelect<true>;
+    'product-views': ProductViewsSelect<false> | ProductViewsSelect<true>;
     'product-comments': ProductCommentsSelect<false> | ProductCommentsSelect<true>;
     'social-posts': SocialPostsSelect<false> | SocialPostsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -941,9 +945,33 @@ export interface VendorTemplate {
    */
   thumbnailImage?: (string | null) | Media;
   /**
-   * Template category for filtering
+   * Visual mood for filtering (minimal, elegant, bold, etc.)
    */
   category: 'minimal' | 'elegant' | 'bold' | 'colorful' | 'classic';
+  /**
+   * Industry vertical for vendor theme discovery
+   */
+  industry:
+    | 'general'
+    | 'fashion-boutique'
+    | 'ethnic-apparel'
+    | 'ethnic-heritage'
+    | 'luxury'
+    | 'catalog'
+    | 'neighborhood-retail'
+    | 'marketplace'
+    | 'social-resale'
+    | 'home-lifestyle'
+    | 'wellness'
+    | 'events-promo';
+  /**
+   * Featured themes appear in the main vendor theme picker. Non-featured themes remain available to vendors already using them.
+   */
+  isFeatured?: boolean | null;
+  /**
+   * Lower numbers appear first in the vendor theme picker
+   */
+  sortOrder?: number | null;
   /**
    * Site-wide default template for new vendors. Only one template can be default; checking this unchecks any other default.
    */
@@ -1055,7 +1083,10 @@ export interface Order {
    * Vendor that should fulfill this order (auto-assigned from product)
    */
   vendor: string | Vendor;
-  product: string | Product;
+  /**
+   * Primary product for single-item orders. Optional for manual revenue with line items or untracked sales.
+   */
+  product?: (string | null) | Product;
   /**
    * Order status workflow: Pending → Payment Done → Processing → Complete
    */
@@ -1124,6 +1155,52 @@ export interface Order {
    */
   paymentMethod: 'stripe' | 'offline';
   /**
+   * Online = customer checkout. Manual = vendor or staff created the order.
+   */
+  orderSource?: ('online' | 'manual') | null;
+  /**
+   * Created from My Revenue (not My Orders)
+   */
+  isManualRevenueEntry?: boolean | null;
+  /**
+   * When the sale happened (for manual revenue entries)
+   */
+  manualSaleDate?: string | null;
+  saleContext?: ('store_visit' | 'expo' | 'other') | null;
+  expoName?: string | null;
+  /**
+   * Notes about the sale (store visit, walk-in, etc.)
+   */
+  revenueDescription?: string | null;
+  /**
+   * Walk-in or expo customers for this sale (name and phone, no shipping address)
+   */
+  saleCustomers?:
+    | {
+        /**
+         * Linked customer record in My Customers
+         */
+        customer?: (string | null) | Customer;
+        name: string;
+        phone: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Products sold in this manual revenue entry
+   */
+  lineItems?:
+    | {
+        product?: (string | null) | Product;
+        description?: string | null;
+        quantity: number;
+        unitPrice: number;
+        size?: string | null;
+        color?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
    * Current payment status for this order
    */
   paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
@@ -1143,9 +1220,9 @@ export interface Order {
    */
   offlinePaymentNotes?: string | null;
   /**
-   * Shipping address for this order (snapshot at time of order)
+   * Shipping address for online and shipped orders
    */
-  shippingAddress: {
+  shippingAddress?: {
     /**
      * Full name of the recipient
      */
@@ -1312,6 +1389,101 @@ export interface Order {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "customers".
+ */
+export interface Customer {
+  id: string;
+  /**
+   * Linked user account after the customer signs in. Walk-in and vendor-entered customers have no user until then.
+   */
+  user?: (string | null) | User;
+  /**
+   * Customer name (synced from user)
+   */
+  name: string;
+  /**
+   * Customer email when known. Omitted for phone-only walk-in customers.
+   */
+  email?: string | null;
+  /**
+   * Customer phone number (optional)
+   */
+  phone?: string | null;
+  /**
+   * Vendors this customer has ordered from
+   */
+  vendors?: (string | Vendor)[] | null;
+  /**
+   * Total number of orders across all vendors
+   */
+  totalOrders?: number | null;
+  /**
+   * Total amount spent across all vendors
+   */
+  totalSpent?: number | null;
+  /**
+   * Date of most recent order
+   */
+  lastOrderDate?: string | null;
+  /**
+   * Date of first order
+   */
+  firstOrderDate?: string | null;
+  /**
+   * Customer tags/segments (can be vendor-specific or global)
+   */
+  tags?:
+    | {
+        tag: string;
+        /**
+         * Vendor who added this tag (null for global tags)
+         */
+        vendor?: (string | null) | Vendor;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Per-vendor manual customer category overrides
+   */
+  vendorSegmentOverrides?:
+    | {
+        vendor: string | Vendor;
+        segment: 'visitor' | 'pending' | 'completed';
+        /**
+         * Why this category was set manually
+         */
+        reason: string;
+        /**
+         * Vendor user who set this category
+         */
+        setBy?: (string | null) | User;
+        setAt: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Customer notes (vendor-specific)
+   */
+  notes?:
+    | {
+        text: string;
+        /**
+         * Vendor who added this note
+         */
+        vendor?: (string | null) | Vendor;
+        /**
+         * User who created this note
+         */
+        createdBy?: (string | null) | User;
+        createdAt?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Application and vendor-level roles for user permissions
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1351,82 +1523,6 @@ export interface Role {
    * Active roles can be assigned to users
    */
   isActive?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "customers".
- */
-export interface Customer {
-  id: string;
-  /**
-   * The user account associated with this customer
-   */
-  user: string | User;
-  /**
-   * Customer name (synced from user)
-   */
-  name: string;
-  /**
-   * Customer email (synced from user)
-   */
-  email: string;
-  /**
-   * Customer phone number (optional)
-   */
-  phone?: string | null;
-  /**
-   * Vendors this customer has ordered from
-   */
-  vendors?: (string | Vendor)[] | null;
-  /**
-   * Total number of orders across all vendors
-   */
-  totalOrders?: number | null;
-  /**
-   * Total amount spent across all vendors
-   */
-  totalSpent?: number | null;
-  /**
-   * Date of most recent order
-   */
-  lastOrderDate?: string | null;
-  /**
-   * Date of first order
-   */
-  firstOrderDate?: string | null;
-  /**
-   * Customer tags/segments (can be vendor-specific or global)
-   */
-  tags?:
-    | {
-        tag: string;
-        /**
-         * Vendor who added this tag (null for global tags)
-         */
-        vendor?: (string | null) | Vendor;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Customer notes (vendor-specific)
-   */
-  notes?:
-    | {
-        text: string;
-        /**
-         * Vendor who added this note
-         */
-        vendor?: (string | null) | Vendor;
-        /**
-         * User who created this note
-         */
-        createdBy?: (string | null) | User;
-        createdAt?: string | null;
-        id?: string | null;
-      }[]
-    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1523,6 +1619,37 @@ export interface VendorHeroBanner {
   createdAt: string;
 }
 /**
+ * Vendor business expenses (inventory, rent, marketing, etc.)
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendor-expenses".
+ */
+export interface VendorExpense {
+  id: string;
+  /**
+   * Vendor who recorded this expense
+   */
+  vendor: string | Vendor;
+  /**
+   * Type of business expense
+   */
+  category: 'inventory' | 'rent' | 'marketing' | 'platform' | 'packaging' | 'staff' | 'other';
+  /**
+   * When the expense was paid or incurred
+   */
+  expenseDate: string;
+  /**
+   * Expense amount (positive number)
+   */
+  amount: number;
+  /**
+   * What this expense was for
+   */
+  description: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Regions and prospect vendor names for outreach (staff only).
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1574,6 +1701,24 @@ export interface ProductLike {
   id: string;
   user: string | User;
   product: string | Product;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Logged-in customers who viewed a product page.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "product-views".
+ */
+export interface ProductView {
+  id: string;
+  user: string | User;
+  product: string | Product;
+  vendor: string | Vendor;
+  /**
+   * Most recent time this user viewed the product
+   */
+  lastViewedAt: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -1701,6 +1846,10 @@ export interface PayloadLockedDocument {
         value: string | VendorLogoTemplate;
       } | null)
     | ({
+        relationTo: 'vendor-expenses';
+        value: string | VendorExpense;
+      } | null)
+    | ({
         relationTo: 'potential-vendor-regions';
         value: string | PotentialVendorRegion;
       } | null)
@@ -1711,6 +1860,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'product-likes';
         value: string | ProductLike;
+      } | null)
+    | ({
+        relationTo: 'product-views';
+        value: string | ProductView;
       } | null)
     | ({
         relationTo: 'product-comments';
@@ -1912,6 +2065,31 @@ export interface OrdersSelect<T extends boolean = true> {
   stripeTransferId?: T;
   transferStatus?: T;
   paymentMethod?: T;
+  orderSource?: T;
+  isManualRevenueEntry?: T;
+  manualSaleDate?: T;
+  saleContext?: T;
+  expoName?: T;
+  revenueDescription?: T;
+  saleCustomers?:
+    | T
+    | {
+        customer?: T;
+        name?: T;
+        phone?: T;
+        id?: T;
+      };
+  lineItems?:
+    | T
+    | {
+        product?: T;
+        description?: T;
+        quantity?: T;
+        unitPrice?: T;
+        size?: T;
+        color?: T;
+        id?: T;
+      };
   paymentStatus?: T;
   offlinePaymentContact?:
     | T
@@ -2122,6 +2300,16 @@ export interface CustomersSelect<T extends boolean = true> {
         vendor?: T;
         id?: T;
       };
+  vendorSegmentOverrides?:
+    | T
+    | {
+        vendor?: T;
+        segment?: T;
+        reason?: T;
+        setBy?: T;
+        setAt?: T;
+        id?: T;
+      };
   notes?:
     | T
     | {
@@ -2188,6 +2376,9 @@ export interface VendorTemplatesSelect<T extends boolean = true> {
   previewImage?: T;
   thumbnailImage?: T;
   category?: T;
+  industry?: T;
+  isFeatured?: T;
+  sortOrder?: T;
   isDefault?: T;
   isActive?: T;
   version?: T;
@@ -2292,6 +2483,19 @@ export interface VendorLogoTemplatesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendor-expenses_select".
+ */
+export interface VendorExpensesSelect<T extends boolean = true> {
+  vendor?: T;
+  category?: T;
+  expenseDate?: T;
+  amount?: T;
+  description?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "potential-vendor-regions_select".
  */
 export interface PotentialVendorRegionsSelect<T extends boolean = true> {
@@ -2324,6 +2528,18 @@ export interface FavoritesSelect<T extends boolean = true> {
 export interface ProductLikesSelect<T extends boolean = true> {
   user?: T;
   product?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "product-views_select".
+ */
+export interface ProductViewsSelect<T extends boolean = true> {
+  user?: T;
+  product?: T;
+  vendor?: T;
+  lastViewedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

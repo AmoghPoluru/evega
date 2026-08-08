@@ -355,6 +355,7 @@ export async function POST(req: Request) {
             size: cartItem.size || undefined,
             color: cartItem.color || undefined,
             stripeCheckoutSessionId: session.id,
+            orderSource: "online" as const,
             stripeAccountId: vendor.stripeAccountId || null,
             stripePaymentIntentId: (session.payment_intent as string) || null,
             stripeTransferId: transferId || null,

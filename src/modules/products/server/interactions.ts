@@ -239,4 +239,42 @@ export const productInteractionsRouter = createTRPCRouter({
   favorites: favoritesRouter,
   likes: likesRouter,
   comments: commentsRouter,
+  views: createTRPCRouter({
+    track: protectedProcedure
+      .input(z.object({ productId: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const userId = ctx.session.user.id;
+
+        const existing = await ctx.db.find({
+          collection: "product-views",
+          limit: 1,
+          depth: 0,
+          where: {
+            and: [
+              { user: { equals: userId } },
+              { product: { equals: input.productId } },
+            ],
+          },
+        });
+
+        if (existing.docs[0]) {
+          return await ctx.db.update({
+            collection: "product-views",
+            id: existing.docs[0].id,
+            data: {
+              lastViewedAt: new Date().toISOString(),
+            },
+          });
+        }
+
+        return await ctx.db.create({
+          collection: "product-views",
+          data: {
+            user: userId,
+            product: input.productId,
+            lastViewedAt: new Date().toISOString(),
+          },
+        });
+      }),
+  }),
 });

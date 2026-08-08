@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { generateCSSVariables, cssVariablesToString } from "@/lib/templates/css-variables";
+import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTemplateBackgroundStyles";
+import { mergeTemplateWithCustomization } from "@/lib/templates/default-template";
 import type { ResolvedTemplate, TemplateCustomization } from "@/types/template-customization";
 
 interface LivePreviewProps {
@@ -13,52 +15,24 @@ export function LivePreview({ template, customization }: LivePreviewProps) {
   const [cssVariables, setCSSVariables] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    // Merge template config with customization for preview
-    const mergedConfig = {
-      ...template.templateConfig,
-      colors: {
-        ...template.templateConfig.colors,
-        ...customization.colors,
-      },
-      fonts: {
-        ...template.templateConfig.fonts,
-        ...customization.fonts,
-      },
-      spacing: {
-        ...template.templateConfig.spacing,
-        ...customization.spacing,
-      },
-      layout: {
-        ...template.templateConfig.layout,
-        ...customization.layout,
-      },
-      components: {
-        heroBanner: {
-          ...template.templateConfig.components.heroBanner,
-          ...customization.components?.heroBanner,
-        },
-        productCard: {
-          ...template.templateConfig.components.productCard,
-          ...customization.components?.productCard,
-        },
-        navigation: {
-          ...template.templateConfig.components.navigation,
-          ...customization.components?.navigation,
-        },
-      },
-    };
-    
-    // Generate CSS variables from merged config
+    const mergedConfig = mergeTemplateWithCustomization(template.templateConfig, customization);
     const variables = generateCSSVariables(mergedConfig);
     setCSSVariables(variables);
   }, [template, customization]);
 
+  const previewTemplate: ResolvedTemplate = {
+    ...template,
+    templateConfig: mergeTemplateWithCustomization(template.templateConfig, customization),
+    cssVariables,
+  };
+
   return (
     <div className="border rounded-lg overflow-hidden">
       <div
-        className="p-8 min-h-[400px]"
+        className="template-live-preview p-8 min-h-[400px]"
         style={cssVariables as React.CSSProperties}
       >
+        <VendorTemplateBackgroundStyles scopeClass="template-live-preview" template={previewTemplate} />
         <style>{`
           :root {
             ${cssVariablesToString(cssVariables)}

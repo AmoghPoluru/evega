@@ -5,6 +5,7 @@ import type { VendorLayoutProps } from "./types";
 import { getDescriptionText, getMediaUrl } from "./utils";
 import { VENDOR_HEAD_BANNER_ENABLED } from "@/lib/templates/vendor-storefront-flags";
 import { HappyBannerDisplay } from "@/components/happy-banner/HappyBannerDisplay";
+import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTemplateBackgroundStyles";
 
 /**
  * RunwayLayout
@@ -20,11 +21,11 @@ export function RunwayLayout({ vendor, template, products, happyBanner }: Vendor
       className="runway-layout min-h-screen"
       style={{
         ...(template.cssVariables as React.CSSProperties),
-        backgroundColor: "var(--template-background, #F7F5F2)",
         color: "var(--template-text, #0A0A0A)",
         fontFamily: "var(--template-font-body)",
       }}
     >
+      <VendorTemplateBackgroundStyles scopeClass="runway-layout" template={template} />
       {happyBanner ? <HappyBannerDisplay banner={happyBanner} /> : null}
 
       {/* Full-bleed hero */}

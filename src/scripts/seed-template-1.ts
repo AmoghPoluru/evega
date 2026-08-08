@@ -8,6 +8,7 @@ import "dotenv/config";
 import { getPayload } from "payload";
 import config from "@payload-config";
 import { templateSeeds } from "@/lib/templates/seed-templates";
+import { getThemeCatalogEntry } from "@/lib/templates/theme-catalog";
 
 const TEMPLATE_SLUG = "elegant-white";
 const LEGACY_SLUG = "template-1";
@@ -29,18 +30,31 @@ async function main() {
     overrideAccess: true,
   });
 
+  const catalog = getThemeCatalogEntry(seed.slug);
+  const mappingLayout =
+    typeof seed.componentMapping.layout === "string" &&
+    (seed.componentMapping.layout === "modular" || !seed.componentMapping.layout)
+      ? (catalog?.defaultLayout ?? seed.componentMapping.layout)
+      : seed.componentMapping.layout;
+
   const data = {
     name: seed.name,
     slug: seed.slug,
     description: seed.description,
     category: seed.category,
+    industry: catalog?.industry ?? "general",
+    isFeatured: catalog?.isFeatured ?? false,
+    sortOrder: catalog?.sortOrder ?? 100,
     isDefault: seed.isDefault,
-    isActive: seed.isActive,
+    isActive: catalog?.isActive ?? seed.isActive,
     version: seed.version,
     author: seed.author,
     templateConfig: seed.templateConfig,
     cssVariables: seed.cssVariables,
-    componentMapping: seed.componentMapping,
+    componentMapping: {
+      ...seed.componentMapping,
+      layout: mappingLayout,
+    },
   };
 
   if (existing.docs[0]) {

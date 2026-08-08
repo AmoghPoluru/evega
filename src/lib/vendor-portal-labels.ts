@@ -22,6 +22,8 @@ export const vendorNavLabels = {
   customers: "My Customers",
   products: "My Products",
   orders: "My Orders",
+  expenses: "My Expenses",
+  revenue: "My Revenue",
   storeAppearance: "My Website Appearance",
   analytics: "My Analytics",
   payouts: "My Payouts",
@@ -42,6 +44,8 @@ export const vendorPageTitles = {
   products: "My Products",
   orders: "My Orders",
   orderDetail: "My Order",
+  expenses: "My Expenses",
+  revenue: "My Revenue",
   storeAppearance: "My Website Appearance",
   analytics: "My Analytics & Reports",
   settings: "My Settings",
@@ -50,8 +54,24 @@ export const vendorPageTitles = {
   editProduct: "Edit My Product",
   customizeTemplate: "Customize My Template",
   createTemplate: "Create My Template",
+  productSnapshot: "My Product Snapshot",
 } as const;
 
 export const vendorBackLabels = {
   orders: "Back to My Orders",
+} as const;
+
+/** Dashboard stat card titles (My … branding, paired with Health of My Business). */
+export const vendorDashboardStatLabels = {
+  businessHealth: "Health of My Business",
+  businessHealthDescription: "Revenue from closed orders vs expenses",
+  customers: "My Customers",
+  customersDescription: "Potential, open order, confirmed loyal, and top customers",
+  customersTotal: "Total in your list",
+  productSnapshot: "My Product Snapshot",
+  productSnapshotDescription: "Most ordered, liked, visited, and favorited products",
+  productSnapshotTotal: "Active products",
+  analytics: "My Analytics",
+  analyticsDescription: "Today's orders, likes, potential customers, and business health",
+  analyticsToday: "Today at a glance",
 } as const;

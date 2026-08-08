@@ -3,8 +3,6 @@ import { TRPCError } from "@trpc/server";
 import { headers as getHeaders } from "next/headers";
 import type { Where, Sort } from "payload";
 import { parse } from "csv-parse/sync";
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
-import OpenAI from "openai";
 
 import { baseProcedure, createTRPCRouter, protectedProcedure, vendorProcedure } from "@/trpc/init";
 import {
@@ -41,6 +39,8 @@ import type { Payload } from "payload";
 import { revalidatePath } from "next/cache";
 import { vendorLogoTemplateRouter } from "@/modules/vendor/server/logo-template-procedures";
 import { vendorStorefrontLayoutRouter } from "@/modules/vendor/server/storefront-layout-procedures";
+import { vendorExpenseRouter } from "@/modules/vendor/server/expense-procedures";
+import { vendorRevenueRouter } from "@/modules/vendor/server/revenue-procedures";
 
 type VendorHappyBannerState = {
   selectedBanner?: string | { id: string } | null;
@@ -70,7 +70,12 @@ const optionalUrl = z.preprocess(
 );
 
 /** Fields selected by the public `vendor.list` query. */
-type VendorListFields = Pick<Vendor, "id" | "name" | "slug" | "logo" | "description">;
+type VendorListFields = Pick<
+  Vendor,
+  "id" | "name" | "slug" | "logo" | "logoSource" | "description"
+> & {
+  logoTemplate?: Vendor["logoTemplate"];
+};
 
 const VENDOR_DESCRIPTION_PREVIEW_LENGTH = 240;
 
@@ -196,6 +201,8 @@ export const vendorRouter = createTRPCRouter({
           name: true,
           slug: true,
           logo: true,
+          logoSource: true,
+          logoTemplate: true,
           description: true,
         },
         populate: {
@@ -209,15 +216,27 @@ export const vendorRouter = createTRPCRouter({
         },
       });
 
+      const { resolveVendorListLogoBranding } = await import(
+        "@/lib/vendor-logo/resolve-list-logos"
+      );
+      const logoBrandingByVendorId = await resolveVendorListLogoBranding(
+        ctx.db,
+        result.docs as VendorListFields[],
+      );
+
       return {
-        vendors: (result.docs as VendorListFields[]).map((vendor) => ({
-          id: vendor.id,
-          name: vendor.name,
-          slug: vendor.slug ?? null,
-          logoUrl:
-            vendor.logo && typeof vendor.logo !== "string" ? vendor.logo.url ?? null : null,
-          descriptionText: extractVendorDescriptionText(vendor.description),
-        })),
+        vendors: (result.docs as VendorListFields[]).map((vendor) => {
+          const branding = logoBrandingByVendorId.get(vendor.id);
+          return {
+            id: vendor.id,
+            name: vendor.name,
+            slug: vendor.slug ?? null,
+            logoSource: branding?.logoSource ?? "upload",
+            logoUrl: branding?.logoUrl ?? null,
+            templateLogo: branding?.templateLogo ?? null,
+            descriptionText: extractVendorDescriptionText(vendor.description),
+          };
+        }),
         total: result.totalDocs,
       };
     }),
@@ -1308,6 +1327,31 @@ export const vendorRouter = createTRPCRouter({
           productIds,
         };
       }),
+
+    snapshot: vendorProcedure
+      .input(
+        z.object({
+          period: z.enum(["week", "month", "all"]).optional().default("month"),
+          metric: z.enum(["ordered", "liked", "visited", "favorited"]).optional().default("ordered"),
+          search: z.string().optional(),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const vendorId =
+          typeof ctx.session.vendor === "string"
+            ? ctx.session.vendor
+            : ctx.session.vendor.id;
+
+        const { getVendorProductSnapshotPage } = await import(
+          "@/lib/vendor-dashboard/product-snapshot"
+        );
+
+        return getVendorProductSnapshotPage(ctx.db, vendorId, {
+          period: input.period,
+          metric: input.metric,
+          search: input.search,
+        });
+      }),
   }),
 
   orders: createTRPCRouter({
@@ -1645,6 +1689,7 @@ export const vendorRouter = createTRPCRouter({
         z.object({
           search: z.string().optional(),
           status: z.enum(["all", "active", "inactive", "new"]).optional().default("all"),
+          segment: z.enum(["all", "visitor", "completed", "pending", "top"]).optional().default("all"),
           orderCountMin: z.number().optional(),
           orderCountMax: z.number().optional(),
           totalSpentMin: z.number().optional(),
@@ -1661,91 +1706,34 @@ export const vendorRouter = createTRPCRouter({
           ? ctx.session.vendor 
           : ctx.session.vendor.id;
 
-        // Query orders directly from this vendor to get customers
-        // This ensures we show all customers who have placed orders, even if customer records don't exist
-        const ordersWhere: Where = {
-          vendor: { equals: vendorId },
-        };
+        const { buildVendorCustomerList } = await import("@/lib/customers/build-vendor-customer-list");
+        const { customerMatchesSegmentFilter } = await import("@/lib/customers/customer-segments");
 
-        // Get all orders for this vendor
-        const allOrders = await ctx.db.find({
-          collection: "orders",
-          where: ordersWhere,
-          limit: 10000, // Get all orders
-          depth: 2, // Include user and product relationships
-          sort: "-createdAt",
-        });
+        const { customers: allCustomers, segmentCounts } = await buildVendorCustomerList(
+          ctx.db,
+          vendorId,
+        );
+        let customers = allCustomers;
 
-        // Group orders by user ID to create customer list
-        const customersMap: Record<string, {
-          user: any;
-          orders: any[];
-          userId: string;
-        }> = {};
+        if (input.segment !== "all") {
+          customers = customers.filter((customer) =>
+            customerMatchesSegmentFilter(customer.displaySegment, input.segment, {
+              isTopCustomer: customer.isTopCustomer,
+            }),
+          );
+        }
 
-        allOrders.docs.forEach((order: any) => {
-          const userId = typeof order.user === "string" ? order.user : order.user?.id;
-          if (!userId) return;
+        if (input.segment === "top") {
+          customers.sort((a, b) => (b.totalAmountPaid || 0) - (a.totalAmountPaid || 0));
+        }
 
-          if (!customersMap[userId]) {
-            const user = typeof order.user === "string" ? null : order.user;
-            customersMap[userId] = {
-              user: user || order.user,
-              orders: [],
-              userId,
-            };
-          }
-          customersMap[userId].orders.push(order);
-        });
-
-        // Convert map to array and apply filters
-        let customers = Object.values(customersMap).map((customerData) => {
-          const user = customerData.user;
-          const userId = customerData.userId;
-          const orders = customerData.orders;
-          
-          // Get user details
-          const userName = typeof user === "object" && user?.name 
-            ? user.name 
-            : typeof user === "object" && user?.email 
-            ? user.email 
-            : "Unknown";
-          const userEmail = typeof user === "object" && user?.email 
-            ? user.email 
-            : "";
-
-          // Calculate totals from orders
-          const totalAmountPaid = orders.reduce((sum: number, order: any) => {
-            return sum + (order.total || 0);
-          }, 0);
-
-          // Get order dates
-          const orderDates = orders.map((o: any) => new Date(o.createdAt)).sort((a, b) => b.getTime() - a.getTime());
-          const lastOrderDate = orderDates.length > 0 ? orderDates[0] : null;
-          const firstOrderDate = orderDates.length > 0 ? orderDates[orderDates.length - 1] : null;
-
-          return {
-            user: user || userId,
-            orders: orders,
-            totalSpent: totalAmountPaid,
-            totalAmountPaid,
-            orderCount: orders.length,
-            averageOrderValue: orders.length > 0 ? totalAmountPaid / orders.length : 0,
-            lastOrderDate,
-            firstOrderDate,
-            customerId: userId,
-            name: userName,
-            email: userEmail,
-          };
-        });
-
-        // Apply search filter
         if (input.search) {
           const searchLower = input.search.toLowerCase();
           customers = customers.filter((c) => {
             const nameMatch = c.name?.toLowerCase().includes(searchLower);
             const emailMatch = c.email?.toLowerCase().includes(searchLower);
-            return nameMatch || emailMatch;
+            const phoneMatch = c.phone?.toLowerCase().includes(searchLower);
+            return nameMatch || emailMatch || phoneMatch;
           });
         }
 
@@ -1846,7 +1834,226 @@ export const vendorRouter = createTRPCRouter({
           page: input.page,
           hasNextPage: input.page < totalPages,
           hasPrevPage: input.page > 1,
+          segmentCounts,
         };
+      }),
+
+    create: vendorProcedure
+      .input(
+        z.object({
+          name: z.string().trim().min(1),
+          phone: z.string().trim().optional(),
+          email: z.string().trim().optional(),
+          categoryMode: z.enum(["automatic", "visitor", "pending", "completed"]),
+          reason: z.string().trim().optional(),
+          note: z.string().trim().optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const vendorId =
+          typeof ctx.session.vendor === "string"
+            ? ctx.session.vendor
+            : ctx.session.vendor.id;
+
+        if (!input.phone?.trim() && !input.email?.trim()) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Phone or email is required to add a customer",
+          });
+        }
+
+        const isManual = input.categoryMode !== "automatic";
+
+        if (isManual && (!input.reason || input.reason.length < 3)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "A reason is required when setting a customer category",
+          });
+        }
+
+        const { upsertVendorCustomer } = await import("@/lib/customers/upsert-vendor-customer");
+        const { buildVendorSegmentOverridesUpdate } = await import(
+          "@/lib/customers/vendor-segment-override"
+        );
+
+        let customerId: string;
+        try {
+          const result = await upsertVendorCustomer(
+            ctx.db,
+            {
+              vendorId,
+              name: input.name,
+              email: input.email,
+              phone: input.phone,
+            },
+            { overrideAccess: true },
+          );
+          customerId = result.customerId;
+        } catch (error) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              error instanceof Error ? error.message : "Failed to create customer",
+          });
+        }
+
+        const customer = await ctx.db.findByID({
+          collection: "customers",
+          id: customerId,
+          depth: 0,
+          overrideAccess: true,
+        });
+
+        const vendorSegmentOverrides = buildVendorSegmentOverridesUpdate(
+          (customer as { vendorSegmentOverrides?: unknown[] }).vendorSegmentOverrides as
+            | import("@/lib/customers/vendor-segment-override").VendorSegmentOverrideDoc[]
+            | undefined,
+          vendorId,
+          isManual
+            ? {
+                mode: "manual" as const,
+                segment: input.categoryMode as "visitor" | "pending" | "completed",
+                reason: input.reason!,
+                setBy: ctx.session.user.id,
+              }
+            : { mode: "automatic" as const },
+        );
+
+        const existingNotes = (customer as { notes?: unknown[] }).notes ?? [];
+        const notes = input.note?.trim()
+          ? [
+              ...existingNotes,
+              {
+                text: input.note.trim(),
+                vendor: vendorId,
+                createdBy: ctx.session.user.id,
+                createdAt: new Date().toISOString(),
+              },
+            ]
+          : existingNotes;
+
+        await ctx.db.update({
+          collection: "customers",
+          id: customerId,
+          data: {
+            vendorSegmentOverrides,
+            ...(input.note?.trim() ? { notes } : {}),
+          },
+          overrideAccess: true,
+        } as never);
+
+        return { success: true, customerRecordId: customerId };
+      }),
+
+    update: vendorProcedure
+      .input(
+        z.object({
+          customerRecordId: z.string().optional(),
+          listCustomerId: z.string().min(1),
+          name: z.string().trim().min(1),
+          phone: z.string().trim().optional(),
+          email: z.string().trim().optional(),
+          categoryMode: z.enum(["automatic", "visitor", "pending", "completed"]),
+          reason: z.string().trim().optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const vendorId =
+          typeof ctx.session.vendor === "string"
+            ? ctx.session.vendor
+            : ctx.session.vendor.id;
+
+        const { resolveCustomerRecordForVendor } = await import(
+          "@/lib/customers/upsert-vendor-customer"
+        );
+
+        let customerRecordId: string;
+        try {
+          customerRecordId = await resolveCustomerRecordForVendor(
+            ctx.db,
+            {
+              vendorId,
+              customerRecordId: input.customerRecordId,
+              listCustomerId: input.listCustomerId,
+              name: input.name,
+              email: input.email,
+              phone: input.phone,
+            },
+            { overrideAccess: true },
+          );
+        } catch (error) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Customer email or phone is required to save changes",
+          });
+        }
+
+        const customer = await ctx.db.findByID({
+          collection: "customers",
+          id: customerRecordId,
+          depth: 0,
+          overrideAccess: true,
+        });
+
+        const vendorIds = (customer.vendors ?? []).map((vendor: string | { id?: string }) =>
+          typeof vendor === "string" ? vendor : vendor.id,
+        );
+
+        if (!vendorIds.includes(vendorId)) {
+          await ctx.db.update({
+            collection: "customers",
+            id: customerRecordId,
+            data: {
+              vendors: [...vendorIds.filter(Boolean), vendorId],
+            },
+            overrideAccess: true,
+          } as never);
+        }
+
+        const { buildVendorSegmentOverridesUpdate } = await import(
+          "@/lib/customers/vendor-segment-override"
+        );
+
+        const isManual = input.categoryMode !== "automatic";
+
+        if (isManual && (!input.reason || input.reason.length < 3)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "A reason is required when setting a manual category",
+          });
+        }
+
+        const vendorSegmentOverrides = buildVendorSegmentOverridesUpdate(
+          (customer as { vendorSegmentOverrides?: unknown[] }).vendorSegmentOverrides as
+            | import("@/lib/customers/vendor-segment-override").VendorSegmentOverrideDoc[]
+            | undefined,
+          vendorId,
+          isManual
+            ? {
+                mode: "manual" as const,
+                segment: input.categoryMode as "visitor" | "pending" | "completed",
+                reason: input.reason!,
+                setBy: ctx.session.user.id,
+              }
+            : { mode: "automatic" as const },
+        );
+
+        await ctx.db.update({
+          collection: "customers",
+          id: customerRecordId,
+          data: {
+            name: input.name,
+            phone: input.phone || undefined,
+            email: input.email || undefined,
+            vendorSegmentOverrides,
+          },
+          overrideAccess: true,
+        } as never);
+
+        return { success: true, customerRecordId };
       }),
 
     getOne: vendorProcedure
@@ -1969,14 +2176,13 @@ export const vendorRouter = createTRPCRouter({
         ? ctx.session.vendor 
         : ctx.session.vendor.id;
 
-      // Get total products count
       const productsResult = await ctx.db.find({
         collection: "products",
         where: {
           vendor: { equals: vendorId },
           isArchived: { equals: false },
         },
-        limit: 0, // Just get count
+        limit: 0,
       });
 
       // Get all orders for revenue calculation
@@ -1999,429 +2205,91 @@ export const vendorRouter = createTRPCRouter({
         limit: 0, // Just get count
       });
 
-      // Calculate total revenue from all orders
-      const totalRevenue = allOrdersResult.docs.reduce((sum: number, order: any) => {
-        return sum + (order.total || 0);
-      }, 0);
+      // Revenue from closed (complete) orders only
+      const { getClosedOrderRevenue } = await import("@/lib/vendor-revenue/closed-order-revenue");
+      const { getBusinessHealth } = await import("@/lib/vendor-dashboard/business-health");
+      const { totalRevenue, closedOrderCount } = await getClosedOrderRevenue(ctx.db, vendorId);
+
+      const expensesResult = await ctx.db.find({
+        collection: "vendor-expenses",
+        where: { vendor: { equals: vendorId } },
+        limit: 5000,
+        depth: 0,
+      });
+
+      const totalExpenses = (expensesResult.docs as { amount?: number | null }[]).reduce(
+        (sum, expense) => sum + (expense.amount ?? 0),
+        0,
+      );
+
+      const netProfit = totalRevenue - totalExpenses;
+      const businessHealth = getBusinessHealth(netProfit);
+
+      const { buildVendorCustomerList } = await import("@/lib/customers/build-vendor-customer-list");
+      const { getVendorProductSnapshot } = await import("@/lib/vendor-dashboard/product-snapshot");
+      const { buildVendorAnalyticsReport } = await import(
+        "@/lib/vendor-analytics/build-vendor-analytics-report"
+      );
+      const [{ segmentCounts }, productSnapshot, dailyAnalytics] = await Promise.all([
+        buildVendorCustomerList(ctx.db, vendorId).then((result) => ({
+          segmentCounts: result.segmentCounts,
+        })),
+        getVendorProductSnapshot(ctx.db, vendorId),
+        buildVendorAnalyticsReport(ctx.db, vendorId, "daily"),
+      ]);
 
       return {
         totalProducts: productsResult.totalDocs,
         totalOrders: allOrdersResult.totalDocs,
         totalRevenue,
+        closedOrderCount,
         pendingOrders: pendingOrdersResult.totalDocs,
+        totalExpenses,
+        netProfit,
+        businessHealth: businessHealth.status,
+        businessHealthLabel: businessHealth.label,
+        totalCustomers: segmentCounts.all,
+        customerSegmentCounts: segmentCounts,
+        productSnapshot,
+        analyticsToday: {
+          orders: dailyAnalytics.orders.total,
+          likes: dailyAnalytics.engagement.likes,
+          potentialCustomers: dailyAnalytics.customers.potential,
+          openOrders: dailyAnalytics.orders.openOrders,
+          completedOrders: dailyAnalytics.orders.completedOrders,
+          awaitingPayment: dailyAnalytics.orders.awaitingPayment,
+          businessHealthLabel: dailyAnalytics.businessHealth.label,
+          netProfit: dailyAnalytics.businessHealth.netProfit,
+        },
       };
     }),
   }),
 
   // Analytics & Reports
   analytics: createTRPCRouter({
-      // Task 6.3: Daily report data aggregation
       getDailyReport: vendorProcedure.query(async ({ ctx }) => {
         const vendorId = ctx.session.vendor.id || ctx.session.vendor;
-        const now = new Date();
-        const startDate = startOfDay(now);
-        const endDate = endOfDay(now);
-
-        // Fetch orders for today
-        const ordersResult = await ctx.db.find({
-          collection: "orders",
-          where: {
-            vendor: { equals: vendorId },
-            createdAt: {
-              greater_than_equal: startDate.toISOString(),
-              less_than_equal: endDate.toISOString(),
-            },
-            status: { not_equals: "canceled" },
-          },
-          depth: 1,
-          limit: 1000,
-        });
-
-        // Fetch all products for inventory
-        const productsResult = await ctx.db.find({
-          collection: "products",
-          where: {
-            vendor: { equals: vendorId },
-          },
-          depth: 0,
-          limit: 1000,
-        });
-
-        // Aggregate order data
-        const orders = ordersResult.docs;
-        const totalOrders = orders.length;
-        const totalRevenue = orders.reduce((sum: number, order: any) => sum + (order.total || 0), 0);
-        const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-
-        // Status breakdown
-        const statusBreakdown: Record<string, number> = {};
-        orders.forEach((order: any) => {
-          const status = order.status || "pending";
-          statusBreakdown[status] = (statusBreakdown[status] || 0) + 1;
-        });
-
-        // Top products (by revenue)
-        const productRevenue: Record<string, { name: string; revenue: number; quantity: number }> = {};
-        orders.forEach((order: any) => {
-          const productId = typeof order.product === "string" ? order.product : order.product?.id;
-          const product = productsResult.docs.find((p: any) => p.id === productId);
-          if (product) {
-            if (!productRevenue[productId]) {
-              productRevenue[productId] = {
-                name: product.name || "Unknown",
-                revenue: 0,
-                quantity: 0,
-              };
-            }
-            productRevenue[productId].revenue += order.total || 0;
-            productRevenue[productId].quantity += order.quantity || 1;
-          }
-        });
-        const topProducts = Object.values(productRevenue)
-          .sort((a, b) => b.revenue - a.revenue)
-          .slice(0, 5);
-
-        // Aggregate inventory data
-        const products = productsResult.docs;
-        const totalProducts = products.length;
-        const lowStockThreshold = 10;
-        const lowStockProducts = products.filter((p: any) => (p.stock || 0) > 0 && (p.stock || 0) <= lowStockThreshold);
-        const outOfStockProducts = products.filter((p: any) => (p.stock || 0) === 0);
-        const totalInventoryValue = products.reduce((sum: number, p: any) => {
-          return sum + ((p.stock || 0) * (p.price || 0));
-        }, 0);
-
-        return {
-          orders: {
-            total: totalOrders,
-            revenue: totalRevenue,
-            averageOrderValue,
-            statusBreakdown,
-            topProducts,
-          },
-          inventory: {
-            totalProducts,
-            lowStockCount: lowStockProducts.length,
-            outOfStockCount: outOfStockProducts.length,
-            totalInventoryValue,
-            lowStockProducts: lowStockProducts.slice(0, 5).map((p: any) => ({
-              name: p.name || "Unknown",
-              stock: p.stock || 0,
-            })),
-          },
-          dateRange: {
-            start: startDate.toISOString(),
-            end: endDate.toISOString(),
-          },
-        };
+        const { buildVendorAnalyticsReport } = await import(
+          "@/lib/vendor-analytics/build-vendor-analytics-report"
+        );
+        return buildVendorAnalyticsReport(ctx.db, vendorId, "daily");
       }),
 
-      // Task 6.4: Weekly report data aggregation
       getWeeklyReport: vendorProcedure.query(async ({ ctx }) => {
         const vendorId = ctx.session.vendor.id || ctx.session.vendor;
-        const now = new Date();
-        const startDate = startOfWeek(now, { weekStartsOn: 1 }); // Monday
-        const endDate = endOfWeek(now, { weekStartsOn: 1 }); // Sunday
-
-        // Fetch orders for this week
-        const ordersResult = await ctx.db.find({
-          collection: "orders",
-          where: {
-            vendor: { equals: vendorId },
-            createdAt: {
-              greater_than_equal: startDate.toISOString(),
-              less_than_equal: endDate.toISOString(),
-            },
-            status: { not_equals: "canceled" },
-          },
-          depth: 1,
-          limit: 1000,
-        });
-
-        // Fetch all products for inventory
-        const productsResult = await ctx.db.find({
-          collection: "products",
-          where: {
-            vendor: { equals: vendorId },
-          },
-          depth: 0,
-          limit: 1000,
-        });
-
-        // Aggregate order data (same logic as daily)
-        const orders = ordersResult.docs;
-        const totalOrders = orders.length;
-        const totalRevenue = orders.reduce((sum: number, order: any) => sum + (order.total || 0), 0);
-        const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-
-        const statusBreakdown: Record<string, number> = {};
-        orders.forEach((order: any) => {
-          const status = order.status || "pending";
-          statusBreakdown[status] = (statusBreakdown[status] || 0) + 1;
-        });
-
-        const productRevenue: Record<string, { name: string; revenue: number; quantity: number }> = {};
-        orders.forEach((order: any) => {
-          const productId = typeof order.product === "string" ? order.product : order.product?.id;
-          const product = productsResult.docs.find((p: any) => p.id === productId);
-          if (product) {
-            if (!productRevenue[productId]) {
-              productRevenue[productId] = {
-                name: product.name || "Unknown",
-                revenue: 0,
-                quantity: 0,
-              };
-            }
-            productRevenue[productId].revenue += order.total || 0;
-            productRevenue[productId].quantity += order.quantity || 1;
-          }
-        });
-        const topProducts = Object.values(productRevenue)
-          .sort((a, b) => b.revenue - a.revenue)
-          .slice(0, 5);
-
-        // Aggregate inventory data
-        const products = productsResult.docs;
-        const totalProducts = products.length;
-        const lowStockThreshold = 10;
-        const lowStockProducts = products.filter((p: any) => (p.stock || 0) > 0 && (p.stock || 0) <= lowStockThreshold);
-        const outOfStockProducts = products.filter((p: any) => (p.stock || 0) === 0);
-        const totalInventoryValue = products.reduce((sum: number, p: any) => {
-          return sum + ((p.stock || 0) * (p.price || 0));
-        }, 0);
-
-        return {
-          orders: {
-            total: totalOrders,
-            revenue: totalRevenue,
-            averageOrderValue,
-            statusBreakdown,
-            topProducts,
-          },
-          inventory: {
-            totalProducts,
-            lowStockCount: lowStockProducts.length,
-            outOfStockCount: outOfStockProducts.length,
-            totalInventoryValue,
-            lowStockProducts: lowStockProducts.slice(0, 5).map((p: any) => ({
-              name: p.name || "Unknown",
-              stock: p.stock || 0,
-            })),
-          },
-          dateRange: {
-            start: startDate.toISOString(),
-            end: endDate.toISOString(),
-          },
-        };
+        const { buildVendorAnalyticsReport } = await import(
+          "@/lib/vendor-analytics/build-vendor-analytics-report"
+        );
+        return buildVendorAnalyticsReport(ctx.db, vendorId, "weekly");
       }),
 
-      // Task 6.5: Monthly report data aggregation
       getMonthlyReport: vendorProcedure.query(async ({ ctx }) => {
         const vendorId = ctx.session.vendor.id || ctx.session.vendor;
-        const now = new Date();
-        const startDate = startOfMonth(now);
-        const endDate = endOfMonth(now);
-
-        // Fetch orders for this month
-        const ordersResult = await ctx.db.find({
-          collection: "orders",
-          where: {
-            vendor: { equals: vendorId },
-            createdAt: {
-              greater_than_equal: startDate.toISOString(),
-              less_than_equal: endDate.toISOString(),
-            },
-            status: { not_equals: "canceled" },
-          },
-          depth: 1,
-          limit: 1000,
-        });
-
-        // Fetch all products for inventory
-        const productsResult = await ctx.db.find({
-          collection: "products",
-          where: {
-            vendor: { equals: vendorId },
-          },
-          depth: 0,
-          limit: 1000,
-        });
-
-        // Aggregate order data (same logic as daily)
-        const orders = ordersResult.docs;
-        const totalOrders = orders.length;
-        const totalRevenue = orders.reduce((sum: number, order: any) => sum + (order.total || 0), 0);
-        const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-
-        const statusBreakdown: Record<string, number> = {};
-        orders.forEach((order: any) => {
-          const status = order.status || "pending";
-          statusBreakdown[status] = (statusBreakdown[status] || 0) + 1;
-        });
-
-        const productRevenue: Record<string, { name: string; revenue: number; quantity: number }> = {};
-        orders.forEach((order: any) => {
-          const productId = typeof order.product === "string" ? order.product : order.product?.id;
-          const product = productsResult.docs.find((p: any) => p.id === productId);
-          if (product) {
-            if (!productRevenue[productId]) {
-              productRevenue[productId] = {
-                name: product.name || "Unknown",
-                revenue: 0,
-                quantity: 0,
-              };
-            }
-            productRevenue[productId].revenue += order.total || 0;
-            productRevenue[productId].quantity += order.quantity || 1;
-          }
-        });
-        const topProducts = Object.values(productRevenue)
-          .sort((a, b) => b.revenue - a.revenue)
-          .slice(0, 5);
-
-        // Aggregate inventory data
-        const products = productsResult.docs;
-        const totalProducts = products.length;
-        const lowStockThreshold = 10;
-        const lowStockProducts = products.filter((p: any) => (p.stock || 0) > 0 && (p.stock || 0) <= lowStockThreshold);
-        const outOfStockProducts = products.filter((p: any) => (p.stock || 0) === 0);
-        const totalInventoryValue = products.reduce((sum: number, p: any) => {
-          return sum + ((p.stock || 0) * (p.price || 0));
-        }, 0);
-
-        return {
-          orders: {
-            total: totalOrders,
-            revenue: totalRevenue,
-            averageOrderValue,
-            statusBreakdown,
-            topProducts,
-          },
-          inventory: {
-            totalProducts,
-            lowStockCount: lowStockProducts.length,
-            outOfStockCount: outOfStockProducts.length,
-            totalInventoryValue,
-            lowStockProducts: lowStockProducts.slice(0, 5).map((p: any) => ({
-              name: p.name || "Unknown",
-              stock: p.stock || 0,
-            })),
-          },
-          dateRange: {
-            start: startDate.toISOString(),
-            end: endDate.toISOString(),
-          },
-        };
+        const { buildVendorAnalyticsReport } = await import(
+          "@/lib/vendor-analytics/build-vendor-analytics-report"
+        );
+        return buildVendorAnalyticsReport(ctx.db, vendorId, "monthly");
       }),
-
-      // Task 6.6: LLM summary generation with caching
-      generateSummary: vendorProcedure
-        .input(
-          z.object({
-            reportType: z.enum(["daily", "weekly", "monthly"]),
-            reportData: z.any(), // Report data structure
-          })
-        )
-        .query(async ({ ctx, input }) => {
-          const vendorId = ctx.session.vendor.id || ctx.session.vendor;
-          const { reportType, reportData } = input;
-
-          // Task 6.12: Check cache first (CRITICAL for cost optimization)
-          const now = new Date();
-          let cacheKey = "";
-          let cacheExpiry = new Date();
-
-          if (reportType === "daily") {
-            const dateStr = startOfDay(now).toISOString().split("T")[0];
-            cacheKey = `analytics-summary-${vendorId}-daily-${dateStr}`;
-            cacheExpiry = endOfDay(now);
-          } else if (reportType === "weekly") {
-            const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-            const dateStr = weekStart.toISOString().split("T")[0];
-            cacheKey = `analytics-summary-${vendorId}-weekly-${dateStr}`;
-            cacheExpiry = endOfWeek(now, { weekStartsOn: 1 });
-          } else {
-            const monthStart = startOfMonth(now);
-            const dateStr = monthStart.toISOString().split("T")[0];
-            cacheKey = `analytics-summary-${vendorId}-monthly-${dateStr}`;
-            cacheExpiry = endOfMonth(now);
-          }
-
-          // Check if cached summary exists (using in-memory cache for now)
-          // TODO: Implement database cache in AnalyticsSummaries collection
-          // For now, we'll always call LLM (can be optimized later)
-
-          // Task 6.7: Format data for LLM prompt (compressed, <500 tokens)
-          const { orders, inventory } = reportData;
-          const prompt = `Generate a concise 2-3 paragraph business summary for a vendor's ${reportType} report.
-
-Key Metrics:
-- Orders: ${orders.total} orders, $${orders.revenue.toFixed(2)} revenue, $${orders.averageOrderValue.toFixed(2)} average order value
-- Status: ${JSON.stringify(orders.statusBreakdown)}
-- Top Products: ${orders.topProducts?.slice(0, 3).map((p: any) => `${p.name} ($${p.revenue.toFixed(2)})`).join(", ") || "None"}
-- Inventory: ${inventory.totalProducts} products, ${inventory.lowStockCount} low stock, ${inventory.outOfStockCount} out of stock
-
-Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs max).`;
-
-          // Task 6.6: Call LLM API (gpt-4o-mini for cost optimization)
-          try {
-            const apiKey = process.env.OPENAI_API_KEY;
-            if (!apiKey) {
-              throw new TRPCError({
-                code: "INTERNAL_SERVER_ERROR",
-                message: "OpenAI API key not configured",
-              });
-            }
-
-            const openai = new OpenAI({ apiKey });
-            const completion = await openai.chat.completions.create({
-              model: "gpt-4o-mini",
-              messages: [
-                {
-                  role: "system",
-                  content: "You are a business analyst. Generate concise, actionable summaries for e-commerce vendor reports.",
-                },
-                {
-                  role: "user",
-                  content: prompt,
-                },
-              ],
-              max_tokens: 300,
-              temperature: 0.7,
-            });
-
-            const summary = completion.choices[0]?.message?.content || "Unable to generate summary.";
-
-            // TODO: Save to cache (database or in-memory)
-            // For now, just return the summary
-
-            return {
-              summary,
-              generatedAt: new Date(),
-              cached: false,
-            };
-          } catch (error: any) {
-            console.error("[Analytics] LLM error:", error);
-            
-            // Task 6.14: Fallback to formatted statistics with helpful error message
-            let errorMessage = "Summary unavailable.";
-            
-            if (error.code === "insufficient_quota" || error.status === 429) {
-              errorMessage = "OpenAI quota exceeded. Please add a payment method to your OpenAI account or check your billing settings. Showing statistics below.";
-            } else if (error.message?.includes("API key")) {
-              errorMessage = "OpenAI API key issue. Please check your API key configuration.";
-            } else {
-              errorMessage = "Unable to generate AI summary. Showing statistics below.";
-            }
-            
-            return {
-              summary: `${errorMessage}\n\nStatistics: ${orders.total} orders, $${orders.revenue.toFixed(2)} revenue, $${orders.averageOrderValue.toFixed(2)} average order value. ${inventory.lowStockCount} low stock items, ${inventory.outOfStockCount} out of stock.`,
-              generatedAt: new Date(),
-              cached: false,
-              error: error.message,
-            };
-          }
-        }),
   }),
 
   // Stripe Connect Procedures
@@ -3312,6 +3180,10 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
 
   storefrontLayout: vendorStorefrontLayoutRouter,
 
+  expenses: vendorExpenseRouter,
+
+  revenue: vendorRevenueRouter,
+
   // Template Management
   templates: createTRPCRouter({
     // List all available templates
@@ -3319,7 +3191,10 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
       .input(
         z.object({
           category: z.string().optional(),
+          industry: z.string().optional(),
           search: z.string().optional(),
+          /** When true (default), only curated featured themes + vendor's current theme. */
+          featuredOnly: z.boolean().optional(),
         })
       )
       .query(async ({ ctx, input }) => {
@@ -3327,33 +3202,10 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
           ? ctx.session.vendor
           : ctx.session.vendor.id;
 
-        // Get vendor's current template
         const vendor = await ctx.db.findByID({
           collection: "vendors",
           id: vendorId,
           depth: 0,
-        });
-
-        const where: Where = {
-          isActive: { equals: true },
-        };
-
-        if (input.category) {
-          where.category = { equals: input.category };
-        }
-
-        if (input.search) {
-          where.or = [
-            { name: { contains: input.search } },
-            { description: { contains: input.search } },
-          ];
-        }
-
-        const { fetchAllVendorTemplates } = await import("@/lib/templates/fetch-all-templates");
-        const allTemplates = await fetchAllVendorTemplates(ctx.db, {
-          where,
-          sort: "name",
-          depth: 1,
         });
 
         const selectedTemplateId =
@@ -3361,27 +3213,92 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
             ? vendor.selectedTemplate
             : vendor.selectedTemplate?.id ?? null;
 
-        const docs = allTemplates.map((template) => {
-          const thumb = template.thumbnailImage;
-          const preview = template.previewImage;
-          const thumbnailUrl =
-            typeof thumb === "object" && thumb?.url
-              ? thumb.url
-              : typeof preview === "object" && preview?.url
-                ? preview.url
-                : null;
+        const featuredOnly = input.featuredOnly !== false;
 
-          return {
-            ...template,
-            isSelected: template.id === selectedTemplateId,
-            thumbnailUrl,
-          };
+        const andClauses: Where[] = [{ isActive: { equals: true } }];
+
+        if (featuredOnly) {
+          if (selectedTemplateId) {
+            andClauses.push({
+              or: [
+                { isFeatured: { equals: true } },
+                { id: { equals: selectedTemplateId } },
+              ],
+            });
+          } else {
+            andClauses.push({ isFeatured: { equals: true } });
+          }
+        }
+
+        if (input.category) {
+          andClauses.push({ category: { equals: input.category } });
+        }
+
+        if (input.industry) {
+          andClauses.push({ industry: { equals: input.industry } });
+        }
+
+        if (input.search) {
+          andClauses.push({
+            or: [
+              { name: { contains: input.search } },
+              { description: { contains: input.search } },
+            ],
+          });
+        }
+
+        const where: Where =
+          andClauses.length === 1 ? andClauses[0]! : { and: andClauses };
+
+        const { fetchAllVendorTemplates } = await import("@/lib/templates/fetch-all-templates");
+        const { THEME_INDUSTRIES, FEATURED_THEME_COUNT } = await import(
+          "@/lib/templates/theme-catalog"
+        );
+
+        const allTemplates = await fetchAllVendorTemplates(ctx.db, {
+          where,
+          sort: "sortOrder",
+          depth: 1,
         });
+
+        const docs = allTemplates
+          .map((template) => {
+            const thumb = template.thumbnailImage;
+            const preview = template.previewImage;
+            const thumbnailUrl =
+              typeof thumb === "object" && thumb?.url
+                ? thumb.url
+                : typeof preview === "object" && preview?.url
+                  ? preview.url
+                  : null;
+
+            const industry =
+              typeof template.industry === "string" ? template.industry : "general";
+            const isFeatured = template.isFeatured === true;
+
+            return {
+              ...template,
+              industry,
+              isFeatured,
+              isSelected: template.id === selectedTemplateId,
+              isLegacySelection: template.id === selectedTemplateId && !isFeatured,
+              thumbnailUrl,
+            };
+          })
+          .sort((a, b) => {
+            const orderA = typeof a.sortOrder === "number" ? a.sortOrder : 100;
+            const orderB = typeof b.sortOrder === "number" ? b.sortOrder : 100;
+            if (orderA !== orderB) return orderA - orderB;
+            return (a.name ?? "").localeCompare(b.name ?? "");
+          });
 
         return {
           docs,
           totalDocs: docs.length,
           vendorSlug: vendor.slug ?? null,
+          featuredThemeCount: FEATURED_THEME_COUNT,
+          industries: THEME_INDUSTRIES,
+          featuredOnly,
         };
       }),
 
@@ -3425,6 +3342,13 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Template is not available",
+          });
+        }
+
+        if (template.isFeatured !== true) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This theme is retired from the catalog. Choose a featured theme instead.",
           });
         }
 

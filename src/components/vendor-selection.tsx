@@ -16,10 +16,31 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { VendorStoreLogo } from "@/components/vendor-logo/VendorStoreLogo";
 import type { AppRouter } from "@/trpc/routers/_app";
 import type { inferRouterOutputs } from "@trpc/server";
 
 type VendorListItem = inferRouterOutputs<AppRouter>["vendor"]["list"]["vendors"][number];
+
+function VendorListLogo({
+  vendor,
+  size = 64,
+  className,
+}: {
+  vendor: VendorListItem;
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <VendorStoreLogo
+      vendorName={vendor.name}
+      uploadUrl={vendor.logoUrl}
+      templateLogo={vendor.templateLogo}
+      size={size}
+      className={className}
+    />
+  );
+}
 
 function VendorCardSkeleton() {
   return (
@@ -155,7 +176,10 @@ export function VendorSelection() {
                       className="cursor-pointer py-2.5"
                       onSelect={() => handleVendorSelect(vendor)}
                     >
-                      {vendor.name}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <VendorListLogo vendor={vendor} size={32} className="shrink-0" />
+                        <span className="truncate">{vendor.name}</span>
+                      </div>
                     </DropdownMenuItem>
                   ))
                 )}
@@ -183,24 +207,14 @@ export function VendorSelection() {
       {!isLoading && !error && vendors.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {vendors.map((vendor) => {
-            const { logoUrl, descriptionText } = vendor;
+            const { descriptionText } = vendor;
             const href = `/vendors/${vendor.slug || vendor.id}`;
 
             return (
               <Link key={vendor.id} href={href} className="group block h-full">
                 <Card className="h-full overflow-hidden transition-shadow hover:shadow-md border-border">
                   <CardContent className="p-6 flex flex-col items-center text-center gap-4 h-full">
-                    <div className="size-16 rounded-full border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
-                      {logoUrl ? (
-                        <img
-                          src={logoUrl}
-                          alt={`${vendor.name} logo`}
-                          className="size-full object-cover"
-                        />
-                      ) : (
-                        <Store className="size-7 text-muted-foreground" />
-                      )}
-                    </div>
+                    <VendorListLogo vendor={vendor} size={72} className="shrink-0" />
 
                     <div className="space-y-2 flex-1">
                       <h2 className="text-lg font-medium text-foreground group-hover:text-primary transition-colors">
