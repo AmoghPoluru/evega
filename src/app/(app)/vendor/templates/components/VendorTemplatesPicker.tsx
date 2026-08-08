@@ -83,7 +83,7 @@ export function VendorTemplatesPicker({
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Pick the layout and style for your storefront. You can customize colors and fonts later.
+          Pick colors and fonts for your storefront. Choose product layout separately in the Layout tab.
         </p>
       )}
 

@@ -40,6 +40,7 @@ import type { HappyBannerPreset } from "@/lib/happy-banner/types";
 import type { Payload } from "payload";
 import { revalidatePath } from "next/cache";
 import { vendorLogoTemplateRouter } from "@/modules/vendor/server/logo-template-procedures";
+import { vendorStorefrontLayoutRouter } from "@/modules/vendor/server/storefront-layout-procedures";
 
 type VendorHappyBannerState = {
   selectedBanner?: string | { id: string } | null;
@@ -3308,6 +3309,8 @@ Provide actionable insights and recommendations. Keep it concise (2-3 paragraphs
   }),
 
   logoTemplate: vendorLogoTemplateRouter,
+
+  storefrontLayout: vendorStorefrontLayoutRouter,
 
   // Template Management
   templates: createTRPCRouter({

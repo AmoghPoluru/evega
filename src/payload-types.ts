@@ -618,6 +618,10 @@ export interface Vendor {
    */
   selectedTemplate?: (string | null) | VendorTemplate;
   /**
+   * Optional storefront layout override. When empty, the layout from the selected theme is used.
+   */
+  selectedLayoutId?: ('default' | 'collection' | 'emporium' | 'runway' | 'reloop') | null;
+  /**
    * Vendor-specific template customizations (colors, fonts, layout, etc.)
    */
   templateCustomization?:
@@ -2073,6 +2077,7 @@ export interface VendorsSelect<T extends boolean = true> {
         id?: T;
       };
   selectedTemplate?: T;
+  selectedLayoutId?: T;
   templateCustomization?: T;
   updatedAt?: T;
   createdAt?: T;

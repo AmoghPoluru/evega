@@ -81,7 +81,7 @@ async function loadVendorTemplate(
 
 /** Preview a specific template for a vendor (ignores current selection; no customizations). */
 export async function resolveVendorTemplatePreview(
-  _vendorId: string,
+  vendorId: string,
   templateId: string,
   payload: Payload,
 ): Promise<ResolvedTemplate> {
@@ -95,7 +95,20 @@ export async function resolveVendorTemplatePreview(
     return buildFallbackResolvedTemplate();
   }
 
-  return buildResolvedTemplateFromDoc(template, {});
+  let layoutOverride: string | null = null;
+  try {
+    const vendor = await payload.findByID({
+      collection: "vendors",
+      id: vendorId,
+      depth: 0,
+    });
+    layoutOverride =
+      typeof vendor.selectedLayoutId === "string" ? vendor.selectedLayoutId : null;
+  } catch {
+    layoutOverride = null;
+  }
+
+  return buildResolvedTemplateFromDoc(template, {}, layoutOverride);
 }
 
 /**
@@ -143,8 +156,10 @@ export async function resolveVendorTemplate(
     customization = (vendor.templateCustomization as TemplateCustomization) || {};
 
     const template = await loadVendorTemplate(payload, vendor.selectedTemplate);
+    const layoutOverride =
+      typeof vendor.selectedLayoutId === "string" ? vendor.selectedLayoutId : null;
 
-    return buildResolvedTemplateFromDoc(template, customization);
+    return buildResolvedTemplateFromDoc(template, customization, layoutOverride);
   } catch (error) {
     console.error("Failed to resolve vendor template, using built-in fallback:", error);
     return buildFallbackResolvedTemplate(customization);

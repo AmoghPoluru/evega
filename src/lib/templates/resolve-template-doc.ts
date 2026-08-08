@@ -1,6 +1,7 @@
 import type { ResolvedTemplate, TemplateConfig, TemplateCustomization } from "@/types/template-customization";
 import { generateCSSVariables } from "./css-variables";
 import { mergeTemplateWithCustomization } from "./default-template";
+import { resolveEffectiveStorefrontLayout } from "./storefront-layouts";
 
 export type TemplateDocLike = {
   id: string;
@@ -12,6 +13,7 @@ export type TemplateDocLike = {
 export function buildResolvedTemplateFromDoc(
   template: TemplateDocLike,
   customization: TemplateCustomization = {},
+  layoutOverride?: string | null,
 ): ResolvedTemplate {
   const mergedConfig = mergeTemplateWithCustomization(
     template.templateConfig as Partial<TemplateConfig>,
@@ -21,10 +23,11 @@ export function buildResolvedTemplateFromDoc(
 
   const componentMapping =
     (template.componentMapping as ResolvedTemplate["componentMapping"]) ?? {};
-  const layout =
+  const templateLayout =
     typeof componentMapping.layout === "string" && componentMapping.layout
       ? componentMapping.layout
       : "default";
+  const layout = resolveEffectiveStorefrontLayout(layoutOverride, templateLayout);
 
   return {
     templateId: template.id,

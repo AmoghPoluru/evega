@@ -8,9 +8,10 @@ import { VendorHappyBannerPageClient } from "@/app/(app)/vendor/hero-banner/comp
 import { VendorLogoTemplateClient } from "@/app/(app)/vendor/settings/components/VendorLogoTemplateClient";
 import { cn } from "@/lib/utils";
 import { vendorPageTitles } from "@/lib/vendor-portal-labels";
+import { VendorStorefrontLayoutPicker } from "./VendorStorefrontLayoutPicker";
 import { StoreAppearancePreview } from "./StoreAppearancePreview";
 
-const TAB_VALUES = ["template", "banner", "logo", "preview"] as const;
+const TAB_VALUES = ["template", "layout", "banner", "logo", "preview"] as const;
 type TabValue = (typeof TAB_VALUES)[number];
 
 const APPEARANCE_TABS = [
@@ -19,6 +20,12 @@ const APPEARANCE_TABS = [
     label: "Choose Theme for Your site",
     bg: "#dc2626",
     border: "#991b1b",
+  },
+  {
+    value: "layout" as const,
+    label: "Choose Layout for your site",
+    bg: "#7c3aed",
+    border: "#5b21b6",
   },
   {
     value: "banner" as const,
@@ -79,7 +86,7 @@ export function StoreAppearancePageClient() {
         <div className="mb-6">
           <h1 className="text-2xl font-semibold text-foreground">{vendorPageTitles.storeAppearance}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Configure your storefront template, logo, promotional banner, and preview your live store.
+            Configure your storefront theme, layout, logo, promotional banner, and preview your live store.
           </p>
         </div>
       ) : null}
@@ -89,7 +96,7 @@ export function StoreAppearancePageClient() {
         <div
           role="tablist"
           aria-label="Store appearance steps"
-          className="grid w-full grid-cols-2 gap-3 md:grid-cols-4"
+          className="grid w-full grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5"
         >
           {APPEARANCE_TABS.map((tab) => {
             const isActive = activeTab === tab.value;
@@ -117,6 +124,10 @@ export function StoreAppearancePageClient() {
 
         <TabsContent value="template" className="mt-0">
           <VendorTemplatesPicker embedded />
+        </TabsContent>
+
+        <TabsContent value="layout" className="mt-0">
+          <VendorStorefrontLayoutPicker embedded />
         </TabsContent>
 
         <TabsContent value="banner" className="mt-0">

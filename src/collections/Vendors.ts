@@ -937,6 +937,22 @@ export const Vendors: CollectionConfig = {
       },
     },
     {
+      name: "selectedLayoutId",
+      type: "select",
+      options: [
+        { label: "Classic Grid (default)", value: "default" },
+        { label: "Boutique Grid (collection)", value: "collection" },
+        { label: "Catalog Shop (emporium)", value: "emporium" },
+        { label: "Runway Lookbook (runway)", value: "runway" },
+        { label: "Social Gallery (reloop)", value: "reloop" },
+      ],
+      admin: {
+        description:
+          "Optional storefront layout override. When empty, the layout from the selected theme is used.",
+        position: "sidebar",
+      },
+    },
+    {
       name: "templateCustomization",
       type: "json",
       defaultValue: {},
