@@ -10,11 +10,22 @@ export function generateCSSVariables(
   const variables: Record<string, string> = {};
 
   // Colors (mergedConfig already has customizations applied)
-  variables["--template-primary"] = templateConfig.colors?.primary || "#000000";
-  variables["--template-secondary"] = templateConfig.colors?.secondary || "#666666";
-  variables["--template-accent"] = templateConfig.colors?.accent || "#000000";
-  variables["--template-background"] = templateConfig.colors?.background || "#FFFFFF";
-  variables["--template-text"] = templateConfig.colors?.text || "#1A1A1A";
+  const colors = templateConfig.colors ?? {};
+  variables["--template-primary"] = colors.primary || "#000000";
+  variables["--template-secondary"] = colors.secondary || "#666666";
+  variables["--template-accent"] = colors.accent || "#000000";
+  variables["--template-background"] =
+    templateConfig.backgroundStyle?.type === "solid" && templateConfig.backgroundStyle.value
+      ? templateConfig.backgroundStyle.value
+      : colors.background && colors.background !== "transparent"
+        ? colors.background
+        : templateConfig.backgroundStyle?.type === "mesh-gradient" ||
+            templateConfig.backgroundStyle?.type === "gradient" ||
+            templateConfig.backgroundStyle?.type === "pattern" ||
+            templateConfig.backgroundStyle?.type === "image"
+          ? "transparent"
+          : colors.cardBackground || "#FFFFFF";
+  variables["--template-text"] = colors.text || "#1A1A1A";
   variables["--template-text-secondary"] = templateConfig.colors?.textSecondary || "#666666";
   variables["--template-border"] = templateConfig.colors?.border || "#E5E5E5";
   variables["--template-card-bg"] = templateConfig.colors?.cardBackground || "#FFFFFF";

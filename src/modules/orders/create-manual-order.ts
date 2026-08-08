@@ -2,6 +2,10 @@ import { TRPCError } from '@trpc/server';
 import type { BasePayload } from 'payload';
 
 import { decrementStockForOrder } from '@/lib/inventory/adjust-product-stock';
+import {
+  refreshCustomerStats,
+  upsertVendorCustomer,
+} from '@/lib/customers/upsert-vendor-customer';
 
 import type { ManualOrderCreateInput } from './manual-order-schema';
 
@@ -53,31 +57,12 @@ export async function createManualOrder(
 
   const existingUsers = await db.find({
     collection: 'users',
-    where: { email: { equals: input.customerEmail } },
+    where: { email: { equals: input.customerEmail.toLowerCase() } },
     limit: 1,
     overrideAccess,
   });
 
-  let user: { id: string } | undefined = existingUsers.docs[0];
-  if (!user) {
-    const randomPassword =
-      Math.random().toString(36).slice(-12) +
-      Math.random().toString(36).slice(-12) +
-      'A1!';
-    user = await db.create({
-      collection: 'users',
-      data: {
-        email: input.customerEmail,
-        name: input.customerName || input.customerEmail.split('@')[0],
-        password: randomPassword,
-      },
-      overrideAccess,
-    } as never);
-  }
-
-  if (!user) {
-    throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to resolve customer user' });
-  }
+  const loggedInUserId = existingUsers.docs[0]?.id;
 
   const total = input.price * input.quantity;
   const orderName =
@@ -89,7 +74,7 @@ export async function createManualOrder(
     collection: 'orders',
     data: {
       name: orderName,
-      user: user.id,
+      user: loggedInUserId,
       vendor: productVendorId,
       product: input.productId,
       quantity: input.quantity,
@@ -98,6 +83,7 @@ export async function createManualOrder(
       total,
       status: input.status,
       paymentMethod: input.paymentMethod,
+      orderSource: 'manual',
       inventoryAdjusted: 'deducted',
       shippingAddress: {
         fullName: input.shippingAddress.fullName,
@@ -111,6 +97,19 @@ export async function createManualOrder(
     },
     overrideAccess,
   } as never);
+
+  const { customerId } = await upsertVendorCustomer(
+    db,
+    {
+      vendorId: productVendorId,
+      name: input.customerName || input.customerEmail.split('@')[0],
+      email: input.customerEmail,
+      phone: input.shippingAddress.phone,
+    },
+    { overrideAccess },
+  );
+
+  await refreshCustomerStats(db, customerId, { overrideAccess });
 
   return {
     id: order.id,

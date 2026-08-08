@@ -4,6 +4,7 @@ import { formatCurrency } from "@/lib/utils";
 import type { VendorLayoutProps } from "./types";
 import { getDescriptionText, getMediaUrl } from "./utils";
 import { VendorStoreLogo } from "@/components/vendor-logo/VendorStoreLogo";
+import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTemplateBackgroundStyles";
 
 /**
  * ReloopLayout
@@ -21,11 +22,11 @@ export function ReloopLayout({ vendor, template, products, resolvedLogoTemplate 
       className="reloop-layout min-h-screen"
       style={{
         ...(template.cssVariables as React.CSSProperties),
-        backgroundColor: "var(--template-background, #ffffff)",
         color: "var(--template-text, #111111)",
         fontFamily: "var(--template-font-body)",
       }}
     >
+      <VendorTemplateBackgroundStyles scopeClass="reloop-layout" template={template} />
       {/* Seller profile header */}
       <header
         className="border-b"

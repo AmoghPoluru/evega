@@ -20,25 +20,15 @@ import {
 } from "@/components/ui/select";
 import { StaffTemplateEditDialog } from "./StaffTemplateEditDialog";
 import { StaffTemplatePreviewModal } from "./StaffTemplatePreviewModal";
+import { getThemeIndustryLabel } from "@/lib/templates/theme-catalog";
 
 const PREVIEW_VENDOR_STORAGE_KEY = "staff-templates-preview-vendor-slug";
 
 type PreviewVendor =
   inferRouterOutputs<AppRouter>["admin"]["templates"]["previewVendors"][number];
 
-type TemplateListItem = {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  category: string;
-  isDefault: boolean;
-  isActive: boolean;
-  version: string;
-  author: string | null;
-  thumbnailUrl: string | null;
-  updatedAt: string;
-};
+type TemplateListItem =
+  inferRouterOutputs<AppRouter>["admin"]["templates"]["list"][number];
 
 const CATEGORY_LABELS: Record<string, string> = {
   minimal: "Minimal",
@@ -159,6 +149,7 @@ export function StaffTemplatesTable() {
               <tr>
                 <th className="px-4 py-3 font-medium">Template</th>
                 <th className="hidden px-4 py-3 font-medium md:table-cell">Category</th>
+                <th className="hidden px-4 py-3 font-medium lg:table-cell">Industry</th>
                 <th className="hidden px-4 py-3 font-medium lg:table-cell">Status</th>
                 <th className="hidden px-4 py-3 font-medium xl:table-cell">Version</th>
                 <th className="px-4 py-3 text-right font-medium">Actions</th>
@@ -194,8 +185,14 @@ export function StaffTemplatesTable() {
                   <td className="hidden px-4 py-3 text-gray-700 md:table-cell">
                     {CATEGORY_LABELS[template.category] ?? template.category}
                   </td>
+                  <td className="hidden px-4 py-3 text-gray-700 lg:table-cell">
+                    {getThemeIndustryLabel(template.industry) ?? template.industry}
+                  </td>
                   <td className="hidden px-4 py-3 lg:table-cell">
                     <div className="flex flex-wrap gap-1">
+                      {template.isFeatured ? (
+                        <Badge className="bg-purple-100 text-purple-800">Featured</Badge>
+                      ) : null}
                       {template.isDefault ? (
                         <Badge className="bg-indigo-100 text-indigo-800">Default</Badge>
                       ) : null}

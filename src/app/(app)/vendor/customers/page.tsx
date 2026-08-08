@@ -5,14 +5,19 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { vendorPageTitles } from "@/lib/vendor-portal-labels";
 import { trpc } from "@/trpc/client";
-import { CustomersTable } from "./components/CustomersTable";
+import { CustomersTable, type CustomerListRow } from "./components/CustomersTable";
+import { CustomerEditDialog } from "./components/CustomerEditDialog";
+import { CustomerAddDialog } from "./components/CustomerAddDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, X, Download } from "lucide-react";
+import { Search, X, Download, Plus } from "lucide-react";
 import { parseAsString, useQueryStates } from "nuqs";
+import { CUSTOMER_SEGMENTS, TOP_CUSTOMERS_CARD, type CustomerFilterId } from "@/lib/customers/customer-segments";
+
+const CUSTOMER_FILTER_CARDS = [...CUSTOMER_SEGMENTS, TOP_CUSTOMERS_CARD] as const;
 
 export default function VendorCustomersPage() {
   const router = useRouter();
@@ -22,12 +27,16 @@ export default function VendorCustomersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [queryState, setQueryState] = useQueryStates({
     status: parseAsString.withDefault("all"),
+    segment: parseAsString.withDefault("all"),
     page: parseAsString.withDefault("1"),
     sortBy: parseAsString.withDefault("lastOrderDate"),
     sortOrder: parseAsString.withDefault("desc"),
   });
 
   const page = parseInt(queryState.page || "1", 10);
+  const [editingCustomer, setEditingCustomer] = useState<CustomerListRow | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   // Task 5.3.3: Debounce search input (300ms) to reduce API calls
   useEffect(() => {
@@ -39,12 +48,13 @@ export default function VendorCustomersPage() {
 
   // Task 5.1.3: Page title and description in header section
   const { data, isLoading, error } = trpc.vendor.customers.list.useQuery({
-    status: queryState.status as any,
+    status: queryState.status as "all" | "active" | "inactive" | "new",
+    segment: queryState.segment as CustomerFilterId | "all",
     search: debouncedSearch || undefined,
     page,
     limit: 20,
-    sortBy: (queryState.sortBy as any) || "lastOrderDate",
-    sortOrder: (queryState.sortOrder as any) || "desc",
+    sortBy: (queryState.sortBy as "name" | "totalSpent" | "totalOrders" | "lastOrderDate") || "lastOrderDate",
+    sortOrder: (queryState.sortOrder as "asc" | "desc") || "desc",
   });
 
   // Task 5.1.4: Loading skeleton state
@@ -85,43 +95,60 @@ export default function VendorCustomersPage() {
   const totalDocs = data?.totalDocs || 0;
   const currentPage = data?.page || 1;
   const totalPages = data?.totalPages || 1;
-
-  // Task 5.1.6: Empty state when no customers found
-  if (customers.length === 0 && !isLoading) {
-    return (
-      <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{vendorPageTitles.customers}</h1>
-          <p className="text-gray-600 mt-1">Manage your customers and view their order history</p>
-        </div>
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center space-y-4">
-              <p className="text-gray-500">No customers found</p>
-              {(search || queryState.status !== "all") && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSearch("");
-                    setQueryState({ status: "all", page: "1" });
-                  }}
-                >
-                  Clear Filters
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const hasActiveFilters =
+    Boolean(debouncedSearch) ||
+    queryState.status !== "all" ||
+    queryState.segment !== "all";
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">{vendorPageTitles.customers}</h1>
-        <p className="text-gray-600 mt-1">Manage your customers and view their order history</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{vendorPageTitles.customers}</h1>
+          <p className="text-gray-600 mt-1">
+            Potential customers, open order customers, confirmed loyal customers, and top customers —
+            grouped so you know who to follow up with
+          </p>
+        </div>
+        <Button onClick={() => setAddDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add customer
+        </Button>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {CUSTOMER_FILTER_CARDS.map((segment) => {
+          const count = data?.segmentCounts?.[segment.id as CustomerFilterId] ?? 0;
+          const isActive = queryState.segment === segment.id;
+
+          return (
+            <button
+              key={segment.id}
+              type="button"
+              onClick={() => setQueryState({ segment: segment.id, page: "1" })}
+              className="text-left"
+            >
+              <Card className={isActive ? "border-primary shadow-sm" : ""}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">{segment.label}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-semibold">{count}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{segment.description}</p>
+                </CardContent>
+              </Card>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex justify-end">
+        {queryState.segment !== "all" ? (
+          <Button variant="outline" onClick={() => setQueryState({ segment: "all", page: "1" })}>
+            Show all customers
+          </Button>
+        ) : null}
       </div>
 
       {/* Filters */}
@@ -192,12 +219,12 @@ export default function VendorCustomersPage() {
         </Button>
 
         {/* Task 5.7.6: Clear filters button */}
-        {(search || queryState.status !== "all") && (
+        {(search || queryState.status !== "all" || queryState.segment !== "all") && (
           <Button
             variant="outline"
             onClick={() => {
               setSearch("");
-              setQueryState({ status: "all", page: "1" });
+              setQueryState({ status: "all", segment: "all", page: "1" });
             }}
           >
             Clear Filters
@@ -205,17 +232,56 @@ export default function VendorCustomersPage() {
         )}
       </div>
 
-      {/* Task 5.3.8: Show search result count */}
-      {debouncedSearch && (
+      {/* Task 5.3.8: Show result count */}
+      {hasActiveFilters ? (
         <p className="text-sm text-gray-600">
           {totalDocs} customer{totalDocs !== 1 ? "s" : ""} found
+          {queryState.segment !== "all" && totalDocs === 0
+            ? " for this category"
+            : ""}
         </p>
-      )}
+      ) : null}
 
       {/* Table */}
       <CustomersTable
         customers={customers}
         isLoading={isLoading}
+        onEditCustomer={(customer) => {
+          setEditingCustomer(customer);
+          setEditDialogOpen(true);
+        }}
+      />
+
+      <CustomerEditDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        customer={
+          editingCustomer
+            ? {
+                listCustomerId: String(
+                  editingCustomer.customerId || editingCustomer.customerRecordId || editingCustomer.name,
+                ),
+                customerRecordId: editingCustomer.customerRecordId,
+                name: editingCustomer.name || "Unknown",
+                email: editingCustomer.email || "",
+                phone: editingCustomer.phone || "",
+                systemSegment: editingCustomer.systemSegment ?? null,
+                displaySegment: editingCustomer.displaySegment ?? null,
+                isManualSegment: editingCustomer.isManualSegment ?? false,
+                segmentOverrideReason: editingCustomer.segmentOverrideReason ?? null,
+                segmentOverrideSetAt: editingCustomer.segmentOverrideSetAt ?? null,
+              }
+            : null
+        }
+        onSaved={() => {
+          setEditingCustomer(null);
+        }}
+      />
+
+      <CustomerAddDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        onSaved={() => {}}
       />
 
       {/* Pagination */}

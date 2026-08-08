@@ -10,6 +10,7 @@ import {
   vendorPortalBrandLabel,
   vendorStorefrontHref,
 } from "@/lib/vendor-portal-labels";
+import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
   Package,
@@ -22,6 +23,8 @@ import {
   Bell,
   Palette,
   Briefcase,
+  Receipt,
+  DollarSign,
   ChevronUp,
   type LucideIcon,
 } from "lucide-react";
@@ -40,6 +43,8 @@ type NavGroup = {
   items: NavItem[];
 };
 
+const storeAppearanceHref = "/vendor/store-appearance?started=1&tab=template";
+
 const navGroups: NavGroup[] = [
   {
     label: vendorNavGroupLabels.business,
@@ -48,6 +53,8 @@ const navGroups: NavGroup[] = [
       { href: "/vendor/customers", label: vendorNavLabels.customers, icon: Users },
       { href: "/vendor/products", label: vendorNavLabels.products, icon: Package },
       { href: "/vendor/orders", label: vendorNavLabels.orders, icon: ShoppingCart },
+      { href: "/vendor/revenue", label: vendorNavLabels.revenue, icon: DollarSign },
+      { href: "/vendor/expenses", label: vendorNavLabels.expenses, icon: Receipt },
     ],
   },
   {
@@ -55,7 +62,7 @@ const navGroups: NavGroup[] = [
     icon: Palette,
     items: [
       {
-        href: "/vendor/store-appearance?started=1&tab=template",
+        href: storeAppearanceHref,
         label: vendorNavLabels.storeAppearance,
         description: "Template, Happy Banner, and storefront preview",
         icon: Palette,
@@ -135,14 +142,20 @@ export function VendorSidebar({ vendorSlug }: VendorSidebarProps) {
 
   return (
     <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col h-screen">
-      <div className="p-4 border-b border-sidebar-border">
+      <div className="space-y-3 border-b border-sidebar-border p-4">
         <Link href={storefrontHref} className="flex items-center gap-2">
           <Store className="h-6 w-6 text-sidebar-foreground" />
           <span className="font-semibold text-sidebar-foreground">{vendorPortalBrandLabel}</span>
         </Link>
-      </div>
-
-      <div className="p-4 border-b border-sidebar-border">
+        <Button
+          className="w-full bg-violet-600 font-semibold text-white hover:bg-violet-700"
+          asChild
+        >
+          <Link href={storeAppearanceHref}>
+            <Palette />
+            <span>{vendorNavGroupLabels.store}</span>
+          </Link>
+        </Button>
         <GoShoppingButton className="w-full" />
       </div>
 

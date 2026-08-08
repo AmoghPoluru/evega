@@ -82,6 +82,17 @@ export const ProductView = ({ productId }: ProductViewProps) => {
     },
     onError: (e) => toast.error(e.message),
   });
+  const trackProductView = trpc.productInteractions.views.track.useMutation();
+  const trackedProductRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!currentUserId || !productId || trackedProductRef.current === productId) {
+      return;
+    }
+
+    trackedProductRef.current = productId;
+    trackProductView.mutate({ productId });
+  }, [currentUserId, productId, trackProductView]);
 
   const requireAuth = () => {
     if (!session?.user) {

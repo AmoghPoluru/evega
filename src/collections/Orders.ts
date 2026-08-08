@@ -97,13 +97,16 @@ export const Orders: CollectionConfig = {
               newHistoryEntry,
             ];
           }
-        } else if (operation === "create" && data.status) {
-          // Initial status history entry
+        } else if (operation === "create" && data.status && !data.statusHistory?.length) {
+          const saleTimestamp = data.manualSaleDate
+            ? new Date(data.manualSaleDate).toISOString()
+            : new Date().toISOString();
+
           data.statusHistory = [
             {
               status: data.status,
-              timestamp: new Date().toISOString(),
-              note: "Order created",
+              timestamp: saleTimestamp,
+              note: data.isManualRevenueEntry ? "Manual revenue recorded" : "Order created",
             },
           ];
         }
@@ -114,7 +117,7 @@ export const Orders: CollectionConfig = {
     afterChange: [
       async ({ doc, operation, req, previousDoc }) => {
         // Send order confirmation email when order is created
-        if (operation === "create" && doc.status === "payment_done") {
+        if (operation === "create" && doc.status === "payment_done" && doc.product) {
           try {
             // Fetch user to get email
             const user = await req.payload.findByID({
@@ -311,8 +314,12 @@ export const Orders: CollectionConfig = {
       name: "product",
       type: "relationship",
       relationTo: "products",
-      required: true,
+      required: false,
       hasMany: false,
+      admin: {
+        description:
+          "Primary product for single-item orders. Optional for manual revenue with line items or untracked sales.",
+      },
     },
     {
       name: "status",
@@ -482,6 +489,142 @@ export const Orders: CollectionConfig = {
       },
     },
     {
+      name: "orderSource",
+      type: "select",
+      label: "Order source",
+      options: [
+        { label: "Online storefront", value: "online" },
+        { label: "Manual entry", value: "manual" },
+      ],
+      admin: {
+        description: "Online = customer checkout. Manual = vendor or staff created the order.",
+      },
+    },
+    {
+      name: "isManualRevenueEntry",
+      type: "checkbox",
+      label: "Manual revenue entry",
+      defaultValue: false,
+      admin: {
+        description: "Created from My Revenue (not My Orders)",
+      },
+    },
+    {
+      name: "manualSaleDate",
+      type: "date",
+      label: "Manual sale date",
+      admin: {
+        description: "When the sale happened (for manual revenue entries)",
+        condition: (data) => Boolean(data?.isManualRevenueEntry),
+      },
+    },
+    {
+      name: "saleContext",
+      type: "select",
+      label: "Sale context",
+      options: [
+        { label: "Store visit", value: "store_visit" },
+        { label: "Expo / event", value: "expo" },
+        { label: "Other", value: "other" },
+      ],
+      admin: {
+        condition: (data) => Boolean(data?.isManualRevenueEntry),
+      },
+    },
+    {
+      name: "expoName",
+      type: "text",
+      label: "Expo / event name",
+      admin: {
+        condition: (data) => data?.isManualRevenueEntry && data?.saleContext === "expo",
+      },
+    },
+    {
+      name: "revenueDescription",
+      type: "textarea",
+      label: "Revenue description",
+      admin: {
+        description: "Notes about the sale (store visit, walk-in, etc.)",
+        condition: (data) => Boolean(data?.isManualRevenueEntry),
+      },
+    },
+    {
+      name: "saleCustomers",
+      type: "array",
+      label: "Customers",
+      admin: {
+        description: "Walk-in or expo customers for this sale (name and phone, no shipping address)",
+        condition: (data) =>
+          Boolean(data?.isManualRevenueEntry) &&
+          (data?.saleContext === "store_visit" || data?.saleContext === "expo"),
+      },
+      fields: [
+        {
+          name: "customer",
+          type: "relationship",
+          relationTo: "customers",
+          admin: {
+            description: "Linked customer record in My Customers",
+          },
+        },
+        {
+          name: "name",
+          type: "text",
+          label: "Customer name",
+          required: true,
+        },
+        {
+          name: "phone",
+          type: "text",
+          label: "Phone number",
+          required: true,
+        },
+      ],
+    },
+    {
+      name: "lineItems",
+      type: "array",
+      label: "Line items",
+      admin: {
+        description: "Products sold in this manual revenue entry",
+        condition: (data) => Boolean(data?.isManualRevenueEntry),
+      },
+      fields: [
+        {
+          name: "product",
+          type: "relationship",
+          relationTo: "products",
+          required: false,
+        },
+        {
+          name: "description",
+          type: "text",
+          label: "Line description",
+        },
+        {
+          name: "quantity",
+          type: "number",
+          required: true,
+          defaultValue: 1,
+          min: 1,
+        },
+        {
+          name: "unitPrice",
+          type: "number",
+          required: true,
+          min: 0,
+        },
+        {
+          name: "size",
+          type: "text",
+        },
+        {
+          name: "color",
+          type: "text",
+        },
+      ],
+    },
+    {
       name: "paymentStatus",
       type: "select",
       label: "Payment Status",
@@ -540,7 +683,8 @@ export const Orders: CollectionConfig = {
       type: "group",
       label: "Shipping Address",
       admin: {
-        description: "Shipping address for this order (snapshot at time of order)",
+        description: "Shipping address for online and shipped orders",
+        condition: (data) => !data?.isManualRevenueEntry,
       },
       fields: [
         {

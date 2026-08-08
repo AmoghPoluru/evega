@@ -6,7 +6,7 @@ export const VendorTemplates: CollectionConfig = {
   admin: {
     useAsTitle: "name",
     description: "UI/UX templates for vendor storefronts",
-    defaultColumns: ["name", "category", "isDefault", "isActive", "version"],
+    defaultColumns: ["name", "category", "industry", "isFeatured", "isDefault", "isActive", "version"],
   },
   access: {
     read: () => true, // Public read - vendors need to see available templates
@@ -145,7 +145,47 @@ export const VendorTemplates: CollectionConfig = {
       ],
       defaultValue: "minimal",
       admin: {
-        description: "Template category for filtering",
+        description: "Visual mood for filtering (minimal, elegant, bold, etc.)",
+      },
+    },
+    {
+      name: "industry",
+      type: "select",
+      required: true,
+      defaultValue: "general",
+      options: [
+        { label: "General retail", value: "general" },
+        { label: "Fashion boutique", value: "fashion-boutique" },
+        { label: "Ethnic & festive", value: "ethnic-apparel" },
+        { label: "Heritage & handloom", value: "ethnic-heritage" },
+        { label: "Luxury", value: "luxury" },
+        { label: "Large catalog", value: "catalog" },
+        { label: "Neighborhood / kirana", value: "neighborhood-retail" },
+        { label: "Marketplace / bazaar", value: "marketplace" },
+        { label: "Social & resale", value: "social-resale" },
+        { label: "Home & lifestyle", value: "home-lifestyle" },
+        { label: "Wellness & calm", value: "wellness" },
+        { label: "Events & promos", value: "events-promo" },
+      ],
+      admin: {
+        description: "Industry vertical for vendor theme discovery",
+      },
+    },
+    {
+      name: "isFeatured",
+      type: "checkbox",
+      defaultValue: false,
+      admin: {
+        description:
+          "Featured themes appear in the main vendor theme picker. Non-featured themes remain available to vendors already using them.",
+      },
+    },
+    {
+      name: "sortOrder",
+      type: "number",
+      defaultValue: 100,
+      admin: {
+        description: "Lower numbers appear first in the vendor theme picker",
       },
     },
     {

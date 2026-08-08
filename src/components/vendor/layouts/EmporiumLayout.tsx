@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import type { VendorLayoutProps } from "./types";
 import { getMediaUrl, getPseudoRating } from "./utils";
 import { VendorStoreLogo } from "@/components/vendor-logo/VendorStoreLogo";
+import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTemplateBackgroundStyles";
 
 /**
  * EmporiumLayout
@@ -36,11 +37,11 @@ export function EmporiumLayout({ vendor, template, products, resolvedLogoTemplat
       className="emporium-layout min-h-screen"
       style={{
         ...(template.cssVariables as React.CSSProperties),
-        backgroundColor: "var(--template-background, #EAEDED)",
         color: "var(--template-text, #0F1111)",
         fontFamily: "var(--template-font-body)",
       }}
     >
+      <VendorTemplateBackgroundStyles scopeClass="emporium-layout" template={template} />
       <header
         className="sticky top-0 z-30"
         style={{ backgroundColor: "var(--template-primary, #131921)" }}

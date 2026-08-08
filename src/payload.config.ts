@@ -21,11 +21,13 @@ import { VariantTypes } from "./collections/VariantTypes";
 import { VariantOptions } from "./collections/VariantOptions";
 import { Favorites } from "./collections/Favorites";
 import { ProductLikes } from "./collections/ProductLikes";
+import { ProductViews } from "./collections/ProductViews";
 import { ProductComments } from "./collections/ProductComments";
 import { SocialPosts } from "./collections/SocialPosts";
 import { HeroBannerConfig } from "./collections/HeroBannerConfig";
 import { HappyBanners } from "./collections/HappyBanners";
 import { VendorLogoTemplates } from "./collections/VendorLogoTemplates";
+import { VendorExpenses } from "./collections/VendorExpenses";
 import { getPayloadCsrfOrigins } from "./lib/payload-csrf-origins";
 import { getPayloadCorsOrigins } from "./lib/payload-cors-origins";
 
@@ -52,7 +54,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Products, Tags, HeroBanners, Orders, Vendors, Roles, Customers, VariantTypes, VariantOptions, VendorHeroBanners, VendorTemplates, HappyBanners, VendorLogoTemplates, PotentialVendorRegions, Favorites, ProductLikes, ProductComments, SocialPosts],
+  collections: [Users, Media, Products, Tags, HeroBanners, Orders, Vendors, Roles, Customers, VariantTypes, VariantOptions, VendorHeroBanners, VendorTemplates, HappyBanners, VendorLogoTemplates, VendorExpenses, PotentialVendorRegions, Favorites, ProductLikes, ProductViews, ProductComments, SocialPosts],
   globals: [HeroBannerConfig],
   editor: lexicalEditor(),
   // Use placeholder during build (must be at least 32 chars), actual secret at runtime

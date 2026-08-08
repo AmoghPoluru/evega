@@ -26,14 +26,19 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { THEME_INDUSTRIES } from "@/lib/templates/theme-catalog";
 
 type TemplateCategory = "minimal" | "elegant" | "bold" | "colorful" | "classic";
+type TemplateIndustry = (typeof THEME_INDUSTRIES)[number]["id"];
 
 type TemplateDraft = {
   slug: string;
   name: string;
   description: string;
   category: TemplateCategory;
+  industry: TemplateIndustry;
+  isFeatured: boolean;
+  sortOrder: number;
   version: string;
   author: string;
   isDefault: boolean;
@@ -56,6 +61,9 @@ function emptyDraft(): TemplateDraft {
     name: "",
     description: "",
     category: "minimal",
+    industry: "general",
+    isFeatured: false,
+    sortOrder: 100,
     version: "1.0.0",
     author: "",
     isDefault: false,
@@ -89,6 +97,10 @@ function parseJsonField(label: string, raw: string): Record<string, unknown> {
 
 function isTemplateCategory(value: string): value is TemplateCategory {
   return ["minimal", "elegant", "bold", "colorful", "classic"].includes(value);
+}
+
+function isTemplateIndustry(value: string): value is TemplateIndustry {
+  return THEME_INDUSTRIES.some((item) => item.id === value);
 }
 
 function StaffTemplateEditDialogInner({
@@ -135,6 +147,9 @@ function StaffTemplateEditDialogInner({
       name: template.name,
       description: template.description,
       category: isTemplateCategory(template.category) ? template.category : "minimal",
+      industry: isTemplateIndustry(template.industry) ? template.industry : "general",
+      isFeatured: template.isFeatured,
+      sortOrder: template.sortOrder,
       version: template.version,
       author: template.author,
       isDefault: template.isDefault,
@@ -160,6 +175,9 @@ function StaffTemplateEditDialogInner({
         name: draft.name.trim(),
         description: draft.description.trim() || null,
         category: draft.category,
+        industry: draft.industry,
+        isFeatured: draft.isFeatured,
+        sortOrder: draft.sortOrder,
         version: draft.version.trim() || "1.0.0",
         author: draft.author.trim(),
         isDefault: draft.isDefault,
@@ -227,6 +245,46 @@ function StaffTemplateEditDialogInner({
                 />
               </div>
 
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Industry</Label>
+                  <Select
+                    value={draft.industry}
+                    onValueChange={(v) =>
+                      setDraft((d) => ({
+                        ...d,
+                        industry: isTemplateIndustry(v) ? v : "general",
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-[100]">
+                      {THEME_INDUSTRIES.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="template-sort-order">Sort order</Label>
+                  <Input
+                    id="template-sort-order"
+                    type="number"
+                    value={draft.sortOrder}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        sortOrder: Number.parseInt(e.target.value, 10) || 100,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label>Category</Label>
@@ -267,6 +325,15 @@ function StaffTemplateEditDialogInner({
               </div>
 
               <div className="flex flex-wrap gap-6">
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={draft.isFeatured}
+                    onCheckedChange={(checked) =>
+                      setDraft((d) => ({ ...d, isFeatured: checked === true }))
+                    }
+                  />
+                  Featured in vendor theme picker
+                </label>
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox
                     checked={draft.isActive}

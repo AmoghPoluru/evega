@@ -22,6 +22,7 @@ import { ArrowLeft, Copy, Mail, MapPin, Printer, Package, Truck } from "lucide-r
 import { toast } from "sonner";
 import { UpdateStatusModal } from "./components/UpdateStatusModal";
 import { vendorBackLabels, vendorPageTitles } from "@/lib/vendor-portal-labels";
+import { getSaleContextLabel, type VendorSaleContextId } from "@/lib/vendor-revenue/sale-context";
 
 interface Props {
   params: Promise<{
@@ -146,6 +147,9 @@ export default function OrderDetailPage({ params }: Props) {
   const product = typeof order.product === "object" && order.product
     ? order.product
     : null;
+
+  const isManualRevenueOrder = Boolean(order.isManualRevenueEntry);
+  const saleContextLabel = getSaleContextLabel(order.saleContext as VendorSaleContextId | null | undefined);
 
   // Task 4.16.5: Format currency for totals
   const formatCurrency = (amount: number) => {
@@ -289,7 +293,59 @@ export default function OrderDetailPage({ params }: Props) {
             </CardContent>
           </Card>
 
-          {/* Task 4.14: Shipping information card with tracking details and address */}
+          {/* Shipping for online orders; phone-only contact for manual revenue */}
+          {isManualRevenueOrder ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  In-person sale
+                </CardTitle>
+                <CardDescription>
+                  Manual revenue entry — {saleContextLabel}
+                  {order.expoName ? ` · ${order.expoName}` : ""}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-gray-600">
+                {order.revenueDescription ? (
+                  <p>{order.revenueDescription}</p>
+                ) : null}
+                {order.saleCustomers && order.saleCustomers.length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Customers ({order.saleCustomers.length})
+                    </p>
+                    {order.saleCustomers.map(
+                      (
+                        customer: NonNullable<typeof order.saleCustomers>[number],
+                        index: number,
+                      ) => (
+                      <div
+                        key={`${customer.name}-${customer.phone}-${index}`}
+                        className="rounded-md border bg-muted/30 px-3 py-2"
+                      >
+                        <p className="font-medium text-foreground">{customer.name}</p>
+                        {customer.phone ? (
+                          <a
+                            href={`tel:${customer.phone}`}
+                            className="text-primary hover:underline"
+                          >
+                            {customer.phone}
+                          </a>
+                        ) : null}
+                      </div>
+                    ),
+                    )}
+                  </div>
+                ) : (
+                  <p className="italic text-gray-500">No customers recorded</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  No shipping address — this sale was recorded in store or at an event.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -416,6 +472,7 @@ export default function OrderDetailPage({ params }: Props) {
               )}
             </CardContent>
           </Card>
+          )}
         </div>
 
         <div className="space-y-6">
