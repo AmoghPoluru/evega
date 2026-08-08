@@ -20,6 +20,7 @@ export function StoreAppearancePreview() {
   const refreshPreview = () => {
     setIframeKey((key) => key + 1);
     void utils.vendor.templates.list.invalidate();
+    void utils.vendor.storefrontLayout.list.invalidate();
     void utils.vendor.happyBanner.get.invalidate();
   };
 
