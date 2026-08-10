@@ -160,3 +160,50 @@
     animation: none;
   }
 }
+
+/* Slanted / centered folder tabs (store appearance) */
+@layer components {
+  .store-appearance-slanted-tab-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .store-appearance-slanted-tab-bg::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0.875rem;
+    border-radius: 0.625rem 0 0 0;
+    background: rgb(229 231 235);
+    transition: background-color 150ms ease;
+  }
+
+  .store-appearance-slanted-tab-bg::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 1.125rem;
+    border-radius: 0 0.625rem 0 0;
+    background: rgb(229 231 235);
+    transform: skewX(24deg);
+    transform-origin: bottom left;
+    transition: background-color 150ms ease;
+  }
+
+  [data-state="active"] > .store-appearance-slanted-tab-bg::before,
+  [data-state="active"] > .store-appearance-slanted-tab-bg::after {
+    background: rgb(22 101 52);
+  }
+
+  [data-state="inactive"]:hover > .store-appearance-slanted-tab-bg::before,
+  [data-state="inactive"]:hover > .store-appearance-slanted-tab-bg::after {
+    background: rgb(209 213 219);
+  }
+}
