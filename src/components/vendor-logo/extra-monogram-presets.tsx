@@ -7,6 +7,8 @@ import {
   CenterDisc,
   MonogramLetter,
   palette,
+  polarX,
+  polarY,
   regularPolygonPoints,
   starPoints,
 } from "./monogram-svg-utils";
@@ -46,12 +48,11 @@ export function RangoliStarLogo({ logo }: { logo: ResolvedVendorLogoTemplate }) 
       />
       {Array.from({ length: 8 }, (_, i) => {
         const angle = i * 45;
-        const rad = (angle * Math.PI) / 180;
         return (
           <circle
             key={angle}
-            cx={64 + 54 * Math.cos(rad)}
-            cy={64 + 54 * Math.sin(rad)}
+            cx={polarX(64, 54, angle)}
+            cy={polarY(64, 54, angle)}
             r="4"
             fill={colors[i % colors.length]}
           />
@@ -95,19 +96,16 @@ export function DiyaLampLogo({ logo }: { logo: ResolvedVendorLogoTemplate }) {
         d="M64 64 C58 52 52 38 64 18 C76 38 70 52 64 64Z"
         fill={`url(#${uid}-flame)`}
       />
-      {[0, 120, 240].map((angle, i) => {
-        const rad = ((angle - 90) * Math.PI) / 180;
-        return (
+      {[0, 120, 240].map((angle, i) => (
           <circle
             key={angle}
-            cx={64 + 18 * Math.cos(rad)}
-            cy={36 + 18 * Math.sin(rad)}
+            cx={polarX(64, 18, angle - 90)}
+            cy={polarY(36, 18, angle - 90)}
             r="3"
             fill={colors[i + 2] ?? colors[i]}
             opacity="0.85"
           />
-        );
-      })}
+        ))}
       <circle cx="64" cy="82" r="28" fill={theme.background} stroke={theme.tertiary} strokeWidth="2" />
       <MonogramLetter letter={letter} theme={theme} stroke={theme.secondary} />
     </svg>
@@ -127,9 +125,8 @@ export function JasmineWreathLogo({ logo }: { logo: ResolvedVendorLogoTemplate }
       <circle cx="64" cy="64" r="54" fill="none" stroke={theme.primary} strokeWidth="1.5" opacity="0.35" />
       {Array.from({ length: buds }, (_, i) => {
         const angle = (360 / buds) * i;
-        const rad = (angle * Math.PI) / 180;
-        const x = 64 + 46 * Math.cos(rad);
-        const y = 64 + 46 * Math.sin(rad);
+        const x = polarX(64, 46, angle);
+        const y = polarY(64, 46, angle);
         return (
           <g key={angle} transform={`rotate(${angle + 90} ${x} ${y})`}>
             <ellipse cx={x} cy={y} rx="5" ry="9" fill={colors[i % colors.length]} opacity="0.9" />
@@ -139,12 +136,11 @@ export function JasmineWreathLogo({ logo }: { logo: ResolvedVendorLogoTemplate }
       })}
       {Array.from({ length: buds }, (_, i) => {
         const angle = (360 / buds) * i + 180 / buds;
-        const rad = (angle * Math.PI) / 180;
         return (
           <circle
             key={`leaf-${i}`}
-            cx={64 + 38 * Math.cos(rad)}
-            cy={64 + 38 * Math.sin(rad)}
+            cx={polarX(64, 38, angle)}
+            cy={polarY(64, 38, angle)}
             r="2.5"
             fill={theme.highlight}
             opacity="0.8"
@@ -285,9 +281,8 @@ export function MarigoldRingLogo({ logo }: { logo: ResolvedVendorLogoTemplate })
       <rect width="128" height="128" rx="16" fill={theme.background} />
       {Array.from({ length: petals }, (_, i) => {
         const angle = (360 / petals) * i;
-        const rad = (angle * Math.PI) / 180;
-        const x = 64 + 44 * Math.cos(rad);
-        const y = 64 + 44 * Math.sin(rad);
+        const x = polarX(64, 44, angle);
+        const y = polarY(64, 44, angle);
         return (
           <ellipse
             key={angle}
@@ -303,12 +298,11 @@ export function MarigoldRingLogo({ logo }: { logo: ResolvedVendorLogoTemplate })
       })}
       {Array.from({ length: petals }, (_, i) => {
         const angle = (360 / petals) * i + 15;
-        const rad = (angle * Math.PI) / 180;
         return (
           <circle
             key={`center-${i}`}
-            cx={64 + 44 * Math.cos(rad)}
-            cy={64 + 44 * Math.sin(rad)}
+            cx={polarX(64, 44, angle)}
+            cy={polarY(64, 44, angle)}
             r="3"
             fill={theme.secondary}
           />
@@ -334,14 +328,13 @@ export function ChakraWheelLogo({ logo }: { logo: ResolvedVendorLogoTemplate }) 
       <circle cx="64" cy="64" r="48" fill="none" stroke={theme.secondary} strokeWidth="1.5" opacity="0.7" />
       {Array.from({ length: spokes }, (_, i) => {
         const angle = (360 / spokes) * i;
-        const rad = (angle * Math.PI) / 180;
         return (
           <line
             key={angle}
             x1="64"
             y1="64"
-            x2={64 + 50 * Math.cos(rad)}
-            y2={64 + 50 * Math.sin(rad)}
+            x2={polarX(64, 50, angle)}
+            y2={polarY(64, 50, angle)}
             stroke={colors[i % colors.length]}
             strokeWidth="2.5"
             strokeLinecap="round"
@@ -351,12 +344,11 @@ export function ChakraWheelLogo({ logo }: { logo: ResolvedVendorLogoTemplate }) 
       })}
       {Array.from({ length: spokes }, (_, i) => {
         const angle = (360 / spokes) * i + 360 / spokes / 2;
-        const rad = (angle * Math.PI) / 180;
         return (
           <circle
             key={`dot-${i}`}
-            cx={64 + 42 * Math.cos(rad)}
-            cy={64 + 42 * Math.sin(rad)}
+            cx={polarX(64, 42, angle)}
+            cy={polarY(64, 42, angle)}
             r="3.5"
             fill={colors[(i + 2) % colors.length]}
           />
@@ -389,14 +381,13 @@ export function HexKolamLogo({ logo }: { logo: ResolvedVendorLogoTemplate }) {
       ))}
       {Array.from({ length: 6 }, (_, i) => {
         const angle = 60 * i;
-        const rad = (angle * Math.PI) / 180;
         return (
           <line
             key={angle}
-            x1={64 + 20 * Math.cos(rad)}
-            y1={64 + 20 * Math.sin(rad)}
-            x2={64 + 54 * Math.cos(rad)}
-            y2={64 + 54 * Math.sin(rad)}
+            x1={polarX(64, 20, angle)}
+            y1={polarY(64, 20, angle)}
+            x2={polarX(64, 54, angle)}
+            y2={polarY(64, 54, angle)}
             stroke={colors[(i + 1) % colors.length]}
             strokeWidth="1.5"
             opacity="0.65"
@@ -405,12 +396,11 @@ export function HexKolamLogo({ logo }: { logo: ResolvedVendorLogoTemplate }) {
       })}
       {Array.from({ length: 6 }, (_, i) => {
         const angle = 60 * i + 30;
-        const rad = (angle * Math.PI) / 180;
         return (
           <circle
             key={`v-${i}`}
-            cx={64 + 54 * Math.cos(rad)}
-            cy={64 + 54 * Math.sin(rad)}
+            cx={polarX(64, 54, angle)}
+            cy={polarY(64, 54, angle)}
             r="4"
             fill={colors[(i + 3) % colors.length]}
           />
