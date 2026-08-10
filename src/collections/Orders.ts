@@ -3,6 +3,11 @@ import type { Where } from "payload";
 
 import { isSuperAdmin, isVendor, getVendorId } from "@/lib/access";
 import { generateOrderNumber } from "@/lib/order-number";
+import {
+  getClosedOrderRevenueUpdateFields,
+  isTransitionToClosedRevenue,
+  refreshCustomersForClosedOrder,
+} from "@/lib/vendor-revenue/finalize-closed-order";
 
 export const Orders: CollectionConfig = {
   slug: "orders",
@@ -86,16 +91,20 @@ export const Orders: CollectionConfig = {
         if (operation === "update" && data.status && originalDoc) {
           // If status changed, add to history
           if (data.status !== originalDoc.status) {
-            const newHistoryEntry = {
-              status: data.status,
-              timestamp: new Date().toISOString(),
-              note: req.user ? `Updated by ${req.user.email}` : "System update",
-            };
+            const existingHistory = data.statusHistory ?? originalDoc.statusHistory ?? [];
+            const lastEntry = existingHistory[existingHistory.length - 1];
 
-            data.statusHistory = [
-              ...(originalDoc.statusHistory || []),
-              newHistoryEntry,
-            ];
+            if (lastEntry?.status !== data.status) {
+              const newHistoryEntry = {
+                status: data.status,
+                timestamp: new Date().toISOString(),
+                note: req.user ? `Updated by ${req.user.email}` : "System update",
+              };
+
+              data.statusHistory = [...existingHistory, newHistoryEntry];
+            } else {
+              data.statusHistory = existingHistory;
+            }
           }
         } else if (operation === "create" && data.status && !data.statusHistory?.length) {
           const saleTimestamp = data.manualSaleDate
@@ -109,6 +118,14 @@ export const Orders: CollectionConfig = {
               note: data.isManualRevenueEntry ? "Manual revenue recorded" : "Order created",
             },
           ];
+        }
+
+        if (
+          operation === "update" &&
+          originalDoc &&
+          isTransitionToClosedRevenue(originalDoc.status, data.status)
+        ) {
+          Object.assign(data, getClosedOrderRevenueUpdateFields({ ...originalDoc, ...data }));
         }
 
         return data;
@@ -188,6 +205,19 @@ export const Orders: CollectionConfig = {
             }
           } catch (error) {
             console.error("Failed to send order status update email:", error);
+          }
+        }
+
+        // Completed orders count as revenue — refresh linked customer stats
+        if (
+          operation === "update" &&
+          previousDoc &&
+          isTransitionToClosedRevenue(previousDoc.status, doc.status)
+        ) {
+          try {
+            await refreshCustomersForClosedOrder(req.payload, doc);
+          } catch (error) {
+            console.error(`[Orders Hook] Failed to refresh customer stats for closed order ${doc.id}:`, error);
           }
         }
 

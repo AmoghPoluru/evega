@@ -26,8 +26,10 @@ import {
   ChevronRight,
   MoreHorizontal,
   Eye,
+  Package,
 } from "lucide-react";
 import type { Order } from "@/payload-types";
+import { UpdateStatusModal } from "../[id]/components/UpdateStatusModal";
 
 interface OrdersTableProps {
   orders: Order[];
@@ -226,6 +228,16 @@ export function OrdersTable({
                             View Details
                           </Link>
                         </DropdownMenuItem>
+                        <UpdateStatusModal
+                          orderId={order.id}
+                          currentStatus={order.status}
+                          onSuccess={() => router.refresh()}
+                        >
+                          <DropdownMenuItem onSelect={(event) => event.preventDefault()}>
+                            <Package className="mr-2 h-4 w-4" />
+                            Update Status
+                          </DropdownMenuItem>
+                        </UpdateStatusModal>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

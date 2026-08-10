@@ -1,6 +1,5 @@
 "use client";
 
-// Task 4.17.1: UpdateStatusModal component for vendor to change order status
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -24,113 +23,133 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/trpc/client";
 import { toast } from "sonner";
-import { Package } from "lucide-react";
+import type { Order } from "@/payload-types";
+
+type OrderStatus = Order["status"];
+
+const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
+  { value: "pending", label: "Pending" },
+  { value: "payment_done", label: "Payment Done" },
+  { value: "processing", label: "Processing" },
+  { value: "complete", label: "Complete" },
+  { value: "canceled", label: "Canceled" },
+  { value: "refunded", label: "Refunded" },
+];
 
 interface UpdateStatusModalProps {
   orderId: string;
-  currentStatus: string;
+  currentStatus: OrderStatus;
   children: React.ReactNode;
+  onSuccess?: () => void;
 }
 
 export function UpdateStatusModal({
   orderId,
   currentStatus,
   children,
+  onSuccess,
 }: UpdateStatusModalProps) {
   const router = useRouter();
+  const utils = trpc.useUtils();
   const [open, setOpen] = useState(false);
-  const [status, setStatus] = useState<string>(currentStatus);
-  const [note, setNote] = useState<string>("");
+  const [status, setStatus] = useState<OrderStatus>(currentStatus);
+  const [note, setNote] = useState("");
 
-  // Task 4.17.7: Call tRPC mutation to update order status
   const updateStatus = trpc.vendor.orders.updateStatus.useMutation({
-    onSuccess: () => {
-      toast.success("Order status updated successfully");
+    onSuccess: (_data, variables) => {
+      toast.success(
+        variables.status === "complete"
+          ? "Order completed — revenue recorded"
+          : "Order status updated successfully",
+      );
       setOpen(false);
       setNote("");
+      onSuccess?.();
       router.refresh();
+
+      if (variables.status === "complete") {
+        void utils.vendor.revenue.list.invalidate();
+        void utils.vendor.revenue.summary.invalidate();
+        void utils.vendor.dashboard.stats.invalidate();
+      }
     },
     onError: (error) => {
       toast.error(error.message || "Failed to update order status");
     },
   });
 
-  // Task 4.17.6: Form validation - status is required
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (nextOpen) {
+      setStatus(currentStatus);
+      setNote("");
+    }
+  };
+
   const handleSubmit = () => {
-    if (!status) {
-      toast.error("Please select a status");
+    if (status === currentStatus) {
+      toast.error("Choose a different status to update this order");
       return;
     }
 
-    // Task 4.17.13: Disable invalid status transitions
-    const validTransitions: Record<string, string[]> = {
-      pending: ["payment_done", "canceled"],
-      payment_done: ["processing", "canceled"],
-      processing: ["complete", "canceled"],
-      complete: ["refunded"],
-      canceled: [],
-      refunded: [],
-    };
-
-    const allowedStatuses = validTransitions[currentStatus] || [];
-    if (!allowedStatuses.includes(status) && status !== currentStatus) {
-      toast.error(`Cannot change status from ${currentStatus} to ${status}`);
-      return;
-    }
-
-    // Task 4.17.14: Show confirmation dialog for status changes to "cancelled"
     if (status === "canceled" && currentStatus !== "canceled") {
-      if (!confirm("Are you sure you want to cancel this order? This action cannot be undone.")) {
+      if (!confirm("Cancel this order? Stock will be restored if it was deducted.")) {
+        return;
+      }
+    }
+
+    if (status === "refunded" && currentStatus !== "refunded") {
+      if (!confirm("Mark this order as refunded?")) {
         return;
       }
     }
 
     updateStatus.mutate({
       id: orderId,
-      status: status as any,
+      status,
       note: note || undefined,
     });
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Update Order Status</DialogTitle>
           <DialogDescription>
-            Change the status of this order. Current status: <strong>{currentStatus}</strong>
+            Change the status of this order. Current status:{" "}
+            <strong>
+              {ORDER_STATUS_OPTIONS.find((option) => option.value === currentStatus)?.label ??
+                currentStatus}
+            </strong>
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
-          {/* Task 4.17.3: Status dropdown with all status options */}
           <div className="space-y-2">
             <Label htmlFor="status">New Status</Label>
-            <Select value={status} onValueChange={setStatus}>
+            <Select value={status} onValueChange={(value) => setStatus(value as OrderStatus)}>
               <SelectTrigger id="status">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
-                {/* Task 4.17.4: Status options: pending, processing, payment_done, complete, canceled, refunded */}
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="payment_done">Payment Done</SelectItem>
-                <SelectItem value="processing">Processing</SelectItem>
-                <SelectItem value="complete">Complete</SelectItem>
-                <SelectItem value="canceled">Canceled</SelectItem>
-                <SelectItem value="refunded">Refunded</SelectItem>
+                {ORDER_STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Task 4.17.5: Optional note/comment field for status change */}
           <div className="space-y-2">
             <Label htmlFor="note">Note (Optional)</Label>
             <Textarea
               id="note"
               placeholder="Add a note about this status change..."
               value={note}
-              onChange={(e) => setNote(e.target.value)}
+              onChange={(event) => setNote(event.target.value)}
               rows={3}
             />
           </div>
@@ -140,10 +159,7 @@ export function UpdateStatusModal({
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={updateStatus.isPending}
-          >
+          <Button onClick={handleSubmit} disabled={updateStatus.isPending}>
             {updateStatus.isPending ? "Updating..." : "Update Status"}
           </Button>
         </DialogFooter>

@@ -41,6 +41,7 @@ import { vendorLogoTemplateRouter } from "@/modules/vendor/server/logo-template-
 import { vendorStorefrontLayoutRouter } from "@/modules/vendor/server/storefront-layout-procedures";
 import { vendorExpenseRouter } from "@/modules/vendor/server/expense-procedures";
 import { vendorRevenueRouter } from "@/modules/vendor/server/revenue-procedures";
+import { getClosedOrderRevenueUpdateFields } from "@/lib/vendor-revenue/finalize-closed-order";
 
 type VendorHappyBannerState = {
   selectedBanner?: string | { id: string } | null;
@@ -1503,14 +1504,52 @@ export const vendorRouter = createTRPCRouter({
           });
         }
 
-        // Update order status - statusHistory is handled by collection hook
+        if (input.status === order.status) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Order is already in that status",
+          });
+        }
+
+        const vendorEmail = ctx.session.user?.email ?? "vendor";
+        const historyNote = input.note?.trim() || `Updated by ${vendorEmail}`;
+        const statusHistory = [
+          ...(order.statusHistory ?? []),
+          {
+            status: input.status,
+            timestamp: new Date().toISOString(),
+            note: historyNote,
+          },
+        ];
+
+        const updateData: {
+          status: typeof input.status;
+          statusHistory: typeof statusHistory;
+          paymentStatus?: "pending" | "completed" | "failed" | "refunded";
+          orderSource?: "online" | "manual";
+          vendorPayout?: NonNullable<typeof order.vendorPayout>;
+        } = {
+          status: input.status,
+          statusHistory,
+        };
+
+        if (input.status === "payment_done" || input.status === "complete") {
+          updateData.paymentStatus = "completed";
+        } else if (input.status === "refunded") {
+          updateData.paymentStatus = "refunded";
+        }
+
+        if (input.status === "complete") {
+          Object.assign(
+            updateData,
+            getClosedOrderRevenueUpdateFields({ ...order, status: input.status, statusHistory }),
+          );
+        }
+
         const updatedOrder = await ctx.db.update({
           collection: "orders",
           id: input.id,
-          data: {
-            status: input.status,
-            // Note will be added to statusHistory by the hook
-          },
+          data: updateData,
         });
 
         return updatedOrder;
