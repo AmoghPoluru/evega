@@ -66,6 +66,22 @@ export function CenterDisc({
   );
 }
 
+/** Round SVG coordinates so SSR and client hydration produce identical attribute strings. */
+export function svgCoord(value: number, precision = 2): number {
+  const factor = 10 ** precision;
+  return Math.round(value * factor) / factor;
+}
+
+export function polarX(cx: number, radius: number, angleDeg: number): number {
+  const rad = (angleDeg * Math.PI) / 180;
+  return svgCoord(cx + radius * Math.cos(rad));
+}
+
+export function polarY(cy: number, radius: number, angleDeg: number): number {
+  const rad = (angleDeg * Math.PI) / 180;
+  return svgCoord(cy + radius * Math.sin(rad));
+}
+
 /** Regular polygon points for SVG polygon / path. */
 export function regularPolygonPoints(
   cx: number,
@@ -75,8 +91,8 @@ export function regularPolygonPoints(
   rotationDeg = -90,
 ): string {
   return Array.from({ length: sides }, (_, i) => {
-    const angle = ((rotationDeg + (360 / sides) * i) * Math.PI) / 180;
-    return `${cx + radius * Math.cos(angle)},${cy + radius * Math.sin(angle)}`;
+    const angle = rotationDeg + (360 / sides) * i;
+    return `${polarX(cx, radius, angle)},${polarY(cy, radius, angle)}`;
   }).join(" ");
 }
 
@@ -90,8 +106,8 @@ export function starPoints(
   rotationDeg = -90,
 ): string {
   return Array.from({ length: points * 2 }, (_, i) => {
-    const angle = ((rotationDeg + (180 / points) * i) * Math.PI) / 180;
+    const angle = rotationDeg + (180 / points) * i;
     const r = i % 2 === 0 ? outerR : innerR;
-    return `${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`;
+    return `${polarX(cx, r, angle)},${polarY(cy, r, angle)}`;
   }).join(" ");
 }

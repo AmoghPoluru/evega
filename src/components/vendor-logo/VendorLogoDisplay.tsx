@@ -15,7 +15,7 @@ import {
   PaisleyCurveLogo,
   RangoliStarLogo,
 } from "./extra-monogram-presets";
-import { MonogramLetter, palette } from "./monogram-svg-utils";
+import { MonogramLetter, palette, polarX, polarY } from "./monogram-svg-utils";
 
 type VendorLogoDisplayProps = {
   logo: ResolvedVendorLogoTemplate;
@@ -43,9 +43,8 @@ function LotusGraceLogo({ logo }: { logo: ResolvedVendorLogoTemplate }) {
       <circle cx="64" cy="64" r="58" fill="none" stroke={theme.secondary} strokeWidth="2" opacity="0.65" />
       <circle cx="64" cy="64" r="52" fill="none" stroke={theme.highlight} strokeWidth="1" opacity="0.45" strokeDasharray="4 5" />
       {petals.map((angle, i) => {
-        const rad = (angle * Math.PI) / 180;
-        const cx = 64 + 38 * Math.cos(rad);
-        const cy = 64 + 38 * Math.sin(rad);
+        const cx = polarX(64, 38, angle);
+        const cy = polarY(64, 38, angle);
         return (
           <ellipse
             key={angle}
@@ -60,9 +59,8 @@ function LotusGraceLogo({ logo }: { logo: ResolvedVendorLogoTemplate }) {
         );
       })}
       {petals.map((angle, i) => {
-        const rad = (angle * Math.PI) / 180;
-        const cx = 64 + 26 * Math.cos(rad);
-        const cy = 64 + 26 * Math.sin(rad);
+        const cx = polarX(64, 26, angle);
+        const cy = polarY(64, 26, angle);
         return (
           <circle key={`dot-${angle}`} cx={cx} cy={cy} r="3" fill={colors[(i + 2) % colors.length]} opacity="0.9" />
         );
@@ -109,27 +107,24 @@ function PeacockRoyalLogo({ logo }: { logo: ResolvedVendorLogoTemplate }) {
       <circle cx="64" cy="48" r="9" fill={theme.background} stroke={theme.secondary} strokeWidth="2" />
       <circle cx="64" cy="48" r="4" fill={theme.highlight} />
       <circle cx="62" cy="46" r="1.2" fill={theme.background} />
-      {[0, 72, 144, 216, 288].map((angle, i) => {
-        const rad = ((angle - 90) * Math.PI) / 180;
-        return (
+      {[0, 72, 144, 216, 288].map((angle, i) => (
           <g key={angle}>
             <circle
-              cx={64 + 46 * Math.cos(rad)}
-              cy={64 + 46 * Math.sin(rad)}
+              cx={polarX(64, 46, angle - 90)}
+              cy={polarY(64, 46, angle - 90)}
               r="5"
               fill={colors[i % colors.length]}
               opacity="0.85"
             />
             <circle
-              cx={64 + 46 * Math.cos(rad)}
-              cy={64 + 46 * Math.sin(rad)}
+              cx={polarX(64, 46, angle - 90)}
+              cy={polarY(64, 46, angle - 90)}
               r="2"
               fill={theme.background}
               opacity="0.7"
             />
           </g>
-        );
-      })}
+        ))}
       <circle cx="64" cy="68" r="36" fill={theme.primary} />
       <circle cx="64" cy="68" r="30" fill={theme.accent} opacity="0.22" />
       <circle cx="64" cy="68" r="24" fill={theme.tertiary} opacity="0.15" />
@@ -168,12 +163,11 @@ function MandalaGoldLogo({ logo }: { logo: ResolvedVendorLogoTemplate }) {
       ))}
       {Array.from({ length: 12 }, (_, i) => {
         const angle = i * 30;
-        const rad = (angle * Math.PI) / 180;
         return (
           <circle
             key={angle}
-            cx={64 + 50 * Math.cos(rad)}
-            cy={64 + 50 * Math.sin(rad)}
+            cx={polarX(64, 50, angle)}
+            cy={polarY(64, 50, angle)}
             r="5"
             fill={colors[i % colors.length]}
             opacity="0.9"
@@ -182,12 +176,11 @@ function MandalaGoldLogo({ logo }: { logo: ResolvedVendorLogoTemplate }) {
       })}
       {Array.from({ length: 6 }, (_, i) => {
         const angle = i * 60 + 15;
-        const rad = (angle * Math.PI) / 180;
         return (
           <circle
             key={`inner-${angle}`}
-            cx={64 + 36 * Math.cos(rad)}
-            cy={64 + 36 * Math.sin(rad)}
+            cx={polarX(64, 36, angle)}
+            cy={polarY(64, 36, angle)}
             r="3.5"
             fill={colors[(i + 2) % colors.length]}
             opacity="0.75"
