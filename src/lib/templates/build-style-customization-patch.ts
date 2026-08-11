@@ -3,6 +3,7 @@ import type { FieldNamesMarkedBoolean } from "react-hook-form";
 import type { TemplateCustomization } from "@/types/template-customization";
 
 import { resolveMergedBackgroundStyle } from "./resolve-merged-background-style";
+import { resolveStylePresetIdForSave } from "./style-preset-match";
 
 function pickColors(values: TemplateCustomization): NonNullable<TemplateCustomization["colors"]> | undefined {
   if (!values.colors) return undefined;
@@ -77,6 +78,16 @@ export function buildStyleCustomizationPatch(
         ...pickColors(values),
       };
     }
+  }
+
+  const styleFieldsDirty =
+    includeAll ||
+    isSectionDirty("colors") ||
+    isSectionDirty("fonts") ||
+    backgroundSectionDirty;
+
+  if (styleFieldsDirty) {
+    patch.stylePresetId = resolveStylePresetIdForSave(values);
   }
 
   return patch;

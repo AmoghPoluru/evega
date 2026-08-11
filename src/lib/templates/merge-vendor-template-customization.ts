@@ -23,6 +23,8 @@ export function mergeVendorTemplateCustomization(
     layout: patch.layout ? { ...base.layout, ...patch.layout } : base.layout,
     textStyles: patch.textStyles ? { ...base.textStyles, ...patch.textStyles } : base.textStyles,
     backgroundStyle: mergedBackgroundStyle,
+    stylePresetId:
+      patch.stylePresetId !== undefined ? patch.stylePresetId : base.stylePresetId,
     components: patch.components
       ? {
           heroBanner: patch.components.heroBanner

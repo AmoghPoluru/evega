@@ -47,15 +47,6 @@ function colorsForBackgroundType(
   };
 }
 
-function shouldRebuildGradientValue(
-  value: string | undefined,
-  primary: string | undefined,
-): boolean {
-  if (!value || !isGradientCssValue(value)) return true;
-  if (!primary) return false;
-  return value.toUpperCase().includes(primary.toUpperCase());
-}
-
 /** Merge base + customization into a complete backgroundStyle for rendering. */
 export function resolveMergedBackgroundStyle(
   base: TemplateConfig["backgroundStyle"] | TemplateCustomization["backgroundStyle"] | undefined,
@@ -76,13 +67,13 @@ export function resolveMergedBackgroundStyle(
     );
 
     if (type === "gradient") {
-      const keepSavedValue =
-        isGradientCssValue(customization.value) &&
-        !shouldRebuildGradientValue(customization.value, colors.primary);
+      const keepPresetValue =
+        customization.source === "preset" && isGradientCssValue(customization.value);
 
       return {
         ...built,
-        value: keepSavedValue ? customization.value : built.value,
+        value: keepPresetValue ? customization.value : built.value,
+        source: keepPresetValue ? "preset" : "generated",
       } as TemplateConfig["backgroundStyle"];
     }
 
@@ -90,11 +81,13 @@ export function resolveMergedBackgroundStyle(
       return {
         ...built,
         value: isSolidColorValue(customization.value) ? customization.value : built.value,
+        source: customization.source ?? built.source,
       } as TemplateConfig["backgroundStyle"];
     }
 
     return {
       ...built,
+      source: customization.source ?? built.source,
       animation: customization.animation ?? built.animation,
     } as TemplateConfig["backgroundStyle"];
   }

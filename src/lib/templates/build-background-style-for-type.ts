@@ -45,30 +45,32 @@ export function buildBackgroundStyleForType(
 
   if (type === "solid") {
     if (colors.background && colors.background !== "transparent") {
-      return { type: "solid", value: colors.background };
+      return { type: "solid", value: colors.background, source: "generated" };
     }
 
     // Presets use transparent background for mesh/gradient — solid should show brand color
     if (colors.primary) {
-      return { type: "solid", value: colors.primary };
+      return { type: "solid", value: colors.primary, source: "generated" };
     }
 
     if (colors.secondary) {
-      return { type: "solid", value: colors.secondary };
+      return { type: "solid", value: colors.secondary, source: "generated" };
     }
 
-    return { type: "solid", value: colors.cardBackground ?? "#F5F5F5" };
+    return { type: "solid", value: colors.cardBackground ?? "#F5F5F5", source: "generated" };
   }
 
   if (type === "gradient") {
     return {
       type: "gradient",
       value: buildDistinctGradientValue(primary, secondary, accent),
+      source: "generated",
     };
   }
 
   return {
     type: "mesh-gradient",
+    source: "generated",
     animation: { enabled: true, duration: "15s", easing: "ease" },
   };
 }

@@ -20,7 +20,9 @@ export function enforceBannerCapableConfig(
 ): TemplateConfig {
   const next = { ...config };
 
-  if (customization.layout?.showBanner !== false) {
+  if (customization.layout?.showBanner === false) {
+    next.layout = { ...next.layout, showBanner: false };
+  } else {
     next.layout = { ...next.layout, showBanner: true };
   }
 

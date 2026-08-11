@@ -15,6 +15,12 @@ import {
   getContrastTextColor,
   getSecondaryTextColor,
 } from "@/lib/templates/auto-contrast-text";
+import { resolvePageBackgroundContrastHex } from "@/lib/templates/resolve-contrast-surface";
+import {
+  customizationMatchesPreset,
+  resolveStylePresetIdForSave,
+} from "@/lib/templates/style-preset-match";
+import { resolveMergedBackgroundStyle } from "@/lib/templates/resolve-merged-background-style";
 import {
   buildBackgroundStyleForType,
   type VendorBackgroundStyleType,
@@ -29,9 +35,10 @@ import {
 } from "@/lib/templates/style-presets";
 import {
   templateCustomizationSchema,
+  type TemplateConfig,
   type TemplateCustomization,
 } from "@/types/template-customization";
-import { ColorPicker } from "@/app/(app)/vendor/templates/customize/components/ColorPicker";
+import { ColorPicker, AutoTextColorsPreview } from "@/app/(app)/vendor/templates/customize/components/ColorPicker";
 import { FontSelector } from "@/app/(app)/vendor/templates/customize/components/FontSelector";
 import { BackgroundStylePreview } from "./BackgroundStylePreview";
 import {
@@ -50,11 +57,16 @@ import {
 } from "@/components/ui/select";
 
 const STYLE_COLOR_FIELDS = [
-  { name: "colors.primary", label: "Primary", description: "Main brand / page accent" },
+  { name: "colors.primary", label: "Primary", description: "Main brand / page accent", warnContrast: true },
   { name: "colors.secondary", label: "Secondary", description: "Supporting brand color" },
   { name: "colors.accent", label: "Accent", description: "Highlights and CTAs" },
-  { name: "colors.background", label: "Page background", description: "Solid fill when using Solid background style" },
-];
+  {
+    name: "colors.background",
+    label: "Page background",
+    description: "Solid fill only — use Background style below for gradient or mesh",
+    warnContrast: true,
+  },
+] as const;
 
 const AUTO_SAVE_DELAY_MS = 500;
 
@@ -94,17 +106,29 @@ function withBackgroundStyleType(
   };
 }
 
-function withAutoContrast(values: TemplateCustomization): TemplateCustomization {
-  const primary = values.colors?.primary;
-  if (!primary?.startsWith("#")) return values;
+function withAutoContrast(
+  patch: TemplateCustomization,
+  baseColors?: TemplateConfig["colors"],
+  fullValues?: TemplateCustomization,
+): TemplateCustomization {
+  const mergedForContrast: TemplateCustomization = {
+    ...fullValues,
+    ...patch,
+    colors: { ...fullValues?.colors, ...patch.colors },
+    backgroundStyle: patch.backgroundStyle ?? fullValues?.backgroundStyle,
+    fonts: patch.fonts ?? fullValues?.fonts,
+  };
 
-  const text = getContrastTextColor(primary);
+  const surface = resolvePageBackgroundContrastHex(mergedForContrast, baseColors);
+  if (!surface) return patch;
+
+  const text = getContrastTextColor(surface);
   const textSecondary = getSecondaryTextColor(text);
 
   return {
-    ...values,
+    ...patch,
     colors: {
-      ...values.colors,
+      ...patch.colors,
       text,
       textSecondary,
     },
@@ -157,17 +181,23 @@ export function StoreAppearanceStylePanel({ onSaved }: StoreAppearanceStylePanel
       saveIntentRef.current = intent;
       if (options?.presetId) setApplyingPresetId(options.presetId);
 
+      const valuesForSave = options?.presetId
+        ? { ...values, stylePresetId: options.presetId }
+        : values;
+
       const patch = options?.includeAll
-        ? buildFullStyleCustomization(values)
-        : buildStyleCustomizationPatch(values, { dirtyFields: form.formState.dirtyFields });
+        ? buildFullStyleCustomization(valuesForSave)
+        : buildStyleCustomizationPatch(valuesForSave, { dirtyFields: form.formState.dirtyFields });
 
       if (Object.keys(patch).length === 0) return;
 
+      const baseColors = data?.template?.templateConfig?.colors;
+
       customizeMutation.mutate({
-        customization: withAutoContrast(patch),
+        customization: withAutoContrast(patch, baseColors, form.getValues()),
       });
     },
-    [customizeMutation, form.formState.dirtyFields],
+    [customizeMutation, data?.template?.templateConfig?.colors, form],
   );
 
   useEffect(() => {
@@ -175,22 +205,34 @@ export function StoreAppearanceStylePanel({ onSaved }: StoreAppearanceStylePanel
       skipAutoSaveRef.current = true;
       const customization = { ...data.customization };
       const type = customization.backgroundStyle?.type;
+      const mergedColors = {
+        primary: customization.colors?.primary ?? data.template?.templateConfig?.colors?.primary,
+        secondary:
+          customization.colors?.secondary ?? data.template?.templateConfig?.colors?.secondary,
+        accent: customization.colors?.accent ?? data.template?.templateConfig?.colors?.accent,
+        background: customization.colors?.background,
+        cardBackground:
+          customization.colors?.cardBackground ??
+          data.template?.templateConfig?.colors?.cardBackground,
+      };
       if (type === "solid" || type === "gradient" || type === "mesh-gradient") {
-        customization.backgroundStyle = buildBackgroundStyleForType(type, {
-          primary: customization.colors?.primary ?? data.template?.templateConfig?.colors?.primary,
-          secondary:
-            customization.colors?.secondary ?? data.template?.templateConfig?.colors?.secondary,
-          accent: customization.colors?.accent ?? data.template?.templateConfig?.colors?.accent,
-          background: customization.colors?.background,
-          cardBackground:
-            customization.colors?.cardBackground ??
-            data.template?.templateConfig?.colors?.cardBackground,
-        });
+        customization.backgroundStyle = resolveMergedBackgroundStyle(
+          undefined,
+          customization.backgroundStyle,
+          mergedColors,
+        );
       }
       form.reset(customization);
     }
   }, [data, form]);
 
+  /*
+   * Auto-save coordination (fragile — read before editing):
+   * - saveIntentRef: silent vs preset vs manual (controls success toasts)
+   * - skipAutoSaveRef: skip ONE debounced run after server reset / preset / dropdown save
+   * - applyingPresetId: blocks debounce while preset mutation is in flight
+   * - customizeMutation.isPending: blocks starting debounce; timer also re-checks before mutate
+   */
   useEffect(() => {
     if (skipAutoSaveRef.current) {
       skipAutoSaveRef.current = false;
@@ -199,26 +241,27 @@ export function StoreAppearanceStylePanel({ onSaved }: StoreAppearanceStylePanel
     if (!isDirty || customizeMutation.isPending || applyingPresetId) return;
 
     const timer = window.setTimeout(() => {
+      if (customizeMutation.isPending || applyingPresetId) return;
       saveCustomization(form.getValues(), "silent");
     }, AUTO_SAVE_DELAY_MS);
 
     return () => window.clearTimeout(timer);
   }, [watchedValues, isDirty, customizeMutation.isPending, applyingPresetId, form, saveCustomization]);
 
-  const watchedPrimary = form.watch("colors.primary");
+  const storedPresetId = form.watch("stylePresetId");
 
   const activePresetId = useMemo((): StylePresetId | null => {
-    if (!watchedPrimary) return null;
-    const match = STYLE_PRESETS.find(
-      (preset) => preset.customization.colors?.primary === watchedPrimary,
-    );
-    return match?.id ?? null;
-  }, [watchedPrimary]);
+    if (!storedPresetId) return null;
+    const values = (watchedValues ?? {}) as TemplateCustomization;
+    return customizationMatchesPreset(values, storedPresetId) ? storedPresetId : null;
+  }, [storedPresetId, watchedValues]);
 
   const handleApplyPreset = (presetId: StylePresetId) => {
     const preset = STYLE_PRESETS.find((item) => item.id === presetId);
     if (!preset || customizeMutation.isPending) return;
-    const next = withAutoContrast(preset.customization);
+    const baseColors = data?.template?.templateConfig?.colors;
+    const nextValues = { ...preset.customization, stylePresetId: presetId };
+    const next = withAutoContrast(nextValues, baseColors, nextValues);
     skipAutoSaveRef.current = true;
     form.reset(next, { keepDefaultValues: false });
     saveCustomization(next, "preset", { presetId, includeAll: true });
@@ -292,7 +335,15 @@ export function StoreAppearanceStylePanel({ onSaved }: StoreAppearanceStylePanel
         <div className="space-y-6">
           <div className="space-y-3">
             <Label>Colors</Label>
-            <ColorPicker form={form} fields={STYLE_COLOR_FIELDS} />
+            <ColorPicker
+              form={form}
+              fields={[...STYLE_COLOR_FIELDS]}
+              fallbackColors={data?.template?.templateConfig?.colors}
+            />
+            <AutoTextColorsPreview
+              form={form}
+              fallbackColors={data?.template?.templateConfig?.colors}
+            />
             <p className="text-xs text-muted-foreground">
               Text colors auto-adjust for readability when changes are saved.
             </p>
@@ -318,13 +369,29 @@ export function StoreAppearanceStylePanel({ onSaved }: StoreAppearanceStylePanel
                       form.setValue("colors.background", withBackground.colors?.background, {
                         shouldDirty: true,
                       });
-                      customizeMutation.mutate({
-                        customization: withAutoContrast({
-                          backgroundStyle: withBackground.backgroundStyle,
-                          colors: {
-                            background: withBackground.colors?.background,
-                          },
+                      const mergedValues = {
+                        ...current,
+                        ...withBackground,
+                        stylePresetId: resolveStylePresetIdForSave({
+                          ...current,
+                          ...withBackground,
                         }),
+                      };
+                      form.setValue("stylePresetId", mergedValues.stylePresetId, {
+                        shouldDirty: true,
+                      });
+                      customizeMutation.mutate({
+                        customization: withAutoContrast(
+                          {
+                            backgroundStyle: mergedValues.backgroundStyle,
+                            colors: {
+                              background: mergedValues.colors?.background,
+                            },
+                            stylePresetId: mergedValues.stylePresetId,
+                          },
+                          data?.template?.templateConfig?.colors,
+                          mergedValues,
+                        ),
                       });
                     }}
                     value={field.value ?? "mesh-gradient"}

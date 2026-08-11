@@ -7,18 +7,17 @@ import { Search, Star } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { VendorLayoutProps } from "./types";
 import { getMediaUrl, getPseudoRating } from "./utils";
-import { VendorStoreLogo } from "@/components/vendor-logo/VendorStoreLogo";
 import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTemplateBackgroundStyles";
+import { VendorLayoutBannerRegion } from "./VendorLayoutBannerRegion";
 
 /**
  * EmporiumLayout
  * A dense catalog storefront: search bar, rating filter, and product grid.
+ * Banners (happy + hero) replace the legacy sticky vendor header bar.
  */
-export function EmporiumLayout({ vendor, template, products, resolvedLogoTemplate }: VendorLayoutProps) {
+export function EmporiumLayout({ vendor, template, products, happyBanner }: VendorLayoutProps) {
   const [query, setQuery] = useState("");
   const [minRating, setMinRating] = useState(0);
-
-  const logoUrl = getMediaUrl(vendor.logo);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -42,45 +41,8 @@ export function EmporiumLayout({ vendor, template, products, resolvedLogoTemplat
       }}
     >
       <VendorTemplateBackgroundStyles scopeClass="emporium-layout" template={template} />
-      <header
-        className="sticky top-0 z-30"
-        style={{ backgroundColor: "var(--template-primary, #131921)" }}
-      >
-        <div className="mx-auto flex max-w-[1500px] items-center gap-4 px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <VendorStoreLogo
-              vendorName={vendor.name}
-              uploadUrl={logoUrl}
-              templateLogo={resolvedLogoTemplate}
-              size={48}
-            />
-            <span
-              className="hidden text-lg font-bold text-white sm:block"
-              style={{ fontFamily: "var(--template-font-heading)" }}
-            >
-              {vendor.name}
-            </span>
-          </div>
 
-          <div className="flex flex-1 items-stretch overflow-hidden rounded">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Search ${vendor.name}`}
-              className="min-w-0 flex-1 px-3 py-2 text-sm text-gray-900 outline-none"
-            />
-            <button
-              type="button"
-              className="flex items-center justify-center px-4"
-              style={{ backgroundColor: "var(--template-accent, #F0A020)" }}
-              aria-label="Search"
-            >
-              <Search className="h-4 w-4 text-gray-900" />
-            </button>
-          </div>
-        </div>
-      </header>
+      <VendorLayoutBannerRegion vendor={vendor} template={template} happyBanner={happyBanner} />
 
       <div className="mx-auto flex max-w-[1500px] gap-6 px-4 py-6">
         <aside className="hidden w-56 flex-shrink-0 lg:block">
@@ -113,10 +75,36 @@ export function EmporiumLayout({ vendor, template, products, resolvedLogoTemplat
         </aside>
 
         <main className="min-w-0 flex-1">
-          <div className="mb-4 flex items-baseline justify-between border-b pb-2" style={{ borderColor: "var(--template-border)" }}>
-            <h1 className="text-xl font-bold" style={{ fontFamily: "var(--template-font-heading)" }}>
-              All products
-            </h1>
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b pb-4" style={{ borderColor: "var(--template-border)" }}>
+            <div>
+              <h1 className="text-xl font-bold" style={{ fontFamily: "var(--template-font-heading)" }}>
+                {vendor.name}
+              </h1>
+              <p className="text-sm" style={{ color: "var(--template-text-secondary)" }}>
+                All products
+              </p>
+            </div>
+            <div className="flex w-full max-w-md items-stretch overflow-hidden rounded sm:w-auto sm:min-w-[280px]">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={`Search ${vendor.name}`}
+                className="min-w-0 flex-1 border px-3 py-2 text-sm text-gray-900 outline-none"
+                style={{ borderColor: "var(--template-border)" }}
+              />
+              <button
+                type="button"
+                className="flex items-center justify-center px-4"
+                style={{ backgroundColor: "var(--template-accent, #F0A020)" }}
+                aria-label="Search"
+              >
+                <Search className="h-4 w-4 text-gray-900" />
+              </button>
+            </div>
+          </div>
+
+          <div className="mb-4 flex items-baseline justify-between">
             <span className="text-sm" style={{ color: "var(--template-text-secondary)" }}>
               {filtered.length} result{filtered.length === 1 ? "" : "s"}
             </span>
@@ -135,10 +123,11 @@ export function EmporiumLayout({ vendor, template, products, resolvedLogoTemplat
                   <Link
                     key={product.id}
                     href={`/products/${product.id}`}
-                    className="flex flex-col rounded-md border bg-white p-3 transition-shadow hover:shadow-md"
+                    data-template-product-card
+                    className="flex flex-col rounded-md border bg-white p-3 transition-shadow hover:shadow-md overflow-hidden"
                     style={{ borderColor: "var(--template-border)" }}
                   >
-                    <div className="relative mb-3 aspect-square">
+                    <div data-template-product-card-media className="relative mb-3 aspect-square">
                       <Image
                         src={imageUrl || "/placeholder.png"}
                         alt={product.name}

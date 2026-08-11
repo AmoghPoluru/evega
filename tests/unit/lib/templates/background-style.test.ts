@@ -53,11 +53,12 @@ describe("background style rendering", () => {
     expect(cssByType.solid).not.toEqual(cssByType["mesh-gradient"]);
   });
 
-  it("upgrades brand-color gradients to the high-contrast recipe", () => {
+  it("upgrades generated gradients to the high-contrast recipe", () => {
     const resolved = resolveMergedBackgroundStyle(
       undefined,
       {
         type: "gradient",
+        source: "generated",
         value: "linear-gradient(135deg, #FF6B9D 0%, #C44569 42%, #FFD93D 100%)",
       },
       brandColors,
@@ -67,11 +68,12 @@ describe("background style rendering", () => {
     expect(resolved?.value).not.toContain("#FF6B9D 0%");
   });
 
-  it("preserves soft preset gradients that omit the brand primary", () => {
+  it("preserves preset-authored gradients", () => {
     const resolved = resolveMergedBackgroundStyle(
       undefined,
       {
         type: "gradient",
+        source: "preset",
         value: "linear-gradient(135deg, #FDF6F8 0%, #F5E6EC 100%)",
       },
       brandColors,

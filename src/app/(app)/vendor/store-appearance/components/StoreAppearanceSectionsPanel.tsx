@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
+import { cn } from "@/lib/utils";
 import {
   Form,
   FormControl,
@@ -28,6 +29,8 @@ import {
 const HERO_HEIGHT_MIN = 300;
 const HERO_HEIGHT_MAX = 640;
 const HERO_HEIGHT_DEFAULT = 480;
+
+const CARD_RADIUS_OPTIONS = ["0px", "8px", "12px", "16px", "20px"] as const;
 
 type StoreAppearanceSectionsPanelProps = {
   onSaved?: () => void;
@@ -60,18 +63,25 @@ export function StoreAppearanceSectionsPanel({ onSaved }: StoreAppearanceSection
   });
 
   useEffect(() => {
-    if (data?.customization) {
-      form.reset(data.customization);
-    } else if (data?.template) {
-      const base = data.template.templateConfig;
-      form.reset({
-        layout: { showBanner: base.layout?.showBanner ?? true },
-        components: {
-          heroBanner: { height: base.components?.heroBanner?.height ?? `${HERO_HEIGHT_DEFAULT}px` },
-          productCard: { borderRadius: base.components?.productCard?.borderRadius ?? "8px" },
+    if (!data?.template?.templateConfig) return;
+
+    const config = data.template.templateConfig;
+    const radius = config.components?.productCard?.borderRadius ?? "8px";
+    const normalizedRadius = CARD_RADIUS_OPTIONS.includes(
+      radius as (typeof CARD_RADIUS_OPTIONS)[number],
+    )
+      ? radius
+      : "8px";
+
+    form.reset({
+      layout: { showBanner: config.layout?.showBanner ?? true },
+      components: {
+        heroBanner: {
+          height: config.components?.heroBanner?.height ?? `${HERO_HEIGHT_DEFAULT}px`,
         },
-      });
-    }
+        productCard: { borderRadius: normalizedRadius },
+      },
+    });
   }, [data, form]);
 
   const heroHeight = parseHeroHeight(form.watch("components.heroBanner.height"));
@@ -149,15 +159,29 @@ export function StoreAppearanceSectionsPanel({ onSaved }: StoreAppearanceSection
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Product card corner radius</FormLabel>
-                <FormDescription>e.g. 8px, 12px, 20px</FormDescription>
-                <FormControl>
-                  <input
-                    type="text"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-                    value={field.value ?? "8px"}
-                    onChange={(event) => field.onChange(event.target.value)}
-                  />
-                </FormControl>
+                <FormDescription>Curated corner styles for product cards</FormDescription>
+                <div className="flex flex-wrap gap-2">
+                  {CARD_RADIUS_OPTIONS.map((radius) => (
+                    <button
+                      key={radius}
+                      type="button"
+                      className={cn(
+                        "rounded-md border px-3 py-1.5 text-sm transition-colors",
+                        field.value === radius
+                          ? "border-primary bg-primary/10 font-medium"
+                          : "hover:bg-muted/50",
+                      )}
+                      onClick={() => {
+                        field.onChange(radius);
+                        form.setValue("components.productCard.borderRadius", radius, {
+                          shouldDirty: true,
+                        });
+                      }}
+                    >
+                      {radius === "0px" ? "Square" : radius}
+                    </button>
+                  ))}
+                </div>
               </FormItem>
             )}
           />

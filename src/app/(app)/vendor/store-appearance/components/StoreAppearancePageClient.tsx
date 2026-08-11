@@ -68,7 +68,8 @@ export function StoreAppearancePageClient() {
                   Step 1 · Logo
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Choose a monogram design or upload your own logo.
+                  Choose a monogram design or upload your own logo. Your logo appears in the
+                  storefront header (top navigation bar) on your public shop page.
                 </p>
               </div>
               <VendorLogoTemplateClient embedded />

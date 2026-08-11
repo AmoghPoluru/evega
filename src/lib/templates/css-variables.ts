@@ -1,5 +1,6 @@
 import type { TemplateConfig, TemplateCustomization } from "@/types/template-customization";
 
+import { getContrastTextColor, getSecondaryTextColor } from "./auto-contrast-text";
 import { buildDistinctGradientValue } from "./build-background-style-for-type";
 
 /**
@@ -32,6 +33,14 @@ export function generateCSSVariables(
   variables["--template-text-secondary"] = templateConfig.colors?.textSecondary || "#666666";
   variables["--template-border"] = templateConfig.colors?.border || "#E5E5E5";
   variables["--template-card-bg"] = templateConfig.colors?.cardBackground || "#FFFFFF";
+
+  const cardSurface =
+    colors.cardBackground?.startsWith("#") && colors.cardBackground !== "transparent"
+      ? colors.cardBackground
+      : "#FFFFFF";
+  const cardText = getContrastTextColor(cardSurface);
+  variables["--template-card-text"] = cardText;
+  variables["--template-card-text-secondary"] = getSecondaryTextColor(cardText);
 
   // Fonts
   variables["--template-font-heading"] = templateConfig.fonts?.heading || "Inter, system-ui, sans-serif";

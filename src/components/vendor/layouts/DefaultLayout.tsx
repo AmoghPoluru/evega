@@ -8,7 +8,7 @@ import { cssVariablesToString } from "@/lib/templates/css-variables";
 import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTemplateBackgroundStyles";
 import type { VendorLayoutProps } from "./types";
 import { getDescriptionText } from "./utils";
-import { VENDOR_HEAD_BANNER_ENABLED } from "@/lib/templates/vendor-storefront-flags";
+import { isLayoutBannerEnabled } from "./VendorLayoutBannerRegion";
 
 /**
  * DefaultLayout
@@ -28,6 +28,7 @@ export function DefaultLayout({ vendor, template, products, happyBanner }: Vendo
   const fallbackFeaturedProducts = products.slice(0, 6);
 
   const totalDocs = products.length;
+  const showHeroBanner = isLayoutBannerEnabled(template);
 
   return (
     <div
@@ -196,12 +197,12 @@ export function DefaultLayout({ vendor, template, products, happyBanner }: Vendo
       {happyBanner ? <HappyBannerDisplay banner={happyBanner} /> : null}
 
       {/* Hero Banner - Try vendor hero banners first, fallback to default */}
-      {VENDOR_HEAD_BANNER_ENABLED ? (
+      {showHeroBanner ? (
       <Suspense
         fallback={
           <div className="relative w-full overflow-hidden">
             {fallbackBackgroundImageUrl ? (
-              <div className="relative h-[400px] lg:h-[500px]">
+              <div data-template-hero-banner className="relative w-full">
                 <Image
                   src={fallbackBackgroundImageUrl}
                   alt={fallbackBannerTitle}
@@ -213,7 +214,8 @@ export function DefaultLayout({ vendor, template, products, happyBanner }: Vendo
               </div>
             ) : (
               <div
-                className="h-[400px] lg:h-[500px]"
+                data-template-hero-banner
+                className="w-full"
                 style={{
                   background: `linear-gradient(to right, var(--template-primary), var(--template-secondary))`,
                 }}
@@ -222,15 +224,16 @@ export function DefaultLayout({ vendor, template, products, happyBanner }: Vendo
           </div>
         }
       >
-        <VendorHeroBannersSection vendorSlug={vendor.slug} />
+        <VendorHeroBannersSection vendorSlug={vendor.slug} enabled />
       </Suspense>
       ) : null}
 
       {/* Fallback Banner (if no vendor hero banners) */}
-      {VENDOR_HEAD_BANNER_ENABLED && !fallbackBackgroundImageUrl && fallbackFeaturedProducts.length === 0 && (
+      {showHeroBanner && !fallbackBackgroundImageUrl && fallbackFeaturedProducts.length === 0 && (
         <div className="relative w-full overflow-hidden">
           <div
-            className="h-[400px] lg:h-[500px] flex items-center justify-center"
+            data-template-hero-banner
+            className="flex w-full items-center justify-center"
             style={{
               background: `linear-gradient(to right, var(--template-primary), var(--template-secondary))`,
             }}

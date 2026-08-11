@@ -1,15 +1,8 @@
 import type { TemplateCustomization } from "@/types/template-customization";
 
-export const STYLE_PRESET_IDS = [
-  "minimal",
-  "elegant",
-  "bold",
-  "zen",
-  "editorial",
-  "warm",
-] as const;
+import type { StylePresetId } from "./style-preset-ids";
 
-export type StylePresetId = (typeof STYLE_PRESET_IDS)[number];
+export { STYLE_PRESET_IDS, type StylePresetId, isStylePresetId } from "./style-preset-ids";
 
 export type StylePreset = {
   id: StylePresetId;
@@ -41,7 +34,7 @@ export const STYLE_PRESETS: StylePreset[] = [
         heading: "Inter, system-ui, sans-serif",
         body: "Inter, system-ui, sans-serif",
       },
-      backgroundStyle: { type: "solid", value: "#FAFAFA" },
+      backgroundStyle: { type: "solid", value: "#FAFAFA", source: "preset" },
     },
   },
   {
@@ -64,7 +57,11 @@ export const STYLE_PRESETS: StylePreset[] = [
         heading: "Playfair Display, Georgia, serif",
         body: "Lora, Georgia, serif",
       },
-      backgroundStyle: { type: "gradient", value: "linear-gradient(135deg, #FDF6F8 0%, #F5E6EC 100%)" },
+      backgroundStyle: {
+        type: "gradient",
+        value: "linear-gradient(135deg, #FDF6F8 0%, #F5E6EC 100%)",
+        source: "preset",
+      },
     },
   },
   {
@@ -89,6 +86,7 @@ export const STYLE_PRESETS: StylePreset[] = [
       },
       backgroundStyle: {
         type: "mesh-gradient",
+        source: "preset",
         animation: { enabled: true, duration: "15s", easing: "ease" },
       },
     },
@@ -113,7 +111,7 @@ export const STYLE_PRESETS: StylePreset[] = [
         heading: "Lora, Georgia, serif",
         body: "Nunito, system-ui, sans-serif",
       },
-      backgroundStyle: { type: "solid", value: "#F4F7F4" },
+      backgroundStyle: { type: "solid", value: "#F4F7F4", source: "preset" },
     },
   },
   {
@@ -136,7 +134,7 @@ export const STYLE_PRESETS: StylePreset[] = [
         heading: "Playfair Display, Georgia, serif",
         body: "Inter, system-ui, sans-serif",
       },
-      backgroundStyle: { type: "solid", value: "#FFFFFF" },
+      backgroundStyle: { type: "solid", value: "#FFFFFF", source: "preset" },
     },
   },
   {
@@ -159,15 +157,15 @@ export const STYLE_PRESETS: StylePreset[] = [
         heading: "Montserrat, system-ui, sans-serif",
         body: "Open Sans, sans-serif",
       },
-      backgroundStyle: { type: "gradient", value: "linear-gradient(180deg, #FFF8F0 0%, #FDE8D8 100%)" },
+      backgroundStyle: {
+        type: "gradient",
+        value: "linear-gradient(180deg, #FFF8F0 0%, #FDE8D8 100%)",
+        source: "preset",
+      },
     },
   },
 ];
 
 export function getStylePreset(id: StylePresetId): StylePreset | undefined {
   return STYLE_PRESETS.find((preset) => preset.id === id);
-}
-
-export function isStylePresetId(value: string): value is StylePresetId {
-  return STYLE_PRESET_IDS.includes(value as StylePresetId);
 }
