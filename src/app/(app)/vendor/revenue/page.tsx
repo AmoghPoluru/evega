@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { DollarSign, Plus, Search, X } from "lucide-react";
+import { DollarSign, Plus, Search, Table2, X } from "lucide-react";
 
 import { trpc } from "@/trpc/client";
 import { vendorPageTitles } from "@/lib/vendor-portal-labels";
@@ -12,13 +12,18 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/utils";
 import { ClosedOrderRevenueTable } from "./components/ClosedOrderRevenueTable";
+import { RevenueBulkEditGrid } from "./components/RevenueBulkEditGrid";
+import { RevenueExportMenu } from "./components/RevenueExportMenu";
 import { RevenueFormDialog } from "./components/RevenueFormDialog";
+
+type RevenueViewMode = "view" | "bulk";
 
 export default function VendorRevenuePage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<RevenueViewMode>("view");
 
   const utils = trpc.useUtils();
 
@@ -36,11 +41,14 @@ export default function VendorRevenuePage() {
     data: revenueData,
     isLoading: revenueLoading,
     error: revenueError,
-  } = trpc.vendor.revenue.list.useQuery({
-    search: debouncedSearch || undefined,
-    page,
-    limit: 20,
-  });
+  } = trpc.vendor.revenue.list.useQuery(
+    {
+      search: debouncedSearch || undefined,
+      page,
+      limit: 20,
+    },
+    { enabled: viewMode === "view" },
+  );
 
   const revenueRows = revenueData?.docs ?? [];
   const totalDocs = revenueData?.totalDocs ?? 0;
@@ -48,6 +56,8 @@ export default function VendorRevenuePage() {
 
   const refreshRevenue = () => {
     void utils.vendor.revenue.list.invalidate();
+    void utils.vendor.revenue.listForBulkEdit.invalidate();
+    void utils.vendor.revenue.exportAll.invalidate();
     void utils.vendor.revenue.summary.invalidate();
   };
 
@@ -65,10 +75,22 @@ export default function VendorRevenuePage() {
           </p>
         </div>
 
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add revenue
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <RevenueExportMenu search={debouncedSearch} disabled={viewMode === "bulk"} />
+
+          {viewMode === "view" ? (
+            <>
+              <Button type="button" variant="outline" onClick={() => setViewMode("bulk")}>
+                <Table2 className="mr-2 h-4 w-4" />
+                Bulk edit
+              </Button>
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add revenue
+              </Button>
+            </>
+          ) : null}
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -134,6 +156,7 @@ export default function VendorRevenuePage() {
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search order #, description, or expo..."
           className="pl-10 pr-10"
+          disabled={viewMode === "bulk"}
         />
         {search ? (
           <button
@@ -141,13 +164,20 @@ export default function VendorRevenuePage() {
             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             onClick={() => setSearch("")}
             aria-label="Clear search"
+            disabled={viewMode === "bulk"}
           >
             <X className="h-4 w-4" />
           </button>
         ) : null}
       </div>
 
-      {revenueError ? (
+      {viewMode === "bulk" ? (
+        <RevenueBulkEditGrid
+          search={debouncedSearch}
+          onExit={() => setViewMode("view")}
+          onSaved={refreshRevenue}
+        />
+      ) : revenueError ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-6 text-sm text-destructive">
           Failed to load revenue: {revenueError.message}
         </div>
@@ -155,7 +185,7 @@ export default function VendorRevenuePage() {
         <ClosedOrderRevenueTable rows={revenueRows} isLoading={revenueLoading} />
       )}
 
-      {totalDocs > 0 ? (
+      {viewMode === "view" && totalDocs > 0 ? (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
             Showing {(page - 1) * 20 + 1} to {Math.min(page * 20, totalDocs)} of {totalDocs} closed

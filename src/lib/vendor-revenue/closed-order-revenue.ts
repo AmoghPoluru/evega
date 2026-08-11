@@ -10,9 +10,12 @@ import {
   resolveOrderSource,
   type OrderSource,
 } from "./order-source";
+import type { VendorSaleContextId } from "./sale-context";
 
 /** Order statuses that count as closed for revenue (vendor-completed sales). */
 export const CLOSED_ORDER_STATUS = "complete" as const;
+
+export const BULK_REVENUE_MAX_ROWS = 500;
 
 export type ClosedOrderRevenueSummary = {
   totalRevenue: number;
@@ -36,6 +39,11 @@ export type ClosedOrderRevenueRow = {
   orderSourceLabel: string;
   orderStatusLabel: string;
   productId: string | null;
+  /** Manual simple-entry rows are editable in bulk mode (no product line items). */
+  isEditable: boolean;
+  saleContextId: VendorSaleContextId | null;
+  expoName: string | null;
+  revenueDescription: string | null;
 };
 
 export function formatClosedOrderRevenueRow(order: Order): ClosedOrderRevenueRow {
@@ -55,6 +63,9 @@ export function formatClosedOrderRevenueRow(order: Order): ClosedOrderRevenueRow
 
   const lineItems = order.lineItems ?? [];
   const firstLineProduct = lineItems[0]?.product ?? order.product;
+  const isManual = Boolean(order.isManualRevenueEntry);
+  const hasLineItems = lineItems.length > 0;
+  const saleContextId = (order.saleContext as VendorSaleContextId | null | undefined) ?? null;
 
   return {
     id: order.id,
@@ -74,6 +85,10 @@ export function formatClosedOrderRevenueRow(order: Order): ClosedOrderRevenueRow
       typeof firstLineProduct === "string"
         ? firstLineProduct
         : firstLineProduct?.id ?? null,
+    isEditable: isManual && !hasLineItems,
+    saleContextId,
+    expoName: order.expoName?.trim() || null,
+    revenueDescription: order.revenueDescription?.trim() || null,
   };
 }
 
@@ -130,7 +145,29 @@ export async function getClosedOrderRevenue(
   };
 }
 
-export async function listClosedOrderRevenue(
+function buildClosedOrdersWhere(vendorId: string, search?: string): Where {
+  let where = closedOrdersWhere(vendorId);
+
+  if (search?.trim()) {
+    where = {
+      and: [
+        where,
+        {
+          or: [
+            { orderNumber: { contains: search.trim() } },
+            { name: { contains: search.trim() } },
+            { revenueDescription: { contains: search.trim() } },
+            { expoName: { contains: search.trim() } },
+          ],
+        },
+      ],
+    };
+  }
+
+  return where;
+}
+
+async function queryClosedOrderRevenue(
   db: Payload,
   vendorId: string,
   options: {
@@ -138,33 +175,10 @@ export async function listClosedOrderRevenue(
     limit?: number;
     search?: string;
   } = {},
-): Promise<{
-  docs: ClosedOrderRevenueRow[];
-  totalDocs: number;
-  page: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-}> {
+) {
   const page = options.page ?? 1;
   const limit = options.limit ?? 20;
-  let where = closedOrdersWhere(vendorId);
-
-  if (options.search?.trim()) {
-    where = {
-      and: [
-        where,
-        {
-          or: [
-            { orderNumber: { contains: options.search.trim() } },
-            { name: { contains: options.search.trim() } },
-            { revenueDescription: { contains: options.search.trim() } },
-            { expoName: { contains: options.search.trim() } },
-          ],
-        },
-      ],
-    };
-  }
+  const where = buildClosedOrdersWhere(vendorId, options.search);
 
   const result = await db.find({
     collection: "orders",
@@ -183,4 +197,62 @@ export async function listClosedOrderRevenue(
     hasNextPage: result.hasNextPage,
     hasPrevPage: result.hasPrevPage,
   };
+}
+
+export async function listClosedOrderRevenue(
+  db: Payload,
+  vendorId: string,
+  options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  } = {},
+): Promise<{
+  docs: ClosedOrderRevenueRow[];
+  totalDocs: number;
+  page: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}> {
+  return queryClosedOrderRevenue(db, vendorId, options);
+}
+
+export async function listClosedOrderRevenueForBulkEdit(
+  db: Payload,
+  vendorId: string,
+  options: { search?: string } = {},
+): Promise<{
+  docs: ClosedOrderRevenueRow[];
+  totalDocs: number;
+  truncated: boolean;
+  maxRows: number;
+}> {
+  const result = await queryClosedOrderRevenue(db, vendorId, {
+    search: options.search,
+    page: 1,
+    limit: BULK_REVENUE_MAX_ROWS,
+  });
+
+  return {
+    docs: result.docs,
+    totalDocs: result.totalDocs,
+    truncated: result.totalDocs > BULK_REVENUE_MAX_ROWS,
+    maxRows: BULK_REVENUE_MAX_ROWS,
+  };
+}
+
+export async function listAllClosedOrderRevenue(
+  db: Payload,
+  vendorId: string,
+): Promise<ClosedOrderRevenueRow[]> {
+  const result = await db.find({
+    collection: "orders",
+    where: closedOrdersWhere(vendorId),
+    limit: 5000,
+    sort: "-updatedAt",
+    depth: 1,
+  });
+
+  return (result.docs as Order[]).map(formatClosedOrderRevenueRow);
 }
