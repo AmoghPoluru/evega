@@ -43,7 +43,7 @@ type NavGroup = {
   items: NavItem[];
 };
 
-const storeAppearanceHref = "/vendor/store-appearance?started=1&tab=template";
+const storeAppearanceHref = "/vendor/store-appearance?started=1&tab=logo";
 
 const navGroups: NavGroup[] = [
   {

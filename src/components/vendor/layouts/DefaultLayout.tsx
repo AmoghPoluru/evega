@@ -9,17 +9,13 @@ import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTempla
 import type { VendorLayoutProps } from "./types";
 import { getDescriptionText } from "./utils";
 import { VENDOR_HEAD_BANNER_ENABLED } from "@/lib/templates/vendor-storefront-flags";
-import { VendorStoreLogo } from "@/components/vendor-logo/VendorStoreLogo";
-import { getMediaUrl } from "./utils";
 
 /**
  * DefaultLayout
  * Reproduces the original hardcoded vendor storefront: an animated mesh-gradient
- * background, a thin sticky vendor info bar, a hero banner carousel and a
- * filterable product grid. This is the fallback layout for every template that
- * does not declare a specific structural layout.
+ * background, a hero banner carousel and a filterable product grid.
  */
-export function DefaultLayout({ vendor, template, products, happyBanner, resolvedLogoTemplate }: VendorLayoutProps) {
+export function DefaultLayout({ vendor, template, products, happyBanner }: VendorLayoutProps) {
   const cssVariables = cssVariablesToString(template.cssVariables);
   const descriptionText = getDescriptionText(vendor.description);
 
@@ -53,7 +49,7 @@ export function DefaultLayout({ vendor, template, products, happyBanner, resolve
 
         /* Make cards look modern and "Glassy" against the vibrant back */
         .vendor-page-template [class*="card"],
-        .vendor-page-template .vendor-info-header,
+        .vendor-page-template .vendor-glass-panel,
         .vendor-page-template a[href*="/products/"] > div {
           background-color: rgba(255, 255, 255, 0.9) !important;
           backdrop-filter: blur(10px);
@@ -197,89 +193,6 @@ export function DefaultLayout({ vendor, template, products, happyBanner, resolve
         </div>
       </div>
 
-      {/* Vendor Details Navbar - Thin horizontal bar */}
-      <div
-        className="vendor-info-header border-b sticky top-0 z-20"
-        style={{
-          borderColor: "var(--template-border)",
-        }}
-      >
-        <div className="container mx-auto px-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between gap-4 py-2">
-              {/* Left: Logo and Name */}
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <VendorStoreLogo
-                  vendorName={vendor.name}
-                  uploadUrl={getMediaUrl(vendor.logo)}
-                  templateLogo={resolvedLogoTemplate}
-                  size={56}
-                />
-                <h1
-                  className="text-base font-bold"
-                  style={{
-                    color: "var(--template-text)",
-                    fontFamily: "var(--template-font-heading)",
-                  }}
-                >
-                  {vendor.name}
-                </h1>
-                {totalDocs > 0 && (
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full font-medium"
-                    style={{
-                      backgroundColor: "var(--template-accent)",
-                      color: "var(--template-text)",
-                    }}
-                  >
-                    {totalDocs} {totalDocs === 1 ? "Product" : "Products"}
-                  </span>
-                )}
-              </div>
-
-              {/* Right: Contact Info */}
-              <div className="flex items-center gap-4 text-xs flex-wrap">
-                {vendor.email && (
-                  <a
-                    href={`mailto:${vendor.email}`}
-                    className="hover:underline whitespace-nowrap"
-                    style={{
-                      color: "var(--template-primary)",
-                    }}
-                  >
-                    {vendor.email}
-                  </a>
-                )}
-                {vendor.phone && (
-                  <a
-                    href={`tel:${vendor.phone}`}
-                    className="hover:underline whitespace-nowrap"
-                    style={{
-                      color: "var(--template-primary)",
-                    }}
-                  >
-                    {vendor.phone}
-                  </a>
-                )}
-                {vendor.website && (
-                  <a
-                    href={vendor.website.startsWith("http") ? vendor.website : `https://${vendor.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline whitespace-nowrap"
-                    style={{
-                      color: "var(--template-primary)",
-                    }}
-                  >
-                    Website
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {happyBanner ? <HappyBannerDisplay banner={happyBanner} /> : null}
 
       {/* Hero Banner - Try vendor hero banners first, fallback to default */}
@@ -359,7 +272,7 @@ export function DefaultLayout({ vendor, template, products, happyBanner, resolve
       >
         <div className="mx-auto">
           {products.length === 0 ? (
-            <div className="text-center py-12 rounded-lg vendor-info-header">
+            <div className="text-center py-12 rounded-lg vendor-glass-panel">
               <p className="text-lg" style={{ color: "var(--template-text-secondary)" }}>
                 This vendor has no products available yet.
               </p>

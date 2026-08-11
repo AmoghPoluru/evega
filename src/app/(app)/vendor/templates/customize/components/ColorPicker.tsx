@@ -14,19 +14,27 @@ import type { TemplateCustomization } from "@/types/template-customization";
 
 interface ColorPickerProps {
   form: UseFormReturn<TemplateCustomization>;
+  /** When set, only show these color fields (Tier-1 style panel). */
+  fields?: Array<{
+    name: string;
+    label: string;
+    description: string;
+  }>;
 }
 
-export function ColorPicker({ form }: ColorPickerProps) {
-  const colorFields = [
-    { name: "colors.primary", label: "Primary Color", description: "Main brand color" },
-    { name: "colors.secondary", label: "Secondary Color", description: "Secondary brand color" },
-    { name: "colors.accent", label: "Accent Color", description: "Highlight color for CTAs" },
-    { name: "colors.background", label: "Background Color", description: "Page background" },
-    { name: "colors.text", label: "Text Color", description: "Main text color" },
-    { name: "colors.textSecondary", label: "Secondary Text", description: "Muted text color" },
-    { name: "colors.border", label: "Border Color", description: "Border and divider color" },
-    { name: "colors.cardBackground", label: "Card Background", description: "Card background color" },
-  ];
+const DEFAULT_COLOR_FIELDS = [
+  { name: "colors.primary", label: "Primary Color", description: "Main brand color" },
+  { name: "colors.secondary", label: "Secondary Color", description: "Secondary brand color" },
+  { name: "colors.accent", label: "Accent Color", description: "Highlight color for CTAs" },
+  { name: "colors.background", label: "Background Color", description: "Page background" },
+  { name: "colors.text", label: "Text Color", description: "Main text color" },
+  { name: "colors.textSecondary", label: "Secondary Text", description: "Muted text color" },
+  { name: "colors.border", label: "Border Color", description: "Border and divider color" },
+  { name: "colors.cardBackground", label: "Card Background", description: "Card background color" },
+];
+
+export function ColorPicker({ form, fields = DEFAULT_COLOR_FIELDS }: ColorPickerProps) {
+  const colorFields = fields;
 
   return (
     <Form {...form}>

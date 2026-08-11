@@ -1,5 +1,6 @@
 import type { ResolvedTemplate, TemplateConfig, TemplateCustomization } from "@/types/template-customization";
 import { generateCSSVariables } from "./css-variables";
+import { enforceBannerCapableConfig } from "./enforce-banner-capable-config";
 import { mergeTemplateWithCustomization } from "./default-template";
 import { resolveEffectiveStorefrontLayout } from "./storefront-layouts";
 
@@ -15,8 +16,11 @@ export function buildResolvedTemplateFromDoc(
   customization: TemplateCustomization = {},
   layoutOverride?: string | null,
 ): ResolvedTemplate {
-  const mergedConfig = mergeTemplateWithCustomization(
-    template.templateConfig as Partial<TemplateConfig>,
+  const mergedConfig = enforceBannerCapableConfig(
+    mergeTemplateWithCustomization(
+      template.templateConfig as Partial<TemplateConfig>,
+      customization,
+    ),
     customization,
   );
   const cssVariables = generateCSSVariables(mergedConfig);

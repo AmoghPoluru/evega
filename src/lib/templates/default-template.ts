@@ -4,6 +4,7 @@ import type {
   TemplateCustomization,
 } from "@/types/template-customization";
 import { generateCSSVariables } from "./css-variables";
+import { resolveMergedBackgroundStyle } from "./resolve-merged-background-style";
 
 /** Mirrors the seeded "Fun" template — guaranteed valid in-code fallback. */
 export const BUILTIN_TEMPLATE_CONFIG: TemplateConfig = {
@@ -112,15 +113,17 @@ export const BUILTIN_TEMPLATE_DOC = {
 
 export function mergeTemplateWithCustomization(
   baseConfig: Partial<TemplateConfig> | null | undefined,
-  customization: TemplateCustomization = {}
+  customization: TemplateCustomization = {},
 ): TemplateConfig {
   const templateConfig = baseConfig ?? {};
 
+  const mergedColors = {
+    ...(templateConfig.colors ?? {}),
+    ...(customization.colors ?? {}),
+  };
+
   return {
-    colors: {
-      ...(templateConfig.colors ?? {}),
-      ...(customization.colors ?? {}),
-    },
+    colors: mergedColors,
     fonts: {
       ...(templateConfig.fonts ?? {}),
       ...(customization.fonts ?? {}),
@@ -147,19 +150,11 @@ export function mergeTemplateWithCustomization(
         ...(customization.components?.navigation ?? {}),
       },
     },
-    backgroundStyle: templateConfig.backgroundStyle
-      ? {
-          ...templateConfig.backgroundStyle,
-          ...(customization.backgroundStyle ?? {}),
-        }
-      : {
-          type: "mesh-gradient",
-          animation: {
-            enabled: true,
-            duration: "15s",
-            easing: "ease",
-          },
-        },
+    backgroundStyle: resolveMergedBackgroundStyle(
+      templateConfig.backgroundStyle,
+      customization.backgroundStyle,
+      mergedColors,
+    ),
     textStyles: {
       ...(templateConfig.textStyles ?? {}),
       ...(customization.textStyles ?? {}),

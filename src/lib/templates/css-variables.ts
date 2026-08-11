@@ -1,5 +1,7 @@
 import type { TemplateConfig, TemplateCustomization } from "@/types/template-customization";
 
+import { buildDistinctGradientValue } from "./build-background-style-for-type";
+
 /**
  * Generate CSS custom properties from template configuration
  * Merges vendor customizations with template defaults
@@ -14,16 +16,17 @@ export function generateCSSVariables(
   variables["--template-primary"] = colors.primary || "#000000";
   variables["--template-secondary"] = colors.secondary || "#666666";
   variables["--template-accent"] = colors.accent || "#000000";
+  const backgroundStyleType = templateConfig.backgroundStyle?.type;
   variables["--template-background"] =
-    templateConfig.backgroundStyle?.type === "solid" && templateConfig.backgroundStyle.value
+    backgroundStyleType === "solid" && templateConfig.backgroundStyle?.value
       ? templateConfig.backgroundStyle.value
-      : colors.background && colors.background !== "transparent"
-        ? colors.background
-        : templateConfig.backgroundStyle?.type === "mesh-gradient" ||
-            templateConfig.backgroundStyle?.type === "gradient" ||
-            templateConfig.backgroundStyle?.type === "pattern" ||
-            templateConfig.backgroundStyle?.type === "image"
-          ? "transparent"
+      : backgroundStyleType === "mesh-gradient" ||
+          backgroundStyleType === "gradient" ||
+          backgroundStyleType === "pattern" ||
+          backgroundStyleType === "image"
+        ? "transparent"
+        : colors.background && colors.background !== "transparent"
+          ? colors.background
           : colors.cardBackground || "#FFFFFF";
   variables["--template-text"] = colors.text || "#1A1A1A";
   variables["--template-text-secondary"] = templateConfig.colors?.textSecondary || "#666666";
@@ -152,13 +155,14 @@ export function generateBackgroundCSS(
       const animationEnabled = animation?.enabled !== false;
 
       let css = `background-color: var(--template-primary) !important;
-background-image: 
-  radial-gradient(at 0% 0%, var(--template-secondary) 0px, transparent 50%),
-  radial-gradient(at 100% 0%, var(--template-accent) 0px, transparent 50%),
-  radial-gradient(at 100% 100%, var(--template-primary) 0px, transparent 50%),
-  radial-gradient(at 0% 100%, var(--template-secondary) 0px, transparent 50%);
+background-image:
+  radial-gradient(at 18% 12%, color-mix(in srgb, var(--template-accent) 70%, transparent) 0px, transparent 52%),
+  radial-gradient(at 82% 8%, color-mix(in srgb, var(--template-secondary) 75%, transparent) 0px, transparent 55%),
+  radial-gradient(at 88% 88%, color-mix(in srgb, var(--template-primary) 80%, transparent) 0px, transparent 50%),
+  radial-gradient(at 8% 92%, color-mix(in srgb, var(--template-accent) 65%, transparent) 0px, transparent 54%) !important;
 background-attachment: fixed;
-background-size: 200% 200%;`;
+background-size: 160% 160%;
+background-repeat: no-repeat;`;
 
       if (animationEnabled) {
         css += `
@@ -169,13 +173,24 @@ animation: gradientMove ${duration} ${easing} infinite;`;
     }
 
     case "gradient": {
-      const value = backgroundStyle.value || `linear-gradient(to right, ${primary}, ${secondary})`;
-      return `background: ${value} !important;`;
+      const fallback = buildDistinctGradientValue(primary, secondary, accent);
+      const value =
+        backgroundStyle.value && /gradient\s*\(/i.test(backgroundStyle.value)
+          ? backgroundStyle.value
+          : fallback;
+      return `background-color: color-mix(in srgb, ${primary} 12%, white) !important;
+background-image: ${value} !important;
+background-repeat: no-repeat !important;
+background-attachment: fixed !important;
+background-size: 100% 100% !important;
+animation: none !important;`;
     }
 
     case "solid": {
       const value = backgroundStyle.value || primary;
-      return `background-color: ${value} !important;`;
+      return `background-color: ${value} !important;
+background-image: none !important;
+animation: none !important;`;
     }
 
     case "pattern": {

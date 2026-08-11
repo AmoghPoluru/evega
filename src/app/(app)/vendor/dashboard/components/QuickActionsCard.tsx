@@ -27,7 +27,7 @@ const actions = [
   {
     label: "Customize my website",
     description: "Theme, banner, and preview",
-    href: "/vendor/store-appearance?started=1&tab=template",
+    href: "/vendor/store-appearance?started=1&tab=logo",
     icon: Palette,
   },
 ] as const;
