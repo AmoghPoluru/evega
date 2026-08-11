@@ -19,10 +19,6 @@ export function resolveTemplateBackgroundColor(
     return backgroundStyle.value;
   }
 
-  if (colors.background && colors.background !== "transparent") {
-    return colors.background;
-  }
-
   if (
     backgroundStyle?.type === "mesh-gradient" ||
     backgroundStyle?.type === "gradient" ||
@@ -30,6 +26,10 @@ export function resolveTemplateBackgroundColor(
     backgroundStyle?.type === "image"
   ) {
     return "transparent";
+  }
+
+  if (colors.background && colors.background !== "transparent") {
+    return colors.background;
   }
 
   return colors.cardBackground || "#FFFFFF";
@@ -48,12 +48,12 @@ export function buildVendorPageBackgroundStyles(
   const keyframes = generateBackgroundKeyframes(config.backgroundStyle);
 
   if (backgroundCss) {
-    return `.${scopeClass} {\n  ${backgroundCss}\n}\n${keyframes}`;
+    return `.${scopeClass} {\n  min-height: 100vh;\n  ${backgroundCss}\n}\n${keyframes}`;
   }
 
   const fallback = resolveTemplateBackgroundColor(config);
   if (fallback && fallback !== "transparent") {
-    return `.${scopeClass} {\n  background-color: ${fallback} !important;\n}`;
+    return `.${scopeClass} {\n  min-height: 100vh;\n  background-color: ${fallback} !important;\n}`;
   }
 
   return "";

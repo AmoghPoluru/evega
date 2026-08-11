@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { STYLE_PRESET_IDS } from "@/lib/templates/style-preset-ids";
+
 /**
  * Template Customization Schema
  * Defines the structure for vendor-specific template customizations
@@ -100,6 +102,8 @@ export const templateCustomizationSchema = z.object({
     .object({
       type: z.enum(["solid", "gradient", "mesh-gradient", "pattern", "image"]).optional(),
       value: z.string().optional(),
+      /** preset = authored gradient/mesh from a style preset; generated = derived from brand colors */
+      source: z.enum(["preset", "generated"]).optional(),
       animation: z
         .object({
           enabled: z.boolean().optional(),
@@ -109,6 +113,7 @@ export const templateCustomizationSchema = z.object({
         .optional(),
     })
     .optional(),
+  stylePresetId: z.enum(STYLE_PRESET_IDS).nullable().optional(),
 });
 
 export type TemplateCustomization = z.infer<typeof templateCustomizationSchema>;

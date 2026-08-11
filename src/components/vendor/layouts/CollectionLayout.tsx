@@ -5,9 +5,9 @@ import Image from "next/image";
 import { Cormorant_Garamond, Jost } from "next/font/google";
 import { formatCurrency } from "@/lib/utils";
 import type { VendorLayoutProps } from "./types";
-import { getMediaUrl } from "./utils";
-import { HappyBannerDisplay } from "@/components/happy-banner/HappyBannerDisplay";
+import { getDescriptionText, getMediaUrl } from "./utils";
 import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTemplateBackgroundStyles";
+import { VendorLayoutBannerRegion } from "./VendorLayoutBannerRegion";
 
 const headingFont = Cormorant_Garamond({
   subsets: ["latin"],
@@ -55,6 +55,8 @@ export function CollectionLayout({ vendor, template, products, happyBanner }: Ve
   const sectionEyebrow =
     (template.templateConfig as { sections?: { collectionEyebrow?: string } })?.sections
       ?.collectionEyebrow ?? "The Collection";
+  const showDescription =
+    template.templateConfig.components?.productCard?.showDescription ?? true;
 
   return (
     <div
@@ -67,7 +69,7 @@ export function CollectionLayout({ vendor, template, products, happyBanner }: Ve
       }}
     >
       <VendorTemplateBackgroundStyles scopeClass="collection-layout" template={template} />
-      {happyBanner ? <HappyBannerDisplay banner={happyBanner} /> : null}
+      <VendorLayoutBannerRegion vendor={vendor} template={template} happyBanner={happyBanner} />
 
       <div
         className="mx-auto flex items-baseline justify-between border-b px-6 pb-8 pt-16"
@@ -110,17 +112,20 @@ export function CollectionLayout({ vendor, template, products, happyBanner }: Ve
           products.map((product) => {
             const imageUrl = getMediaUrl(product.image);
             const swatch = getVariantColor(product) ?? getSwatchColor(product.id);
+            const description = getDescriptionText(product.description);
 
             return (
               <article
                 key={product.id}
-                className="group relative flex flex-col bg-[var(--template-card-bg,#fff)] border-b border-r border-[var(--template-border)] md:[&:nth-child(4n)]:border-r-0 max-md:[&:nth-child(2n)]:border-r-0"
+                data-template-product-card
+                className="group relative flex flex-col bg-[var(--template-card-bg,#fff)] border-b border-r border-[var(--template-border)] md:[&:nth-child(4n)]:border-r-0 max-md:[&:nth-child(2n)]:border-r-0 overflow-hidden"
                 style={{
                   borderWidth: "0 var(--template-border-width, 1px) var(--template-border-width, 1px) 0",
                 }}
               >
                 <Link href={`/products/${product.id}`} className="flex flex-1 flex-col">
                   <div
+                    data-template-product-card-media
                     className="relative overflow-hidden bg-[#F1EFEA]"
                     style={{ aspectRatio: "var(--template-image-aspect, 4 / 5)" }}
                   >
@@ -153,14 +158,22 @@ export function CollectionLayout({ vendor, template, products, happyBanner }: Ve
 
                   <div className="px-1 pb-7 pt-5 text-center">
                     <div
-                      className="mb-1.5 text-[0.86rem] tracking-[0.02em]"
-                      style={{ color: "var(--template-text-secondary)" }}
+                      className="mb-1.5 text-[0.86rem] font-medium tracking-[0.02em]"
+                      style={{ color: "var(--template-card-text, var(--template-text))" }}
                     >
                       {product.name}
                     </div>
+                    {showDescription && description ? (
+                      <p
+                        className="mx-auto mb-2 max-w-[14rem] line-clamp-2 text-[0.78rem] leading-snug"
+                        style={{ color: "var(--template-card-text-secondary, var(--template-text-secondary))" }}
+                      >
+                        {description}
+                      </p>
+                    ) : null}
                     <div
                       className="mb-3 text-[0.86rem]"
-                      style={{ color: "var(--template-secondary)" }}
+                      style={{ color: "var(--template-card-text-secondary, var(--template-text-secondary))" }}
                     >
                       {formatCurrency(product.price)}
                     </div>

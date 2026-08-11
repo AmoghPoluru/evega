@@ -2,19 +2,16 @@ import Link from "next/link";
 import Image from "next/image";
 import { formatCurrency } from "@/lib/utils";
 import type { VendorLayoutProps } from "./types";
-import { getDescriptionText, getMediaUrl } from "./utils";
-import { VendorStoreLogo } from "@/components/vendor-logo/VendorStoreLogo";
+import { getMediaUrl } from "./utils";
 import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTemplateBackgroundStyles";
+import { VendorLayoutBannerRegion } from "./VendorLayoutBannerRegion";
 
 /**
  * ReloopLayout
- * A social-resale storefront: a seller-forward profile header followed by a
- * dense, image-first square grid with minimal chrome. Structurally distinct
- * from the default marketplace layout — no hero carousel, no filter sidebar.
+ * A social-resale storefront: image-first square grid with minimal chrome.
+ * Banners (happy + hero) replace the legacy in-layout seller profile header.
  */
-export function ReloopLayout({ vendor, template, products, resolvedLogoTemplate }: VendorLayoutProps) {
-  const bio = getDescriptionText(vendor.description);
-  const logoUrl = getMediaUrl(vendor.logo);
+export function ReloopLayout({ vendor, template, products, happyBanner }: VendorLayoutProps) {
   const totalDocs = products.length;
 
   return (
@@ -27,78 +24,23 @@ export function ReloopLayout({ vendor, template, products, resolvedLogoTemplate 
       }}
     >
       <VendorTemplateBackgroundStyles scopeClass="reloop-layout" template={template} />
-      {/* Seller profile header */}
-      <header
-        className="border-b"
-        style={{ borderColor: "var(--template-border)" }}
-      >
-        <div className="mx-auto max-w-3xl px-4 py-8">
-          <div className="flex items-start gap-5">
-            <VendorStoreLogo
-              vendorName={vendor.name}
-              uploadUrl={logoUrl}
-              templateLogo={resolvedLogoTemplate}
-              size={80}
-              className="rounded-full"
-            />
 
-            <div className="min-w-0 flex-1">
-              <h1
-                className="truncate text-2xl font-bold"
-                style={{ fontFamily: "var(--template-font-heading)" }}
-              >
-                {vendor.name}
-              </h1>
-              <p className="text-sm" style={{ color: "var(--template-text-secondary)" }}>
-                @{vendor.slug}
-              </p>
-
-              <div className="mt-3 flex gap-6 text-sm">
-                <span>
-                  <strong>{totalDocs}</strong>{" "}
-                  <span style={{ color: "var(--template-text-secondary)" }}>listings</span>
-                </span>
-                <span>
-                  <strong>100%</strong>{" "}
-                  <span style={{ color: "var(--template-text-secondary)" }}>positive</span>
-                </span>
-              </div>
-
-              {bio && (
-                <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--template-text-secondary)" }}>
-                  {bio}
-                </p>
-              )}
-
-              <div className="mt-4 flex gap-3">
-                {vendor.email && (
-                  <a
-                    href={`mailto:${vendor.email}`}
-                    className="rounded-full px-5 py-1.5 text-sm font-semibold text-white"
-                    style={{ backgroundColor: "var(--template-secondary)" }}
-                  >
-                    Message
-                  </a>
-                )}
-                {vendor.website && (
-                  <a
-                    href={vendor.website.startsWith("http") ? vendor.website : `https://${vendor.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-full border px-5 py-1.5 text-sm font-semibold"
-                    style={{ borderColor: "var(--template-border)" }}
-                  >
-                    Website
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <VendorLayoutBannerRegion vendor={vendor} template={template} happyBanner={happyBanner} />
 
       {/* Dense square grid */}
       <main className="mx-auto max-w-6xl px-1 py-4">
+        <div className="mb-3 px-3">
+          <h1
+            className="text-lg font-semibold"
+            style={{ fontFamily: "var(--template-font-heading)" }}
+          >
+            {vendor.name}
+          </h1>
+          <p className="text-sm" style={{ color: "var(--template-text-secondary)" }}>
+            {totalDocs} listing{totalDocs === 1 ? "" : "s"}
+          </p>
+        </div>
+
         {products.length === 0 ? (
           <p className="py-20 text-center" style={{ color: "var(--template-text-secondary)" }}>
             No listings yet.

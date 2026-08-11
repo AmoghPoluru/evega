@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Save, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
-import { ColorPicker } from "./components/ColorPicker";
+import { ColorPicker, AutoTextColorsPreview } from "./components/ColorPicker";
 import { FontSelector } from "./components/FontSelector";
 import { LayoutOptions } from "./components/LayoutOptions";
 import { LivePreview } from "./components/LivePreview";
@@ -118,7 +118,14 @@ export default function CustomizeTemplatePage() {
                   <TabsTrigger value="layout">Layout</TabsTrigger>
                 </TabsList>
                 <TabsContent value="colors" className="space-y-4">
-                  <ColorPicker form={form} />
+                  <ColorPicker
+                    form={form}
+                    fallbackColors={data.template.templateConfig?.colors}
+                  />
+                  <AutoTextColorsPreview
+                    form={form}
+                    fallbackColors={data.template.templateConfig?.colors}
+                  />
                 </TabsContent>
                 <TabsContent value="fonts" className="space-y-4">
                   <FontSelector form={form} />

@@ -93,7 +93,7 @@ export function VendorStorefrontLayoutPicker({
 
   const clearLayout = trpc.vendor.storefrontLayout.clear.useMutation({
     onSuccess: () => {
-      toast.success("Using layout from your theme");
+      toast.success("Layout reset to classic grid");
       void utils.vendor.storefrontLayout.list.invalidate();
       onLayoutSelected?.();
     },
@@ -132,22 +132,20 @@ export function VendorStorefrontLayoutPicker({
           </p>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          Choose how products are arranged on your store. Your theme still controls colors and fonts.
-        </p>
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Step 2 · Layout
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Pick your store&apos;s structure. Layout controls product arrangement only — not colors or
+            banners.
+          </p>
+        </div>
       )}
-
-      {data.usesThemeDefault && data.templateLayoutId ? (
-        <p className="rounded-md border border-dashed bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-          Currently using the layout bundled with your theme
-          {data.effectiveLayoutId ? ` (${data.effectiveLayoutId})` : ""}. Select a layout below to
-          override it.
-        </p>
-      ) : null}
 
       {!data.usesThemeDefault ? (
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">Custom layout active</Badge>
+          <Badge variant="secondary">Layout selected</Badge>
           <Button
             type="button"
             variant="ghost"
@@ -160,7 +158,7 @@ export function VendorStorefrontLayoutPicker({
             ) : (
               <RotateCcw className="mr-2 h-4 w-4" />
             )}
-            Use theme default
+            Reset to classic grid
           </Button>
         </div>
       ) : null}

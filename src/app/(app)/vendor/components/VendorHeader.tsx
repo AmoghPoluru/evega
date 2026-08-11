@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Bell, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,11 +59,19 @@ export function VendorHeader({
     : userEmail?.[0]?.toUpperCase() || "U";
 
   const greeting = getTimeOfDayGreeting();
-  const { data: logoData } = trpc.vendor.logoTemplate.get.useQuery();
+  const { data: logoData, isFetched: isLogoFetched } = trpc.vendor.logoTemplate.get.useQuery();
+  const [isClientMounted, setIsClientMounted] = useState(false);
 
-  const showLogo =
-    (logoData?.logoSource === "template" && logoData?.preview) ||
-    (logoData?.logoSource !== "template" && vendorLogoUrl);
+  useEffect(() => {
+    setIsClientMounted(true);
+  }, []);
+
+  const showTemplateLogo =
+    isLogoFetched && logoData?.logoSource === "template" && Boolean(logoData.preview);
+  const showUploadLogo =
+    (!isLogoFetched && Boolean(vendorLogoUrl)) ||
+    (isLogoFetched && logoData?.logoSource !== "template" && Boolean(vendorLogoUrl));
+  const showLogo = showTemplateLogo || showUploadLogo;
 
   return (
     <header className="h-16 bg-sidebar border-b border-sidebar-border flex items-center justify-between px-6">
@@ -72,8 +81,8 @@ export function VendorHeader({
           {showLogo ? (
             <VendorStoreLogo
               vendorName={vendorName ?? "Store"}
-              uploadUrl={logoData?.logoSource === "template" ? null : vendorLogoUrl}
-              templateLogo={logoData?.logoSource === "template" ? logoData.preview : null}
+              uploadUrl={showTemplateLogo ? null : vendorLogoUrl}
+              templateLogo={showTemplateLogo ? logoData?.preview ?? null : null}
               size={48}
               showFallbackInitial={false}
             />
@@ -106,44 +115,54 @@ export function VendorHeader({
           )}
         </Button>
 
-        {/* User Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">
-                  {userName || "User"}
-                </p>
-                <p className="text-xs leading-none text-muted-foreground">{userEmail}</p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/account" className="flex items-center cursor-pointer">
-                <User className="mr-2 h-4 w-4" />
-                My Account
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => logout.mutate()}
-              disabled={logout.isPending}
-              className="text-destructive focus:text-destructive cursor-pointer"
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              {logout.isPending ? "Logging out..." : "Log out"}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* User Menu — mount Radix after hydration to avoid id mismatch */}
+        {isClientMounted ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Account menu">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">
+                    {userName || "User"}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">{userEmail}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/account" className="flex items-center cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  My Account
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => logout.mutate()}
+                disabled={logout.isPending}
+                className="text-destructive focus:text-destructive cursor-pointer"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                {logout.isPending ? "Logging out..." : "Log out"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button variant="ghost" size="icon" aria-label="Account menu" type="button">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+          </Button>
+        )}
       </div>
     </header>
   );

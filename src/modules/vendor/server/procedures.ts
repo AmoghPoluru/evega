@@ -42,6 +42,10 @@ import { vendorStorefrontLayoutRouter } from "@/modules/vendor/server/storefront
 import { vendorExpenseRouter } from "@/modules/vendor/server/expense-procedures";
 import { vendorRevenueRouter } from "@/modules/vendor/server/revenue-procedures";
 import { getClosedOrderRevenueUpdateFields } from "@/lib/vendor-revenue/finalize-closed-order";
+import { mergeVendorTemplateCustomization } from "@/lib/templates/merge-vendor-template-customization";
+import { revalidateVendorStorefrontPath } from "@/lib/templates/revalidate-vendor-storefront";
+import { templateCustomizationSchema, type TemplateCustomization } from "@/types/template-customization";
+import type { User } from "@/payload-types";
 
 type VendorHappyBannerState = {
   selectedBanner?: string | { id: string } | null;
@@ -3408,69 +3412,8 @@ export const vendorRouter = createTRPCRouter({
     customize: vendorProcedure
       .input(
         z.object({
-          customization: z.object({
-            colors: z
-              .object({
-                primary: z.string().optional(),
-                secondary: z.string().optional(),
-                accent: z.string().optional(),
-                background: z.string().optional(),
-                text: z.string().optional(),
-                textSecondary: z.string().optional(),
-                border: z.string().optional(),
-                cardBackground: z.string().optional(),
-              })
-              .optional(),
-            fonts: z
-              .object({
-                heading: z.string().optional(),
-                body: z.string().optional(),
-              })
-              .optional(),
-            spacing: z
-              .object({
-                sectionPadding: z.string().optional(),
-                cardGap: z.string().optional(),
-                containerMaxWidth: z.string().optional(),
-              })
-              .optional(),
-            layout: z
-              .object({
-                productGridColumns: z.number().min(2).max(6).optional(),
-                showBanner: z.boolean().optional(),
-                showCategories: z.boolean().optional(),
-                showFilters: z.boolean().optional(),
-                showReviews: z.boolean().optional(),
-              })
-              .optional(),
-            components: z
-              .object({
-                heroBanner: z
-                  .object({
-                    enabled: z.boolean().optional(),
-                    style: z.enum(["minimal", "full-width", "split"]).optional(),
-                    height: z.string().optional(),
-                  })
-                  .optional(),
-                productCard: z
-                  .object({
-                    style: z.enum(["minimal", "detailed", "compact"]).optional(),
-                    showPrice: z.boolean().optional(),
-                    showRating: z.boolean().optional(),
-                    showDescription: z.boolean().optional(),
-                    borderRadius: z.string().optional(),
-                  })
-                  .optional(),
-                navigation: z
-                  .object({
-                    style: z.enum(["top", "sidebar", "sticky"]).optional(),
-                    backgroundColor: z.string().optional(),
-                  })
-                  .optional(),
-              })
-              .optional(),
-          }),
-        })
+          customization: templateCustomizationSchema,
+        }),
       )
       .mutation(async ({ ctx, input }) => {
         const vendorId = typeof ctx.session.vendor === "string"
@@ -3483,11 +3426,13 @@ export const vendorRouter = createTRPCRouter({
           depth: 0,
         });
 
-        // Merge with existing customization
-        const updatedCustomization = {
-          ...(vendor.templateCustomization || {}),
-          ...input.customization,
-        };
+        const existingCustomization =
+          (vendor.templateCustomization as TemplateCustomization | null | undefined) ?? {};
+
+        const updatedCustomization = mergeVendorTemplateCustomization(
+          existingCustomization,
+          input.customization,
+        );
 
         await ctx.db.update({
           collection: "vendors",
@@ -3495,7 +3440,10 @@ export const vendorRouter = createTRPCRouter({
           data: {
             templateCustomization: updatedCustomization,
           },
+          req: payloadReqFromUser(ctx.session.user as User),
         });
+
+        await revalidateVendorStorefrontPath(ctx.db, vendorId);
 
         return { customization: updatedCustomization };
       }),

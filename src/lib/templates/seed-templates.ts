@@ -957,7 +957,7 @@ export const templateSeeds: TemplateSeedData[] = [
           style: "minimal",
           showPrice: true,
           showRating: false,
-          showDescription: false,
+          showDescription: true,
           borderRadius: "0px",
         },
         navigation: {

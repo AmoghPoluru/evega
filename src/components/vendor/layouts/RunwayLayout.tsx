@@ -3,9 +3,9 @@ import Image from "next/image";
 import { formatCurrency } from "@/lib/utils";
 import type { VendorLayoutProps } from "./types";
 import { getDescriptionText, getMediaUrl } from "./utils";
-import { VENDOR_HEAD_BANNER_ENABLED } from "@/lib/templates/vendor-storefront-flags";
-import { HappyBannerDisplay } from "@/components/happy-banner/HappyBannerDisplay";
+import { isLayoutBannerEnabled } from "./VendorLayoutBannerRegion";
 import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTemplateBackgroundStyles";
+import { VendorLayoutBannerRegion } from "./VendorLayoutBannerRegion";
 
 /**
  * RunwayLayout
@@ -15,6 +15,7 @@ import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTempla
 export function RunwayLayout({ vendor, template, products, happyBanner }: VendorLayoutProps) {
   const tagline = getDescriptionText(vendor.description);
   const coverUrl = getMediaUrl(vendor.coverImage) || getMediaUrl(vendor.logo);
+  const showHeroBanner = isLayoutBannerEnabled(template);
 
   return (
     <div
@@ -26,11 +27,14 @@ export function RunwayLayout({ vendor, template, products, happyBanner }: Vendor
       }}
     >
       <VendorTemplateBackgroundStyles scopeClass="runway-layout" template={template} />
-      {happyBanner ? <HappyBannerDisplay banner={happyBanner} /> : null}
+      <VendorLayoutBannerRegion vendor={vendor} template={template} happyBanner={happyBanner} />
 
-      {/* Full-bleed hero */}
-      {VENDOR_HEAD_BANNER_ENABLED ? (
-      <section className="relative h-[70vh] min-h-[440px] w-full overflow-hidden">
+      {/* Full-bleed editorial hero */}
+      {showHeroBanner ? (
+      <section
+        data-template-hero-banner
+        className="relative w-full overflow-hidden"
+      >
         {coverUrl ? (
           <Image src={coverUrl} alt={vendor.name} fill priority className="object-cover" />
         ) : (

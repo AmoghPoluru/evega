@@ -253,7 +253,7 @@ export function VendorLogoTemplateClient({ embedded = false }: VendorLogoTemplat
                       disabled={selectMutation.isPending}
                       onClick={() => selectMutation.mutate({ templateId: template.id })}
                     >
-                      {selectMutation.isPending ? "Selecting…" : "Select & choose initial"}
+                      {selectMutation.isPending ? "Selecting…" : "Select"}
                     </Button>
                   )}
                 </CardContent>

@@ -48,10 +48,16 @@ function VendorHeroBannerProductCard({
 
 interface VendorHeroBannersSectionProps {
   vendorSlug: string;
+  /** When true, render regardless of the global VENDOR_HEAD_BANNER_ENABLED flag. */
+  enabled?: boolean;
 }
 
-export function VendorHeroBannersSection({ vendorSlug }: VendorHeroBannersSectionProps) {
-  if (!VENDOR_HEAD_BANNER_ENABLED) return null;
+export function VendorHeroBannersSection({
+  vendorSlug,
+  enabled,
+}: VendorHeroBannersSectionProps) {
+  const isEnabled = enabled ?? VENDOR_HEAD_BANNER_ENABLED;
+  if (!isEnabled) return null;
 
   const { data: banners, isLoading, error } = trpc.vendorHeroBanners.useQuery({ vendorSlug });
   const [currentIndex, setCurrentIndex] = React.useState(0);
@@ -75,7 +81,10 @@ export function VendorHeroBannersSection({ vendorSlug }: VendorHeroBannersSectio
 
   if (isLoading) {
     return (
-      <div className="relative w-full overflow-hidden h-[500px] bg-gray-200 animate-pulse" />
+      <div
+        data-template-hero-banner
+        className="relative w-full overflow-hidden bg-gray-200 animate-pulse"
+      />
     );
   }
 
@@ -98,13 +107,13 @@ export function VendorHeroBannersSection({ vendorSlug }: VendorHeroBannersSectio
           <div
             key={banner.id}
             className={cn(
-              'transition-opacity duration-500',
-              index === currentIndex ? 'opacity-100' : 'opacity-0 absolute inset-0'
+              "transition-opacity duration-500",
+              index === currentIndex ? "relative opacity-100" : "absolute inset-0 opacity-0",
             )}
           >
             {/* Background Image (if available) */}
             {banner.backgroundImage ? (
-              <div className="relative h-[400px] lg:h-[500px]">
+              <div data-template-hero-banner className="relative w-full">
                 <Image
                   src={banner.backgroundImage}
                   alt={banner.title}
@@ -115,7 +124,10 @@ export function VendorHeroBannersSection({ vendorSlug }: VendorHeroBannersSectio
                 <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent" />
               </div>
             ) : (
-              <div className="h-[400px] lg:h-[500px] bg-gradient-to-r from-gray-800 to-gray-600" />
+              <div
+                data-template-hero-banner
+                className="w-full bg-gradient-to-r from-gray-800 to-gray-600"
+              />
             )}
 
             {/* Content Overlay */}
