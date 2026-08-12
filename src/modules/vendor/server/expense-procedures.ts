@@ -20,6 +20,50 @@ const expenseInputSchema = z.object({
   description: z.string().trim().min(1, "Description is required").max(500),
 });
 
+const BULK_EDIT_MAX_ROWS = 500;
+
+async function listVendorExpenses(
+  db: Payload,
+  vendorId: string,
+  input: {
+    category?: "all" | (typeof VENDOR_EXPENSE_CATEGORIES)[number]["id"];
+    search?: string;
+    page?: number;
+    limit?: number;
+  },
+) {
+  const andClauses: Where[] = [{ vendor: { equals: vendorId } }];
+  const category = input.category ?? "all";
+
+  if (category !== "all") {
+    andClauses.push({ category: { equals: category } });
+  }
+
+  if (input.search?.trim()) {
+    andClauses.push({ description: { contains: input.search.trim() } });
+  }
+
+  const where: Where = andClauses.length === 1 ? andClauses[0]! : { and: andClauses };
+
+  const result = await db.find({
+    collection: "vendor-expenses",
+    where,
+    page: input.page ?? 1,
+    limit: input.limit ?? 20,
+    sort: "-expenseDate",
+    depth: 0,
+  });
+
+  return {
+    docs: result.docs.map((doc: VendorExpense) => formatExpense(doc)),
+    totalDocs: result.totalDocs,
+    page: result.page ?? input.page ?? 1,
+    totalPages: result.totalPages,
+    hasNextPage: result.hasNextPage,
+    hasPrevPage: result.hasPrevPage,
+  };
+}
+
 function formatExpense(doc: VendorExpense) {
   return {
     id: doc.id,
@@ -74,36 +118,44 @@ export const vendorExpenseRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const vendorId = getSessionVendorId(ctx);
-      const andClauses: Where[] = [{ vendor: { equals: vendorId } }];
+      return listVendorExpenses(ctx.db, vendorId, input);
+    }),
 
-      if (input.category !== "all") {
-        andClauses.push({ category: { equals: input.category } });
-      }
-
-      if (input.search?.trim()) {
-        andClauses.push({ description: { contains: input.search.trim() } });
-      }
-
-      const where: Where = andClauses.length === 1 ? andClauses[0]! : { and: andClauses };
-
-      const result = await ctx.db.find({
-        collection: "vendor-expenses",
-        where,
-        page: input.page,
-        limit: input.limit,
-        sort: "-expenseDate",
-        depth: 0,
+  listForBulkEdit: vendorProcedure
+    .input(
+      z.object({
+        category: vendorExpenseCategorySchema.or(z.literal("all")).optional().default("all"),
+        search: z.string().optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const vendorId = getSessionVendorId(ctx);
+      const result = await listVendorExpenses(ctx.db, vendorId, {
+        ...input,
+        page: 1,
+        limit: BULK_EDIT_MAX_ROWS,
       });
 
       return {
-        docs: result.docs.map((doc: VendorExpense) => formatExpense(doc)),
+        docs: result.docs,
         totalDocs: result.totalDocs,
-        page: result.page ?? input.page,
-        totalPages: result.totalPages,
-        hasNextPage: result.hasNextPage,
-        hasPrevPage: result.hasPrevPage,
+        truncated: result.totalDocs > BULK_EDIT_MAX_ROWS,
+        maxRows: BULK_EDIT_MAX_ROWS,
       };
     }),
+
+  exportAll: vendorProcedure.query(async ({ ctx }) => {
+    const vendorId = getSessionVendorId(ctx);
+    const result = await ctx.db.find({
+      collection: "vendor-expenses",
+      where: { vendor: { equals: vendorId } },
+      limit: 5000,
+      sort: "-expenseDate",
+      depth: 0,
+    });
+
+    return result.docs.map((doc: VendorExpense) => formatExpense(doc));
+  }),
 
   summary: vendorProcedure
     .input(
@@ -205,5 +257,75 @@ export const vendorExpenseRouter = createTRPCRouter({
       });
 
       return { success: true };
+    }),
+
+  bulkSave: vendorProcedure
+    .input(
+      z.object({
+        updates: z
+          .array(
+            expenseInputSchema.extend({
+              id: z.string(),
+            }),
+          )
+          .max(BULK_EDIT_MAX_ROWS)
+          .default([]),
+        creates: z.array(expenseInputSchema).max(BULK_EDIT_MAX_ROWS).default([]),
+        deletes: z.array(z.string()).max(BULK_EDIT_MAX_ROWS).default([]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const vendorId = getSessionVendorId(ctx);
+
+      for (const id of input.deletes) {
+        await assertVendorOwnsExpense(ctx.db, id, vendorId);
+      }
+
+      for (const item of input.updates) {
+        await assertVendorOwnsExpense(ctx.db, item.id, vendorId);
+      }
+
+      for (const id of input.deletes) {
+        await ctx.db.delete({
+          collection: "vendor-expenses",
+          id,
+        });
+      }
+
+      const updated = [];
+      for (const item of input.updates) {
+        const doc = await ctx.db.update({
+          collection: "vendor-expenses",
+          id: item.id,
+          data: {
+            category: item.category,
+            expenseDate: item.expenseDate,
+            amount: item.amount,
+            description: item.description,
+          },
+        });
+        updated.push(formatExpense(doc as VendorExpense));
+      }
+
+      const created = [];
+      for (const item of input.creates) {
+        const doc = await ctx.db.create({
+          collection: "vendor-expenses",
+          data: {
+            vendor: vendorId,
+            category: item.category,
+            expenseDate: item.expenseDate,
+            amount: item.amount,
+            description: item.description,
+          },
+        });
+        created.push(formatExpense(doc as VendorExpense));
+      }
+
+      return {
+        updatedCount: updated.length,
+        createdCount: created.length,
+        deletedCount: input.deletes.length,
+      };
     }),
 });
