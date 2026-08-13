@@ -7,8 +7,7 @@ import { HappyBannerDisplay } from "@/components/happy-banner/HappyBannerDisplay
 import { cssVariablesToString } from "@/lib/templates/css-variables";
 import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTemplateBackgroundStyles";
 import type { VendorLayoutProps } from "./types";
-import { getDescriptionText } from "./utils";
-import { isLayoutBannerEnabled } from "./VendorLayoutBannerRegion";
+import { isLayoutBannerEnabled } from "./utils";
 
 /**
  * DefaultLayout
@@ -17,15 +16,12 @@ import { isLayoutBannerEnabled } from "./VendorLayoutBannerRegion";
  */
 export function DefaultLayout({ vendor, template, products, happyBanner }: VendorLayoutProps) {
   const cssVariables = cssVariablesToString(template.cssVariables);
-  const descriptionText = getDescriptionText(vendor.description);
 
   const fallbackBannerTitle = vendor.name;
-  const fallbackBannerSubtitle = descriptionText;
   const fallbackBackgroundImageUrl =
     vendor.coverImage && typeof vendor.coverImage === "object" && vendor.coverImage.url
       ? vendor.coverImage.url
       : null;
-  const fallbackFeaturedProducts = products.slice(0, 6);
 
   const totalDocs = products.length;
   const showHeroBanner = isLayoutBannerEnabled(template);
@@ -196,8 +192,7 @@ export function DefaultLayout({ vendor, template, products, happyBanner }: Vendo
 
       {happyBanner ? <HappyBannerDisplay banner={happyBanner} /> : null}
 
-      {/* Hero Banner - Try vendor hero banners first, fallback to default */}
-      {showHeroBanner ? (
+      {showHeroBanner && !happyBanner ? (
       <Suspense
         fallback={
           <div className="relative w-full overflow-hidden">
@@ -224,45 +219,9 @@ export function DefaultLayout({ vendor, template, products, happyBanner }: Vendo
           </div>
         }
       >
-        <VendorHeroBannersSection vendorSlug={vendor.slug} enabled />
+        <VendorHeroBannersSection vendorSlug={vendor.slug} />
       </Suspense>
       ) : null}
-
-      {/* Fallback Banner (if no vendor hero banners) */}
-      {showHeroBanner && !fallbackBackgroundImageUrl && fallbackFeaturedProducts.length === 0 && (
-        <div className="relative w-full overflow-hidden">
-          <div
-            data-template-hero-banner
-            className="flex w-full items-center justify-center"
-            style={{
-              background: `linear-gradient(to right, var(--template-primary), var(--template-secondary))`,
-            }}
-          >
-            <div className="text-center px-8">
-              <h1
-                className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2 drop-shadow-lg"
-                style={{
-                  color: "white",
-                  fontFamily: "var(--template-font-heading)",
-                }}
-              >
-                {fallbackBannerTitle}
-              </h1>
-              {fallbackBannerSubtitle && (
-                <p
-                  className="text-lg md:text-xl drop-shadow-lg"
-                  style={{
-                    color: "white",
-                    fontFamily: "var(--template-font-body)",
-                  }}
-                >
-                  {fallbackBannerSubtitle}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Products Section */}
       <div

@@ -516,6 +516,15 @@ export interface Vendor {
      */
     instagramAccessToken?: string | null;
   };
+  /**
+   * Vendor-owned OpenAI API key for AI-powered features.
+   */
+  openaiConfig?: {
+    /**
+     * Secret OpenAI API key (sk-…). Never exposed to clients.
+     */
+    apiKey?: string | null;
+  };
   address?: {
     street?: string | null;
     city?: string | null;
@@ -2218,6 +2227,11 @@ export interface VendorsSelect<T extends boolean = true> {
         instagramUsername?: T;
         pageAccessToken?: T;
         instagramAccessToken?: T;
+      };
+  openaiConfig?:
+    | T
+    | {
+        apiKey?: T;
       };
   address?:
     | T

@@ -243,17 +243,15 @@ export function VendorHappyBannerPageClient({ embedded = false }: VendorHappyBan
       {selectedBannerId ? (
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">Current selection active on your storefront</Badge>
-          {!embedded ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:text-destructive"
-              disabled={clearMutation.isPending}
-              onClick={() => clearMutation.mutate()}
-            >
-              Remove banner
-            </Button>
-          ) : null}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive hover:text-destructive"
+            disabled={clearMutation.isPending}
+            onClick={() => clearMutation.mutate()}
+          >
+            Remove banner
+          </Button>
         </div>
       ) : null}
 

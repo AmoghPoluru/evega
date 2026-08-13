@@ -5,6 +5,7 @@ import { DashboardGreeting } from "./components/DashboardGreeting";
 import { RecentOrdersWidget } from "./components/RecentOrdersWidget";
 import { QuickActionsCard } from "./components/QuickActionsCard";
 import { OnboardingChecklist } from "./components/OnboardingChecklist";
+import { VendorOpenAiKeyCard } from "./components/VendorOpenAiKeyCard";
 
 export default async function VendorDashboardPage() {
   const vendorStatus = await getVendorStatus();
@@ -22,8 +23,9 @@ export default async function VendorDashboardPage() {
       <StatsCards />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-2">
+        <div className="xl:col-span-2 space-y-6">
           <RecentOrdersWidget />
+          <VendorOpenAiKeyCard />
         </div>
         <div className="space-y-6">
           <QuickActionsCard />

@@ -598,6 +598,29 @@ export const Vendors: CollectionConfig = {
       ],
     },
     {
+      name: "openaiConfig",
+      type: "group",
+      label: "OpenAI",
+      admin: {
+        description: "Vendor-owned OpenAI API key for AI-powered features.",
+      },
+      fields: [
+        {
+          name: "apiKey",
+          type: "text",
+          label: "API key",
+          access: {
+            read: ({ req }) => isSuperAdmin(req.user),
+            update: ({ req }) => isSuperAdmin(req.user) || Boolean(getVendorId(req.user)),
+          },
+          admin: {
+            hidden: true,
+            description: "Secret OpenAI API key (sk-…). Never exposed to clients.",
+          },
+        },
+      ],
+    },
+    {
       name: "address",
       type: "group",
       fields: [

@@ -3,7 +3,6 @@ import Image from "next/image";
 import { formatCurrency } from "@/lib/utils";
 import type { VendorLayoutProps } from "./types";
 import { getDescriptionText, getMediaUrl } from "./utils";
-import { isLayoutBannerEnabled } from "./VendorLayoutBannerRegion";
 import { VendorTemplateBackgroundStyles } from "@/components/vendor/VendorTemplateBackgroundStyles";
 import { VendorLayoutBannerRegion } from "./VendorLayoutBannerRegion";
 
@@ -13,10 +12,6 @@ import { VendorLayoutBannerRegion } from "./VendorLayoutBannerRegion";
  * alternating product tiles for a magazine-style, image-led presentation.
  */
 export function RunwayLayout({ vendor, template, products, happyBanner }: VendorLayoutProps) {
-  const tagline = getDescriptionText(vendor.description);
-  const coverUrl = getMediaUrl(vendor.coverImage) || getMediaUrl(vendor.logo);
-  const showHeroBanner = isLayoutBannerEnabled(template);
-
   return (
     <div
       className="runway-layout min-h-screen"
@@ -28,37 +23,6 @@ export function RunwayLayout({ vendor, template, products, happyBanner }: Vendor
     >
       <VendorTemplateBackgroundStyles scopeClass="runway-layout" template={template} />
       <VendorLayoutBannerRegion vendor={vendor} template={template} happyBanner={happyBanner} />
-
-      {/* Full-bleed editorial hero */}
-      {showHeroBanner ? (
-      <section
-        data-template-hero-banner
-        className="relative w-full overflow-hidden"
-      >
-        {coverUrl ? (
-          <Image src={coverUrl} alt={vendor.name} fill priority className="object-cover" />
-        ) : (
-          <div
-            className="absolute inset-0"
-            style={{
-              background: "linear-gradient(135deg, var(--template-primary), var(--template-secondary))",
-            }}
-          />
-        )}
-        <div className="absolute inset-0 bg-black/35" />
-        <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
-          <h1
-            className="text-4xl font-bold uppercase tracking-widest text-white md:text-7xl"
-            style={{ fontFamily: "var(--template-font-heading)", textShadow: "2px 2px 12px rgba(0,0,0,0.6)" }}
-          >
-            {vendor.name}
-          </h1>
-          {tagline && (
-            <p className="mt-4 max-w-2xl text-base text-white/90 md:text-xl">{tagline}</p>
-          )}
-        </div>
-      </section>
-      ) : null}
 
       {/* Section label */}
       <div className="mx-auto max-w-[1440px] px-6 pt-16 text-center">
