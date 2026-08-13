@@ -9,14 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/trpc/client";
+import type { VendorHeroBanner } from "@/payload-types";
 
 export function StoreAppearanceBannersPanel() {
   const { data: banners, isLoading } = trpc.vendor.heroBanners.list.useQuery();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const bannerList = (banners ?? []) as VendorHeroBanner[];
 
   const selected =
-    banners?.find((banner) => banner.id === editingId) ?? banners?.[0] ?? null;
+    bannerList.find((banner) => banner.id === editingId) ?? bannerList[0] ?? null;
 
   return (
     <div className="space-y-6">
@@ -54,13 +56,13 @@ export function StoreAppearanceBannersPanel() {
         ) : creating || !selected ? (
           <HeroBannerForm
             onSuccess={() => setCreating(false)}
-            onCancel={banners && banners.length > 0 ? () => setCreating(false) : undefined}
+            onCancel={bannerList.length > 0 ? () => setCreating(false) : undefined}
           />
         ) : (
           <div className="space-y-3">
-            {banners && banners.length > 1 ? (
+            {bannerList.length > 1 ? (
               <div className="flex flex-wrap gap-2">
-                {banners.map((banner) => (
+                {bannerList.map((banner) => (
                   <Button
                     key={banner.id}
                     type="button"
