@@ -2,6 +2,8 @@
  * Shared helpers used across vendor storefront layouts.
  */
 
+import type { ResolvedTemplate } from "@/types/template-customization";
+
 /** Extract plain text from a Payload/Lexical rich-text value (or plain string). */
 export function getDescriptionText(description: any): string | null {
   if (!description) return null;
@@ -45,4 +47,9 @@ export function getPseudoRating(seed: string): { rating: number; count: number }
   const rating = 3.5 + (abs % 16) / 10; // 3.5 .. 5.0 in 0.1 steps
   const count = 12 + (abs % 480); // 12 .. 491
   return { rating: Math.min(5, rating), count };
+}
+
+/** Whether the storefront template should render the hero banner region. */
+export function isLayoutBannerEnabled(template: ResolvedTemplate): boolean {
+  return template.templateConfig.layout?.showBanner !== false;
 }

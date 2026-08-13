@@ -5,19 +5,13 @@ import Image from "next/image";
 
 import { HappyBannerDisplay } from "@/components/happy-banner/HappyBannerDisplay";
 import { VendorHeroBannersSection } from "@/components/vendor-hero-banners-section";
-import type { ResolvedTemplate } from "@/types/template-customization";
-
 import type { VendorLayoutProps } from "./types";
-import { getDescriptionText, getMediaUrl } from "./utils";
+import { getDescriptionText, getMediaUrl, isLayoutBannerEnabled } from "./utils";
 
 type VendorLayoutBannerRegionProps = Pick<
   VendorLayoutProps,
   "vendor" | "template" | "happyBanner"
 >;
-
-export function isLayoutBannerEnabled(template: ResolvedTemplate): boolean {
-  return template.templateConfig.layout?.showBanner !== false;
-}
 
 function HeroBannerFallback({
   vendorName,
@@ -66,7 +60,7 @@ function HeroBannerFallback({
   );
 }
 
-/** Happy + hero banner stack shared across storefront layouts. */
+/** Happy Banner is the storefront promo. The legacy hero carousel stays off when a Happy Banner is selected. */
 export function VendorLayoutBannerRegion({
   vendor,
   template,
@@ -80,7 +74,7 @@ export function VendorLayoutBannerRegion({
     <>
       {happyBanner ? <HappyBannerDisplay banner={happyBanner} /> : null}
 
-      {showBanner ? (
+      {showBanner && !happyBanner ? (
         <Suspense
           fallback={
             <HeroBannerFallback
@@ -90,7 +84,7 @@ export function VendorLayoutBannerRegion({
             />
           }
         >
-          <VendorHeroBannersSection vendorSlug={vendor.slug} enabled />
+          <VendorHeroBannersSection vendorSlug={vendor.slug} />
         </Suspense>
       ) : null}
     </>

@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { trpc } from "@/trpc/client";
 import { toast } from "sonner";
-import { Loader2, Upload, X } from "lucide-react";
+import { Loader2, Upload, X, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { HeroBannerPreview } from "./HeroBannerPreview";
 
@@ -87,6 +87,17 @@ export function HeroBannerForm({ banner, onSuccess, onCancel }: HeroBannerFormPr
     },
     onError: (error) => {
       toast.error(error.message || "Failed to update hero banner");
+    },
+  });
+
+  const deleteMutation = trpc.vendor.heroBanners.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Hero banner removed");
+      utils.vendor.heroBanners.list.invalidate();
+      onSuccess?.();
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to delete hero banner");
     },
   });
 
@@ -475,19 +486,47 @@ export function HeroBannerForm({ banner, onSuccess, onCancel }: HeroBannerFormPr
 
           {/* Submit Button */}
           <div className="flex justify-end gap-2">
+            {banner?.id ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="mr-auto text-destructive hover:text-destructive"
+                disabled={
+                  createMutation.isPending ||
+                  updateMutation.isPending ||
+                  deleteMutation.isPending
+                }
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Remove this hero banner from your storefront?",
+                    )
+                  ) {
+                    deleteMutation.mutate({ id: banner.id });
+                  }
+                }}
+              >
+                {deleteMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                Remove banner
+              </Button>
+            ) : null}
             {onCancel && (
               <Button
                 type="button"
                 variant="outline"
                 onClick={onCancel}
-                disabled={createMutation.isPending || updateMutation.isPending}
+                disabled={createMutation.isPending || updateMutation.isPending || deleteMutation.isPending}
               >
                 Cancel
               </Button>
             )}
             <Button
               type="submit"
-              disabled={createMutation.isPending || updateMutation.isPending}
+              disabled={createMutation.isPending || updateMutation.isPending || deleteMutation.isPending}
             >
               {(createMutation.isPending || updateMutation.isPending) && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

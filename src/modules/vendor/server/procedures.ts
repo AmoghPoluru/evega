@@ -17,6 +17,11 @@ import { createManualOrder } from "@/modules/orders/create-manual-order";
 import { manualOrderCreateInputSchema } from "@/modules/orders/manual-order-schema";
 import { payloadReqFromUser } from "@/lib/payload-req";
 import { toMarketingProfileResponse, updateVendorMarketingProfile, marketingProfileUpdateBodySchema } from "@/modules/marketing/marketing-profile-trpc";
+import {
+  openAiConfigInputSchema,
+  toOpenAiConfigResponse,
+  updateVendorOpenAiConfig,
+} from "@/modules/marketing/openai-config-trpc";
 import type { Vendor } from "@/payload-types";
 import type { HappyBannerDocFields } from "@/lib/happy-banner/types";
 import { getHappyBannerPlatformConfig } from "@/lib/happy-banner/config";
@@ -1103,6 +1108,85 @@ export const vendorRouter = createTRPCRouter({
         });
 
         return { success: true };
+      }),
+
+    suggestFromImage: vendorProcedure
+      .input(
+        z.object({
+          mediaId: z.string().min(1),
+          fallbackName: z.string().min(1).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const vendorId =
+          typeof ctx.session.vendor === "string" ? ctx.session.vendor : ctx.session.vendor.id;
+
+        const media = await ctx.db.findByID({
+          collection: "media",
+          id: input.mediaId,
+          depth: 0,
+          overrideAccess: true,
+        });
+
+        if (!media) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Media not found" });
+        }
+
+        const { resolveMediaDisplayUrl } = await import("@/lib/media-display-url");
+        const { suggestProductCopyFromImageUrl } = await import("@/lib/openai-product-from-image");
+        const { getVendorOpenAiApiKey } = await import("@/lib/vendor-openai-config");
+
+        const imageUrl = resolveMediaDisplayUrl(media as Record<string, unknown>);
+        if (!imageUrl || !/^https?:\/\//i.test(imageUrl)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Media has no public image URL for AI. Uploads need Vercel Blob storage in production.",
+          });
+        }
+
+        const fallback =
+          input.fallbackName?.trim() ||
+          (typeof media.alt === "string" && media.alt.trim()) ||
+          "Product";
+
+        const vendor = await ctx.db.findByID({
+          collection: "vendors",
+          id: vendorId,
+          depth: 0,
+          overrideAccess: true,
+        });
+
+        const vendorKey = getVendorOpenAiApiKey(vendor as { openaiConfig?: { apiKey?: string | null } });
+
+        if (!vendorKey) {
+          return {
+            name: fallback,
+            description: "",
+            price: null as number | null,
+            usedAi: false as const,
+            skipReason: "Add your OpenAI API key on the dashboard first",
+          };
+        }
+
+        try {
+          const copy = await suggestProductCopyFromImageUrl(imageUrl, fallback, {
+            apiKey: vendorKey,
+          });
+          return {
+            name: copy.name,
+            description: copy.description,
+            price: copy.price,
+            usedAi: true as const,
+            skipReason: null as string | null,
+          };
+        } catch (error: unknown) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message:
+              error instanceof Error ? error.message : "Failed to analyze image with AI",
+          });
+        }
       }),
 
     bulkImport: vendorProcedure
@@ -2212,6 +2296,44 @@ export const vendorRouter = createTRPCRouter({
         });
 
         return toMarketingProfileResponse(updatedVendor as Vendor);
+      }),
+
+    getOpenAiConfig: vendorProcedure.query(async ({ ctx }) => {
+      const vendorId =
+        typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+      const vendor = await ctx.db.findByID({
+        collection: "vendors",
+        id: vendorId,
+        depth: 0,
+        overrideAccess: true,
+      });
+
+      return toOpenAiConfigResponse(vendor as Vendor);
+    }),
+
+    updateOpenAiConfig: vendorProcedure
+      .input(openAiConfigInputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const vendorId =
+          typeof ctx.session.vendor === "string"
+            ? ctx.session.vendor
+            : ctx.session.vendor.id;
+
+        await updateVendorOpenAiConfig(ctx.db, vendorId, input, {
+          overrideAccess: true,
+        });
+
+        const updatedVendor = await ctx.db.findByID({
+          collection: "vendors",
+          id: vendorId,
+          depth: 0,
+          overrideAccess: true,
+        });
+
+        return toOpenAiConfigResponse(updatedVendor as Vendor);
       }),
 
     stats: vendorProcedure.query(async ({ ctx }) => {

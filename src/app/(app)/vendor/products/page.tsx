@@ -6,8 +6,9 @@ import { trpc } from "@/trpc/client";
 import { ProductsTable } from "./components/ProductsTable";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Plus, Upload } from "lucide-react";
+import { Plus } from "lucide-react";
 import { vendorPageTitles } from "@/lib/vendor-portal-labels";
+import { ProductAiImportDialog } from "./components/ProductAiImportDialog";
 
 export default function VendorProductsPage() {
   const searchParams = useSearchParams();
@@ -46,12 +47,7 @@ export default function VendorProductsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href="/vendor/products/import">
-              <Upload className="mr-2 h-4 w-4" />
-              Import CSV
-            </Link>
-          </Button>
+          <ProductAiImportDialog />
           <Button asChild>
             <Link href="/vendor/products/new">
               <Plus className="mr-2 h-4 w-4" />

@@ -225,5 +225,24 @@ describe('Vendors Collection', () => {
       expect(Vendors.admin).toBeDefined();
       expect(Vendors.admin?.useAsTitle).toBe('name');
     });
+
+    it('should define openaiConfig with a secret apiKey field', () => {
+      const openaiConfig = Vendors.fields?.find(
+        (field) => typeof field === 'object' && field !== null && field.name === 'openaiConfig',
+      );
+
+      expect(openaiConfig).toBeDefined();
+      expect(openaiConfig && 'fields' in openaiConfig).toBe(true);
+
+      const apiKeyField =
+        openaiConfig && 'fields' in openaiConfig
+          ? openaiConfig.fields?.find(
+              (field) => typeof field === 'object' && field !== null && field.name === 'apiKey',
+            )
+          : undefined;
+
+      expect(apiKeyField).toBeDefined();
+      expect(apiKeyField && 'access' in apiKeyField).toBe(true);
+    });
   });
 });
