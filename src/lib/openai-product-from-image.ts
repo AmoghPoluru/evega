@@ -98,6 +98,16 @@ export async function suggestProductCopyFromImageUrl(
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
     console.error("OpenAI vision error:", res.status, errText.slice(0, 400));
+    if (res.status === 401) {
+      throw new Error(
+        "Your OpenAI API key is invalid. Paste a key from platform.openai.com/api-keys on the vendor dashboard (not a ChatGPT login).",
+      );
+    }
+    if (res.status === 429) {
+      throw new Error(
+        "OpenAI rate limit or quota exceeded. Check billing at platform.openai.com.",
+      );
+    }
     throw new Error(
       `OpenAI request failed (${res.status}). Check your API key and billing on the dashboard.`,
     );

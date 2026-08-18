@@ -1036,7 +1036,8 @@ WhatsApp messages:
 | Variable | Default |
 | --- | --- |
 | `WHATSAPP_TEMPLATE_ORDER` | `order_notification` |
-| `WHATSAPP_TEMPLATE_LANGUAGE` | `en` — must match the locale shown in WhatsApp Manager (e.g. `en`, `en_US`, `en_GB`) |
+| `WHATSAPP_TEMPLATE_ORDER_LANGUAGE` | `en` — locale for the order template (body: store name, order number, product, quantity, total, customer name) |
+| `WHATSAPP_TEMPLATE_LANGUAGE` | `en` — locale for like/favorite/comment templates |
 | `WHATSAPP_ORDER_HEADER` | `none` — header handling for `order_notification` (`none` for static headers, `text` or `image` if your Meta template has header variables) |
 | `WHATSAPP_TEMPLATE_LIKE` | `product_liked` |
 | `WHATSAPP_TEMPLATE_FAVORITE` | `product_favorited` |

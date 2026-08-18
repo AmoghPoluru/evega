@@ -11,6 +11,8 @@ import type { Product, Vendor } from "@/payload-types";
 
 const DEFAULT_TEMPLATE_LANGUAGE =
   process.env.WHATSAPP_TEMPLATE_LANGUAGE?.trim() || "en";
+const ORDER_TEMPLATE_LANGUAGE =
+  process.env.WHATSAPP_TEMPLATE_ORDER_LANGUAGE?.trim() || DEFAULT_TEMPLATE_LANGUAGE;
 const GRAPH_API_VERSION = process.env.META_GRAPH_API_VERSION || "v21.0";
 const DEFAULT_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 const DEFAULT_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
@@ -167,17 +169,6 @@ function isPublicHttpUrl(url: string): boolean {
   }
 }
 
-/** WhatsApp may reject delivery when template variables contain localhost URLs. */
-function formatWhatsAppOrderUrl(orderUrl?: string): string {
-  if (!orderUrl) return "View order in your vendor dashboard";
-  if (isPublicHttpUrl(orderUrl)) return orderUrl;
-  const orderIdMatch = orderUrl.match(/\/orders\/([^/?#]+)/);
-  if (orderIdMatch?.[1]) {
-    return `Order ID ${orderIdMatch[1]}`;
-  }
-  return "View order in your vendor dashboard";
-}
-
 /**
  * Send a WhatsApp template (business-initiated) message. Templates must be
  * pre-approved in the Meta WhatsApp Manager.
@@ -256,6 +247,7 @@ export async function sendWhatsAppText(
 
 export type ResolvedVendorWhatsApp = {
   vendorId: string;
+  vendorName?: string | null;
   businessNumber?: string | null;
   phoneNumberId?: string | null;
   accessToken?: string | null;
@@ -306,6 +298,7 @@ export async function resolveVendorWhatsApp(
     const config = vendor.whatsappConfig;
     const resolved = {
       vendorId,
+      vendorName: vendor.name ?? null,
       businessNumber: config?.businessNumber ?? null,
       phoneNumberId: config?.phoneNumberId ?? null,
       accessToken: config?.accessToken ?? null,
@@ -434,7 +427,8 @@ export async function notifyVendorWhatsApp(
   vendor: ResolvedVendorWhatsApp | null,
   template: string,
   params: string[],
-  header?: WhatsAppTemplateHeader
+  header?: WhatsAppTemplateHeader,
+  languageCode?: string
 ): Promise<{ id?: string } | null> {
   if (!vendor) {
     logWhatsApp("Skipped notification — no vendor config resolved");
@@ -468,6 +462,7 @@ export async function notifyVendorWhatsApp(
     to: vendor.businessNumber,
     template,
     params,
+    languageCode,
     headerText: header?.type === "text" ? header.text : undefined,
     headerImageUrl: header?.type === "image" ? header.imageUrl : undefined,
     phoneNumberId: vendor.phoneNumberId,
@@ -497,18 +492,19 @@ export function notifyVendorNewOrder(
     vendor,
     whatsAppTemplates.order(),
     [
+      vendor?.vendorName || "Store",
       args.orderNumber,
       args.productName,
       String(args.quantity),
       `$${args.total.toFixed(2)}`,
       args.customerName,
-      formatWhatsAppOrderUrl(args.orderUrl),
     ],
     ORDER_HEADER_MODE === "image" && args.imageUrl && isPublicHttpUrl(args.imageUrl)
       ? { type: "image", imageUrl: args.imageUrl }
       : ORDER_HEADER_MODE === "text"
         ? { type: "text", text: args.orderNumber }
-        : undefined
+        : undefined,
+    ORDER_TEMPLATE_LANGUAGE
   );
 }
 

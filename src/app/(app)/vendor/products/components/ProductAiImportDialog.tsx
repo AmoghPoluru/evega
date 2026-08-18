@@ -179,9 +179,16 @@ export function ProductAiImportDialog({ trigger }: ProductAiImportDialogProps) {
             toast.message(`AI skipped for ${file.name}: ${suggestion.skipReason}`);
           }
         } catch (aiErr: unknown) {
-          toast.message(
-            `AI skipped for ${file.name}: ${aiErr instanceof Error ? aiErr.message : "error"}`,
-          );
+          const aiMessage =
+            aiErr instanceof Error ? aiErr.message : "Failed to analyze image with AI";
+          toast.error(`AI failed for ${file.name}: ${aiMessage}`);
+          // Don't create a product with the filename as title when the key is bad.
+          if (/invalid/i.test(aiMessage) || /api key/i.test(aiMessage)) {
+            errors.push(`${file.name}: ${aiMessage}`);
+            break;
+          }
+          errors.push(`${file.name}: ${aiMessage}`);
+          continue;
         }
 
         await createMutation.mutateAsync({
