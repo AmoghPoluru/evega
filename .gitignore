@@ -43,3 +43,5 @@ next-env.d.ts
 
 # Playwright (legacy - now outputs to tests/output/)
 playwright/.cache/
+
+certificates

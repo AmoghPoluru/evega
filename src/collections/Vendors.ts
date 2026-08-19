@@ -610,7 +610,12 @@ export const Vendors: CollectionConfig = {
           type: "text",
           label: "API key",
           access: {
-            read: ({ req }) => isSuperAdmin(req.user),
+            read: ({ req, doc }) => {
+              if (isSuperAdmin(req.user)) return true;
+              const vendorId = getVendorId(req.user);
+              if (!vendorId || !doc) return false;
+              return String(doc.id) === String(vendorId);
+            },
             update: ({ req }) => isSuperAdmin(req.user) || Boolean(getVendorId(req.user)),
           },
           admin: {

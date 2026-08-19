@@ -24,6 +24,7 @@ import { ProductLikes } from "./collections/ProductLikes";
 import { ProductViews } from "./collections/ProductViews";
 import { ProductComments } from "./collections/ProductComments";
 import { SocialPosts } from "./collections/SocialPosts";
+import { VendorSocialConnections } from "./collections/VendorSocialConnections";
 import { HeroBannerConfig } from "./collections/HeroBannerConfig";
 import { HappyBanners } from "./collections/HappyBanners";
 import { VendorLogoTemplates } from "./collections/VendorLogoTemplates";
@@ -54,7 +55,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Products, Tags, HeroBanners, Orders, Vendors, Roles, Customers, VariantTypes, VariantOptions, VendorHeroBanners, VendorTemplates, HappyBanners, VendorLogoTemplates, VendorExpenses, PotentialVendorRegions, Favorites, ProductLikes, ProductViews, ProductComments, SocialPosts],
+  collections: [Users, Media, Products, Tags, HeroBanners, Orders, Vendors, Roles, Customers, VariantTypes, VariantOptions, VendorHeroBanners, VendorTemplates, HappyBanners, VendorLogoTemplates, VendorExpenses, PotentialVendorRegions, Favorites, ProductLikes, ProductViews, ProductComments, SocialPosts, VendorSocialConnections],
   globals: [HeroBannerConfig],
   editor: lexicalEditor(),
   // Use placeholder during build (must be at least 32 chars), actual secret at runtime

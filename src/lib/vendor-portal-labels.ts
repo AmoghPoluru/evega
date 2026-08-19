@@ -29,6 +29,7 @@ export const vendorNavLabels = {
   payouts: "My Payouts",
   notifications: "My Notifications",
   settings: "My Settings",
+  connectedChannels: "Connected Channels",
 } as const;
 
 /** Collapsible sidebar section headers. */
@@ -49,6 +50,7 @@ export const vendorPageTitles = {
   storeAppearance: "My Website Appearance",
   analytics: "My Analytics & Reports",
   settings: "My Settings",
+  connectedChannels: "Connected Channels",
   importProducts: "Import My Products",
   newProduct: "Create My Product",
   editProduct: "Edit My Product",

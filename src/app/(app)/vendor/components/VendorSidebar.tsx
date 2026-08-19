@@ -26,6 +26,7 @@ import {
   Receipt,
   DollarSign,
   ChevronUp,
+  Share2,
   type LucideIcon,
 } from "lucide-react";
 import { GoShoppingButton } from "@/components/go-shopping-button";
@@ -76,6 +77,7 @@ const navGroups: NavGroup[] = [
       { href: "/vendor/analytics", label: vendorNavLabels.analytics, icon: BarChart3 },
       { href: "/vendor/stripe-onboarding", label: vendorNavLabels.payouts, icon: CreditCard },
       { href: "/vendor/notifications", label: vendorNavLabels.notifications, icon: Bell },
+      { href: "/vendor/connected-channels", label: vendorNavLabels.connectedChannels, icon: Share2 },
       { href: "/vendor/settings", label: vendorNavLabels.settings, icon: Settings },
     ],
   },

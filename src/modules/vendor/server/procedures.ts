@@ -1155,9 +1155,12 @@ export const vendorRouter = createTRPCRouter({
           id: vendorId,
           depth: 0,
           overrideAccess: true,
+          showHiddenFields: true,
         });
 
-        const vendorKey = getVendorOpenAiApiKey(vendor as { openaiConfig?: { apiKey?: string | null } });
+        const vendorKey = getVendorOpenAiApiKey(
+          vendor as { openaiConfig?: { apiKey?: string | null } },
+        );
 
         if (!vendorKey) {
           return {
