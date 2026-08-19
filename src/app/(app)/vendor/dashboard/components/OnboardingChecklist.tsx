@@ -72,7 +72,7 @@ export function OnboardingChecklist() {
     {
       id: "marketing",
       label: "Set up marketing channels",
-      href: "/vendor/settings",
+      href: "/vendor/connected-channels",
       completed: hasMarketingSetup,
     },
   ];

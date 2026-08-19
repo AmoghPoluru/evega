@@ -522,7 +522,7 @@ export function ProductsTable({
                             }}
                           >
                             <Share2 className="mr-2 h-4 w-4" />
-                            Post to socials
+                            Post to Instagram
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={(e) => {
@@ -589,6 +589,10 @@ export function ProductsTable({
             id: socialProduct.id,
             name: socialProduct.name,
             price: socialProduct.price,
+            imageUrl:
+              typeof socialProduct.image === "object" && socialProduct.image?.url
+                ? socialProduct.image.url
+                : undefined,
           }}
         />
       )}

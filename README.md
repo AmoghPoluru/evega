@@ -1029,6 +1029,9 @@ connected its own account.
 | `META_GRAPH_API_VERSION` | Meta Graph API version, e.g. `v21.0`. Defaults to `v21.0`. |
 | `META_APP_ID` | Meta app ID (used for token management / app review). |
 | `META_APP_SECRET` | Meta app secret. Never expose to clients. |
+| `INSTAGRAM_APP_ID` | Instagram app ID for Instagram Login OAuth (falls back to `META_APP_ID`). |
+| `INSTAGRAM_APP_SECRET` | Instagram app secret. Never expose to clients (falls back to `META_APP_SECRET`). |
+| `INSTAGRAM_REDIRECT_URI` | Exact OAuth callback URL registered in Meta, e.g. `https://www.zvastra.com/api/auth/instagram/callback`. Local: `https://localhost:3000/api/auth/instagram/callback`. |
 
 Optional template name overrides (defaults shown) for business-initiated
 WhatsApp messages:
@@ -1050,8 +1053,10 @@ The Meta app needs the following permissions (and Meta App Review approval for
 production, non-test usage):
 
 - `whatsapp_business_messaging` — send WhatsApp Business messages.
-- `pages_manage_posts` — publish to a Facebook Page.
-- `instagram_content_publish` — publish to an Instagram Business account.
+- `pages_manage_posts` — publish to a Facebook Page (staff/vendor `metaConfig` Page token).
+- Instagram Login product on the Meta app, with `instagram_business_basic` and `instagram_business_content_publish`. Do **not** use Facebook Login for Business for Connected Channels.
+
+Instagram Login OAuth `redirect_uri` must match `INSTAGRAM_REDIRECT_URI` exactly. Production: `https://www.zvastra.com/api/auth/instagram/callback`. Local HTTPS: `https://localhost:3000/api/auth/instagram/callback` (`npm run dev:https`). Vendors connect at **Vendor → Connected Channels** and post from **My Products**.
 
 Notes:
 

@@ -2,9 +2,11 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, vendorProcedure } from "@/trpc/init";
-import { postToFacebookPage, postToInstagram, postToInstagramWithLoginToken } from "@/lib/social";
-import { sendWhatsAppText, extractProductImageUrl } from "@/lib/whatsapp";
+import { postToFacebookPage, publishVendorInstagram } from "@/lib/social";
+import { sendWhatsAppText } from "@/lib/whatsapp";
+import { extractProductPublicImageUrls } from "@/lib/product-public-media";
 import { buildSocialChannelsUpdate } from "@/lib/vendor-marketing-profile";
+import { resolveInstagramPublishCreds } from "@/lib/vendor-social-connections";
 import type { Vendor } from "@/payload-types";
 
 const channelEnum = z.enum(["instagram", "facebook", "whatsapp"]);
@@ -60,7 +62,8 @@ export const socialRouter = createTRPCRouter({
 
       const meta = vendor.metaConfig;
       const whatsapp = vendor.whatsappConfig;
-      const imageUrl = extractProductImageUrl(product);
+      const publicImageUrls = extractProductPublicImageUrls(product);
+      const imageUrl = publicImageUrls[0];
 
       const results: Array<{
         channel: z.infer<typeof channelEnum>;
@@ -85,29 +88,24 @@ export const socialRouter = createTRPCRouter({
             });
             externalPostId = res.id;
           } else if (channel === "instagram") {
-            if (!imageUrl) {
-              throw new Error("Instagram requires a product image.");
+            if (publicImageUrls.length === 0) {
+              throw new Error(
+                "Instagram requires a public image URL (Vercel Blob). Localhost URLs cannot be published."
+              );
             }
 
-            if (meta?.instagramAccessToken && meta?.instagramBusinessId) {
-              const res = await postToInstagramWithLoginToken({
-                igUserId: meta.instagramBusinessId,
-                instagramAccessToken: meta.instagramAccessToken,
+            const igCreds = await resolveInstagramPublishCreds(ctx.db, vendorId);
+            if (igCreds) {
+              const res = await publishVendorInstagram({
+                igUserId: igCreds.igUserId,
+                accessToken: igCreds.accessToken,
                 caption: input.caption,
-                imageUrl,
-              });
-              externalPostId = res.id;
-            } else if (meta?.instagramBusinessId && meta?.pageAccessToken) {
-              const res = await postToInstagram({
-                igBusinessId: meta.instagramBusinessId,
-                pageAccessToken: meta.pageAccessToken,
-                caption: input.caption,
-                imageUrl,
+                imageUrls: publicImageUrls,
               });
               externalPostId = res.id;
             } else {
               throw new Error(
-                "Instagram is not connected. Add an Instagram access token (IGAA…) or a Facebook Page token (EAA…) in Digital marketing."
+                "Instagram is not connected. Connect it in Connected Channels."
               );
             }
           } else {

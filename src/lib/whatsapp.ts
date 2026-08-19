@@ -8,6 +8,7 @@
 
 import type { BasePayload } from "payload";
 import type { Product, Vendor } from "@/payload-types";
+import { isPublicHttpUrl } from "@/lib/product-public-media";
 
 const DEFAULT_TEMPLATE_LANGUAGE =
   process.env.WHATSAPP_TEMPLATE_LANGUAGE?.trim() || "en";
@@ -150,23 +151,6 @@ export interface SendWhatsAppTemplateArgs extends WhatsAppCreds {
   headerText?: string;
   /** Publicly hosted image URL for an IMAGE header component. */
   headerImageUrl?: string;
-}
-
-function isPublicHttpUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
-    const host = parsed.hostname.toLowerCase();
-    return (
-      host !== "localhost" &&
-      host !== "127.0.0.1" &&
-      !host.endsWith(".local") &&
-      !host.startsWith("192.168.") &&
-      !host.startsWith("10.")
-    );
-  } catch {
-    return false;
-  }
 }
 
 /**

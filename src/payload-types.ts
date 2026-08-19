@@ -89,6 +89,7 @@ export interface Config {
     'product-views': ProductView;
     'product-comments': ProductComment;
     'social-posts': SocialPost;
+    'vendor-social-connections': VendorSocialConnection;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -118,6 +119,7 @@ export interface Config {
     'product-views': ProductViewsSelect<false> | ProductViewsSelect<true>;
     'product-comments': ProductCommentsSelect<false> | ProductCommentsSelect<true>;
     'social-posts': SocialPostsSelect<false> | SocialPostsSelect<true>;
+    'vendor-social-connections': VendorSocialConnectionsSelect<false> | VendorSocialConnectionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -1771,6 +1773,23 @@ export interface SocialPost {
   createdAt: string;
 }
 /**
+ * OAuth tokens for vendor Instagram (Instagram Login).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendor-social-connections".
+ */
+export interface VendorSocialConnection {
+  id: string;
+  vendor: string | Vendor;
+  platform: 'instagram' | 'facebook';
+  igUserId: string;
+  username: string;
+  accessToken: string;
+  tokenExpiresAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -1881,6 +1900,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'social-posts';
         value: string | SocialPost;
+      } | null)
+    | ({
+        relationTo: 'vendor-social-connections';
+        value: string | VendorSocialConnection;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -2581,6 +2604,20 @@ export interface SocialPostsSelect<T extends boolean = true> {
   externalPostId?: T;
   error?: T;
   postedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "vendor-social-connections_select".
+ */
+export interface VendorSocialConnectionsSelect<T extends boolean = true> {
+  vendor?: T;
+  platform?: T;
+  igUserId?: T;
+  username?: T;
+  accessToken?: T;
+  tokenExpiresAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
