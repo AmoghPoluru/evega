@@ -1,7 +1,15 @@
 import OpenAI, { toFile } from "openai";
 import sharp from "sharp";
 
+import { buildBannerPrompt } from "@/lib/instagram-banner-prompts";
 import { uploadToBlob } from "@/lib/vercel-blob-storage";
+
+export {
+  DEFAULT_BANNER_BRIEF,
+  DEFAULT_BANNER_INSTRUCTION_WITHOUT_PHOTO,
+  DEFAULT_BANNER_INSTRUCTION_WITH_PHOTO,
+  buildBannerPrompt,
+} from "@/lib/instagram-banner-prompts";
 
 const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-1";
 
@@ -40,21 +48,6 @@ async function toOpenaiJpeg(bytes: Buffer): Promise<Buffer> {
   }
 }
 
-function buildBannerPrompt(args: {
-  prompt: string;
-  productName: string;
-  priceLabel: string;
-}): string {
-  return [
-    "Create a professional Instagram promotional banner in a portrait layout.",
-    "Use the attached photo as the real product photography. Do not replace it with a different product.",
-    "Place the product clearly in the composition (typically one side or center). Add campaign copy, brand styling, and decorative frames as the user requests.",
-    "Keep all text sharp, spelled correctly, and readable on a phone. Premium boutique aesthetic unless the user asks otherwise.",
-    `Product name: ${args.productName}. Price: ${args.priceLabel}.`,
-    `Vendor brief: ${args.prompt.trim()}`,
-  ].join(" ");
-}
-
 function openaiEditError(error: unknown): Error {
   const message =
     error instanceof Error
@@ -82,27 +75,47 @@ function openaiEditError(error: unknown): Error {
 
 export async function generateInstagramBanner(args: {
   apiKey: string;
-  sourceImageUrl: string;
-  prompt: string;
+  sourceImageUrl?: string | null;
+  useSourceImage: boolean;
+  instruction: string;
+  brief: string;
   productName: string;
   priceLabel: string;
   vendorId: string;
   productId: string;
 }): Promise<{ imageUrl: string }> {
-  const source = await fetchImageBytes(args.sourceImageUrl);
-  const jpeg = await toOpenaiJpeg(source);
-  const image = await toFile(jpeg, "product.jpg", { type: "image/jpeg" });
+  const prompt = buildBannerPrompt({
+    instruction: args.instruction,
+    brief: args.brief,
+    productName: args.productName,
+    priceLabel: args.priceLabel,
+  });
 
   const client = new OpenAI({ apiKey: args.apiKey });
   let result;
   try {
-    result = await client.images.edit({
-      model: OPENAI_IMAGE_MODEL,
-      image,
-      prompt: buildBannerPrompt(args),
-      size: "1024x1536",
-      quality: "high",
-    });
+    if (args.useSourceImage) {
+      if (!args.sourceImageUrl) {
+        throw new Error("Turn on “use product photo” only when this product has an image.");
+      }
+      const source = await fetchImageBytes(args.sourceImageUrl);
+      const jpeg = await toOpenaiJpeg(source);
+      const image = await toFile(jpeg, "product.jpg", { type: "image/jpeg" });
+      result = await client.images.edit({
+        model: OPENAI_IMAGE_MODEL,
+        image,
+        prompt,
+        size: "1024x1536",
+        quality: "high",
+      });
+    } else {
+      result = await client.images.generate({
+        model: OPENAI_IMAGE_MODEL,
+        prompt,
+        size: "1024x1536",
+        quality: "high",
+      });
+    }
   } catch (error) {
     console.error("[instagram.banner] OpenAI error", error);
     throw openaiEditError(error);

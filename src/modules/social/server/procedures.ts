@@ -46,7 +46,9 @@ export const socialRouter = createTRPCRouter({
     .input(
       z.object({
         productId: z.string(),
-        prompt: z.string().trim().min(8, "Describe the banner you want").max(1200),
+        instruction: z.string().trim().min(8, "Add generation instructions").max(2000),
+        brief: z.string().trim().min(8, "Add a creative brief").max(1200),
+        useSourceImage: z.boolean(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -70,10 +72,10 @@ export const socialRouter = createTRPCRouter({
       }
 
       const sourceImageUrl = productSourceImageUrl(product as Product);
-      if (!sourceImageUrl) {
+      if (input.useSourceImage && !sourceImageUrl) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "This product needs an image before you can generate a banner.",
+          message: "This product needs an image, or turn off “Use product photo”.",
         });
       }
 
@@ -100,7 +102,9 @@ export const socialRouter = createTRPCRouter({
         return await generateInstagramBanner({
           apiKey,
           sourceImageUrl,
-          prompt: input.prompt,
+          useSourceImage: input.useSourceImage,
+          instruction: input.instruction,
+          brief: input.brief,
           productName: product.name,
           priceLabel,
           vendorId,

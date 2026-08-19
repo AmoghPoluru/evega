@@ -16,10 +16,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { PublicSocialConnection } from "@/lib/vendor-social-connections";
+import {
+  DEFAULT_BANNER_BRIEF,
+  DEFAULT_BANNER_INSTRUCTION_WITHOUT_PHOTO,
+  DEFAULT_BANNER_INSTRUCTION_WITH_PHOTO,
+} from "@/lib/instagram-banner-prompts";
 
 const CAPTION_LIMIT = 2200;
-const DEFAULT_BANNER_PROMPT =
-  "Festive boutique sale banner, cream background, maroon and gold type, 10% off all dresses, product photo on the right, gold floral frame, premium and readable on Instagram.";
 
 interface PostToSocialsDialogProps {
   open: boolean;
@@ -53,7 +56,9 @@ export function PostToSocialsDialog({
 }: PostToSocialsDialogProps) {
   const defaultCaption = useMemo(() => buildDefaultCaption(product), [product]);
   const [caption, setCaption] = useState(defaultCaption);
-  const [bannerPrompt, setBannerPrompt] = useState(DEFAULT_BANNER_PROMPT);
+  const [instruction, setInstruction] = useState(DEFAULT_BANNER_INSTRUCTION_WITH_PHOTO);
+  const [brief, setBrief] = useState(DEFAULT_BANNER_BRIEF);
+  const [useSourceImage, setUseSourceImage] = useState(true);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [createAnother, setCreateAnother] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -67,7 +72,13 @@ export function PostToSocialsDialog({
   useEffect(() => {
     if (!open) return;
     setCaption(buildDefaultCaption(product));
-    setBannerPrompt(DEFAULT_BANNER_PROMPT);
+    setInstruction(
+      product.imageUrl
+        ? DEFAULT_BANNER_INSTRUCTION_WITH_PHOTO
+        : DEFAULT_BANNER_INSTRUCTION_WITHOUT_PHOTO
+    );
+    setBrief(DEFAULT_BANNER_BRIEF);
+    setUseSourceImage(Boolean(product.imageUrl));
     setBannerUrl(null);
   }, [open, product]);
 
@@ -153,18 +164,37 @@ export function PostToSocialsDialog({
     }
   };
 
+  const handleUsePhotoChange = (checked: boolean) => {
+    setUseSourceImage(checked);
+    setInstruction((current) => {
+      const isDefault =
+        current === DEFAULT_BANNER_INSTRUCTION_WITH_PHOTO ||
+        current === DEFAULT_BANNER_INSTRUCTION_WITHOUT_PHOTO;
+      if (!isDefault) return current;
+      return checked
+        ? DEFAULT_BANNER_INSTRUCTION_WITH_PHOTO
+        : DEFAULT_BANNER_INSTRUCTION_WITHOUT_PHOTO;
+    });
+  };
+
   const handleGenerate = () => {
-    if (!product.imageUrl) {
-      toast.error("This product needs an image to generate a banner");
+    if (useSourceImage && !product.imageUrl) {
+      toast.error("This product needs an image, or turn off “Use product photo”");
       return;
     }
     if (!openAiConfig?.hasApiKey) {
       toast.error("Add your OpenAI API key on the dashboard first");
       return;
     }
+    if (instruction.trim().length < 8 || brief.trim().length < 8) {
+      toast.error("Add both the generation instructions and the creative brief");
+      return;
+    }
     generateBanner.mutate({
       productId: product.id,
-      prompt: bannerPrompt.trim(),
+      instruction: instruction.trim(),
+      brief: brief.trim(),
+      useSourceImage,
     });
   };
 
@@ -213,21 +243,38 @@ export function PostToSocialsDialog({
               )}
             </div>
 
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Banner prompt</p>
-              <Textarea
-                value={bannerPrompt}
-                onChange={(e) => setBannerPrompt(e.target.value.slice(0, 1200))}
-                placeholder="Brand, offer, colors, layout…"
-                className="min-h-24"
-              />
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={useSourceImage}
+                  onCheckedChange={(checked) => handleUsePhotoChange(Boolean(checked))}
+                  disabled={!product.imageUrl}
+                />
+                Use this product photo
+              </label>
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Generation instructions</p>
+                <Textarea
+                  value={instruction}
+                  onChange={(e) => setInstruction(e.target.value.slice(0, 2000))}
+                  className="min-h-24 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Creative brief</p>
+                <Textarea
+                  value={brief}
+                  onChange={(e) => setBrief(e.target.value.slice(0, 1200))}
+                  className="min-h-20 text-sm"
+                />
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleGenerate}
-                  disabled={generateBanner.isPending || !product.imageUrl}
+                  disabled={generateBanner.isPending || (useSourceImage && !product.imageUrl)}
                 >
                   {generateBanner.isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -253,7 +300,7 @@ export function PostToSocialsDialog({
                   <Link href="/vendor/dashboard" className="underline underline-offset-2">
                     OpenAI API key
                   </Link>{" "}
-                  on the dashboard to generate sale banners from this product photo.
+                  on the dashboard to generate sale banners.
                 </p>
               )}
             </div>
