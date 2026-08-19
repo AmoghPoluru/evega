@@ -3,6 +3,17 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // Keep native sharp out of the app bundle so Vercel can load linux libvips.
+  serverExternalPackages: ["sharp", "@img/sharp-linux-x64", "@img/sharp-libvips-linux-x64"],
+  outputFileTracingIncludes: {
+    "/**": [
+      "./node_modules/sharp/**/*",
+      "./node_modules/@img/sharp-linux-x64/**/*",
+      "./node_modules/@img/sharp-libvips-linux-x64/**/*",
+      "./node_modules/@img/sharp-linuxmusl-x64/**/*",
+      "./node_modules/@img/sharp-libvips-linuxmusl-x64/**/*",
+    ],
+  },
   webpack: (config) => {
     // Resolve .js imports to .ts files for ESM compatibility
     config.resolve.extensionAlias = {
