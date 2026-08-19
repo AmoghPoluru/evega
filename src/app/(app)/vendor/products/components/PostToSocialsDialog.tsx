@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Instagram, Loader2 } from "lucide-react";
+import { Download, Instagram, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { trpc } from "@/trpc/client";
@@ -18,6 +18,8 @@ import {
 import type { PublicSocialConnection } from "@/lib/vendor-social-connections";
 
 const CAPTION_LIMIT = 2200;
+const DEFAULT_BANNER_PROMPT =
+  "Festive boutique sale banner, cream background, maroon and gold type, 10% off all dresses, product photo on the right, gold floral frame, premium and readable on Instagram.";
 
 interface PostToSocialsDialogProps {
   open: boolean;
@@ -35,6 +37,15 @@ function buildDefaultCaption(product: { id: string; name: string; price: number 
   return `${product.name} — ${price}\n${url}`;
 }
 
+function downloadFileName(productName: string, productId: string) {
+  const slug = productName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+  return `${slug || "instagram-banner"}-${productId.slice(-6)}.png`;
+}
+
 export function PostToSocialsDialog({
   open,
   onOpenChange,
@@ -42,13 +53,22 @@ export function PostToSocialsDialog({
 }: PostToSocialsDialogProps) {
   const defaultCaption = useMemo(() => buildDefaultCaption(product), [product]);
   const [caption, setCaption] = useState(defaultCaption);
+  const [bannerPrompt, setBannerPrompt] = useState(DEFAULT_BANNER_PROMPT);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [createAnother, setCreateAnother] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [instagram, setInstagram] = useState<PublicSocialConnection | null>(null);
   const [statusLoaded, setStatusLoaded] = useState(false);
+
+  const { data: openAiConfig } = trpc.vendor.dashboard.getOpenAiConfig.useQuery(undefined, {
+    enabled: open,
+  });
 
   useEffect(() => {
     if (!open) return;
     setCaption(buildDefaultCaption(product));
+    setBannerPrompt(DEFAULT_BANNER_PROMPT);
+    setBannerUrl(null);
   }, [open, product]);
 
   useEffect(() => {
@@ -78,6 +98,16 @@ export function PostToSocialsDialog({
     };
   }, [open]);
 
+  const generateBanner = trpc.social.generateBanner.useMutation({
+    onSuccess: (data) => {
+      setBannerUrl(data.imageUrl);
+      toast.success("Banner ready. Preview it, then post.");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to generate banner");
+    },
+  });
+
   const postProduct = trpc.social.postProduct.useMutation({
     onSuccess: (data) => {
       const ig = data.results.find((r) => r.channel === "instagram");
@@ -85,6 +115,7 @@ export function PostToSocialsDialog({
         toast.success("Posted to Instagram");
         if (createAnother) {
           setCaption(buildDefaultCaption(product));
+          setBannerUrl(null);
           return;
         }
         onOpenChange(false);
@@ -97,7 +128,45 @@ export function PostToSocialsDialog({
     },
   });
 
-  const canPost = Boolean(caption.trim()) && Boolean(instagram);
+  const previewImageUrl = bannerUrl || product.imageUrl;
+  const canPost = Boolean(caption.trim()) && Boolean(instagram) && Boolean(previewImageUrl);
+
+  const handleDownload = async () => {
+    if (!previewImageUrl) return;
+    setDownloading(true);
+    try {
+      const res = await fetch(previewImageUrl);
+      if (!res.ok) throw new Error("Could not download the image");
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = downloadFileName(product.name, product.id);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      window.open(previewImageUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleGenerate = () => {
+    if (!product.imageUrl) {
+      toast.error("This product needs an image to generate a banner");
+      return;
+    }
+    if (!openAiConfig?.hasApiKey) {
+      toast.error("Add your OpenAI API key on the dashboard first");
+      return;
+    }
+    generateBanner.mutate({
+      productId: product.id,
+      prompt: bannerPrompt.trim(),
+    });
+  };
 
   const handleSubmit = () => {
     if (!instagram) {
@@ -112,6 +181,7 @@ export function PostToSocialsDialog({
       productId: product.id,
       channels: ["instagram"],
       caption,
+      ...(bannerUrl ? { imageUrl: bannerUrl } : {}),
     });
   };
 
@@ -121,7 +191,7 @@ export function PostToSocialsDialog({
         <div className="border-b px-4 py-3">
           <DialogTitle className="text-base font-semibold">Post to Instagram</DialogTitle>
           <DialogDescription className="sr-only">
-            Create an Instagram post for {product.name}.
+            Create an Instagram post or AI banner for {product.name}.
           </DialogDescription>
         </div>
 
@@ -143,40 +213,123 @@ export function PostToSocialsDialog({
               )}
             </div>
 
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Banner prompt</p>
+              <Textarea
+                value={bannerPrompt}
+                onChange={(e) => setBannerPrompt(e.target.value.slice(0, 1200))}
+                placeholder="Brand, offer, colors, layout…"
+                className="min-h-24"
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerate}
+                  disabled={generateBanner.isPending || !product.imageUrl}
+                >
+                  {generateBanner.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-2 h-4 w-4" />
+                  )}
+                  {generateBanner.isPending ? "Generating banner…" : "Generate banner"}
+                </Button>
+                {bannerUrl && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setBannerUrl(null)}
+                  >
+                    Use original photo
+                  </Button>
+                )}
+              </div>
+              {!openAiConfig?.hasApiKey && (
+                <p className="text-xs text-muted-foreground">
+                  Add an{" "}
+                  <Link href="/vendor/dashboard" className="underline underline-offset-2">
+                    OpenAI API key
+                  </Link>{" "}
+                  on the dashboard to generate sale banners from this product photo.
+                </p>
+              )}
+            </div>
+
             <Textarea
               value={caption}
               onChange={(e) => setCaption(e.target.value.slice(0, CAPTION_LIMIT))}
               placeholder="Write a caption"
-              className="min-h-32"
+              className="min-h-28"
             />
             <p className="text-right text-xs text-muted-foreground">
               {CAPTION_LIMIT - caption.length} characters left
             </p>
 
-            {product.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={product.imageUrl}
-                alt={product.name}
-                className="max-h-56 w-full rounded-md object-contain bg-muted"
-              />
+            {previewImageUrl ? (
+              <div className="space-y-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewImageUrl}
+                  alt={product.name}
+                  className="max-h-56 w-full rounded-md object-contain bg-muted"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="lg:hidden"
+                  onClick={handleDownload}
+                  disabled={downloading}
+                >
+                  {downloading ? (
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-3.5 w-3.5" />
+                  )}
+                  Download
+                </Button>
+              </div>
             ) : (
               <p className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
-                This product needs a public image (Vercel Blob) before Instagram can publish it.
+                This product needs a public image before Instagram can publish it.
+              </p>
+            )}
+            {bannerUrl && (
+              <p className="text-xs text-muted-foreground">
+                Posting the generated banner, not the original product photo.
               </p>
             )}
           </div>
 
           <div className="hidden border-l bg-muted/20 p-4 lg:block">
-            <p className="mb-3 text-sm font-medium">Preview</p>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-sm font-medium">Preview</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleDownload}
+                disabled={!previewImageUrl || downloading}
+              >
+                {downloading ? (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-3.5 w-3.5" />
+                )}
+                Download
+              </Button>
+            </div>
             <div className="overflow-hidden rounded-xl border bg-background">
               <div className="border-b px-3 py-2 text-sm font-semibold">
                 {instagram?.username ? `@${instagram.username}` : "yourshop"}
               </div>
-              <div className="flex aspect-square items-center justify-center bg-muted">
-                {product.imageUrl ? (
+              <div className="flex aspect-4/5 items-center justify-center bg-muted">
+                {previewImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
+                  <img src={previewImageUrl} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <p className="px-6 text-center text-sm text-muted-foreground">No image</p>
                 )}
@@ -200,7 +353,7 @@ export function PostToSocialsDialog({
           <Button
             type="button"
             onClick={handleSubmit}
-            disabled={postProduct.isPending || !canPost}
+            disabled={postProduct.isPending || generateBanner.isPending || !canPost}
           >
             {postProduct.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Post to Instagram

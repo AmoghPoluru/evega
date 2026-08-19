@@ -4,10 +4,31 @@ import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, vendorProcedure } from "@/trpc/init";
 import { postToFacebookPage, publishVendorInstagram } from "@/lib/social";
 import { sendWhatsAppText } from "@/lib/whatsapp";
-import { extractProductPublicImageUrls } from "@/lib/product-public-media";
+import {
+  extractProductPublicImageUrls,
+  isPublicHttpUrl,
+} from "@/lib/product-public-media";
 import { buildSocialChannelsUpdate } from "@/lib/vendor-marketing-profile";
 import { resolveInstagramPublishCreds } from "@/lib/vendor-social-connections";
-import type { Vendor } from "@/payload-types";
+import { generateInstagramBanner } from "@/lib/openai-instagram-banner";
+import { getVendorOpenAiApiKey } from "@/lib/vendor-openai-config";
+import type { Product, Vendor } from "@/payload-types";
+
+function productSourceImageUrl(product: Product): string | null {
+  const publicUrl = extractProductPublicImageUrls(product)[0];
+  if (publicUrl) return publicUrl;
+  const image = product.image;
+  if (image && typeof image === "object" && typeof image.url === "string" && image.url) {
+    const raw = image.url;
+    if (raw.startsWith("http")) return raw;
+    const base = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(
+      /\/$/,
+      ""
+    );
+    return `${base}${raw.startsWith("/") ? "" : "/"}${raw}`;
+  }
+  return null;
+}
 
 const channelEnum = z.enum(["instagram", "facebook", "whatsapp"]);
 
@@ -21,12 +42,84 @@ const CHANNEL_TO_LAST_POSTED: Record<
 };
 
 export const socialRouter = createTRPCRouter({
+  generateBanner: vendorProcedure
+    .input(
+      z.object({
+        productId: z.string(),
+        prompt: z.string().trim().min(8, "Describe the banner you want").max(1200),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const vendorId =
+        typeof ctx.session.vendor === "string"
+          ? ctx.session.vendor
+          : ctx.session.vendor.id;
+
+      const product = await ctx.db.findByID({
+        collection: "products",
+        id: input.productId,
+        depth: 1,
+      });
+      const productVendorId =
+        typeof product.vendor === "string" ? product.vendor : product.vendor?.id;
+      if (productVendorId !== vendorId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have access to this product",
+        });
+      }
+
+      const sourceImageUrl = productSourceImageUrl(product as Product);
+      if (!sourceImageUrl) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This product needs an image before you can generate a banner.",
+        });
+      }
+
+      const vendor = (await ctx.db.findByID({
+        collection: "vendors",
+        id: vendorId,
+        depth: 0,
+        overrideAccess: true,
+      })) as Vendor;
+      const apiKey = getVendorOpenAiApiKey(vendor);
+      if (!apiKey) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Add your OpenAI API key on the vendor dashboard first.",
+        });
+      }
+
+      const priceLabel = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+      }).format(product.price ?? 0);
+
+      try {
+        return await generateInstagramBanner({
+          apiKey,
+          sourceImageUrl,
+          prompt: input.prompt,
+          productName: product.name,
+          priceLabel,
+          vendorId,
+          productId: product.id,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to generate banner";
+        throw new TRPCError({ code: "BAD_REQUEST", message });
+      }
+    }),
+
   postProduct: vendorProcedure
     .input(
       z.object({
         productId: z.string(),
         channels: z.array(channelEnum).min(1, "Select at least one channel"),
         caption: z.string().min(1, "Caption is required"),
+        imageUrl: z.string().url().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -62,7 +155,17 @@ export const socialRouter = createTRPCRouter({
 
       const meta = vendor.metaConfig;
       const whatsapp = vendor.whatsappConfig;
-      const publicImageUrls = extractProductPublicImageUrls(product);
+      const overrideUrl = input.imageUrl?.trim();
+      if (overrideUrl && !isPublicHttpUrl(overrideUrl)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Custom Instagram images must be a public URL (Vercel Blob). Localhost URLs cannot be published.",
+        });
+      }
+      const publicImageUrls = overrideUrl
+        ? [overrideUrl]
+        : extractProductPublicImageUrls(product);
       const imageUrl = publicImageUrls[0];
 
       const results: Array<{
