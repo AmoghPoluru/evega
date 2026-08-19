@@ -18,7 +18,8 @@ export interface BlobUploadResult {
 export async function uploadToBlob(
   file: Buffer | Uint8Array | ArrayBuffer,
   filename: string,
-  contentType?: string
+  contentType?: string,
+  options?: { overwrite?: boolean; cacheControlMaxAge?: number }
 ): Promise<BlobUploadResult> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     throw new Error(
@@ -42,7 +43,11 @@ export async function uploadToBlob(
       access: 'public',
       contentType: contentType || 'application/octet-stream',
       token: process.env.BLOB_READ_WRITE_TOKEN,
-      addRandomSuffix: true, // Generate unique filename to avoid conflicts
+      addRandomSuffix: options?.overwrite ? false : true,
+      allowOverwrite: options?.overwrite === true,
+      ...(typeof options?.cacheControlMaxAge === 'number'
+        ? { cacheControlMaxAge: options.cacheControlMaxAge }
+        : {}),
     });
 
     return {

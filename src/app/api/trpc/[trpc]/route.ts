@@ -31,6 +31,8 @@ function corsHeaders(req: Request): Headers {
   return headers;
 }
 
+export const maxDuration = 120;
+
 const handler = (req: Request) =>
   fetchRequestHandler({
     endpoint: '/api/trpc',
