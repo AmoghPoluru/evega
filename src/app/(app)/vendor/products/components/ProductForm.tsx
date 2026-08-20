@@ -173,6 +173,59 @@ function DecimalInput({
   );
 }
 
+/** Keep typed digits so stock can be cleared and retyped without snapping to 0. */
+function IntegerInput({
+  value,
+  onChange,
+  onBlur,
+  name,
+  placeholder,
+}: {
+  value: number | undefined | null;
+  onChange: (value: number | undefined) => void;
+  onBlur: () => void;
+  name?: string;
+  placeholder?: string;
+}) {
+  const [text, setText] = useState(() =>
+    value == null || Number.isNaN(Number(value)) ? "" : String(value),
+  );
+
+  return (
+    <Input
+      type="text"
+      inputMode="numeric"
+      placeholder={placeholder}
+      value={text}
+      name={name}
+      onChange={(event) => {
+        const next = event.target.value;
+        if (next !== "" && !/^\d+$/.test(next)) return;
+        setText(next);
+        if (next === "") {
+          onChange(undefined);
+          return;
+        }
+        const parsed = Number.parseInt(next, 10);
+        if (Number.isFinite(parsed)) onChange(parsed);
+      }}
+      onBlur={() => {
+        if (text === "") {
+          onChange(0);
+          setText("0");
+        } else {
+          const parsed = Number.parseInt(text, 10);
+          if (Number.isFinite(parsed)) {
+            onChange(parsed);
+            setText(String(parsed));
+          }
+        }
+        onBlur();
+      }}
+    />
+  );
+}
+
 export function ProductForm({
   product,
   onSuccess,
@@ -1533,35 +1586,12 @@ export function ProductForm({
                               <FormItem>
                                 <FormLabel>Stock *</FormLabel>
                                 <FormControl>
-                                  <Input
-                                    type="text"
-                                    inputMode="numeric"
-                                    placeholder="0"
-                                    value={field.value === 0 ? "" : (field.value?.toString() ?? "")}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      // Allow empty string while typing
-                                      if (val === "" || val === "-") {
-                                        field.onChange(undefined as any);
-                                        return;
-                                      }
-                                      // Only allow integers
-                                      if (/^\d+$/.test(val)) {
-                                        const num = parseInt(val, 10);
-                                        if (!isNaN(num)) {
-                                          field.onChange(num);
-                                        }
-                                      }
-                                    }}
-                                    onBlur={(e) => {
-                                      const val = e.target.value;
-                                      // On blur, if empty or invalid, set to 0 (will trigger validation)
-                                      if (val === "" || isNaN(parseInt(val, 10))) {
-                                        field.onChange(0);
-                                      }
-                                      field.onBlur();
-                                    }}
+                                  <IntegerInput
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    onBlur={field.onBlur}
                                     name={field.name}
+                                    placeholder="0"
                                   />
                                 </FormControl>
                                 <FormMessage />
