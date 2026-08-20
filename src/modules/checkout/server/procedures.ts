@@ -159,7 +159,7 @@ export const checkoutRouter = createTRPCRouter({
             });
           }
 
-          if (variant.stock < cartItem.quantity) {
+          if ((variant.stock ?? 0) < cartItem.quantity) {
             const variantData = (variant as any).variantData || {};
             const colorDisplay = variantData.color || cartItem.color || "";
             throw new TRPCError({
