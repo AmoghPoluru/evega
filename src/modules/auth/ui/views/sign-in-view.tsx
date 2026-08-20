@@ -78,7 +78,7 @@ export const SignInView = () => {
             <div className="flex items-center justify-between mb-8">
               <Link href="/">
                 <span className={cn("text-2xl font-semibold", poppins.className)}>
-                  Evega
+                  Zvastra
                 </span>
               </Link>
               <Button
@@ -93,7 +93,7 @@ export const SignInView = () => {
               </Button>
             </div>
             <h1 className="text-4xl font-medium">
-              Welcome back to Evega.
+              Welcome back to Zvastra.
             </h1>
             {errorMessage && (
               <Alert variant="destructive" className="bg-red-500 text-white border-red-600">

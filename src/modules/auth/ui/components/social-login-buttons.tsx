@@ -11,11 +11,9 @@ export const SocialLoginButtons = () => {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [providers, setProviders] = useState<Record<string, any> | null>(null);
 
   useEffect(() => {
-    // Check which providers are available
     getProviders().then((provs) => {
       setProviders(provs);
       if (!provs?.google) {
@@ -27,53 +25,20 @@ export const SocialLoginButtons = () => {
   const handleGoogleSignIn = async () => {
     try {
       setIsGoogleLoading(true);
-      
-      // Check if Google provider is configured
-      const result = await signIn("google", {
+
+      await signIn("google", {
         callbackUrl: redirectTo,
-        redirect: true, // Let NextAuth handle the redirect
+        redirect: true,
       });
-      
-      // If redirect is true, this code won't execute (browser redirects)
-      // But if there's an error before redirect, we'll catch it
     } catch (error) {
       setIsGoogleLoading(false);
       const errorMessage = error instanceof Error ? error.message : "Failed to sign in with Google";
       console.error("Google sign in error:", error);
-      
-      // Check for common configuration errors
+
       if (errorMessage.includes("pattern") || errorMessage.includes("secret") || errorMessage.includes("NEXTAUTH")) {
         toast.error("OAuth not configured. Please check your .env.local file for GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and NEXTAUTH_SECRET");
       } else if (errorMessage.includes("Configuration")) {
         toast.error("Google OAuth is not configured. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env.local");
-      } else {
-        toast.error(errorMessage);
-      }
-    }
-  };
-
-  const handleFacebookSignIn = async () => {
-    try {
-      setIsFacebookLoading(true);
-      
-      // Check if Facebook provider is configured
-      const result = await signIn("facebook", {
-        callbackUrl: redirectTo,
-        redirect: true, // Let NextAuth handle the redirect
-      });
-      
-      // If redirect is true, this code won't execute (browser redirects)
-      // But if there's an error before redirect, we'll catch it
-    } catch (error) {
-      setIsFacebookLoading(false);
-      const errorMessage = error instanceof Error ? error.message : "Failed to sign in with Facebook";
-      console.error("Facebook sign in error:", error);
-      
-      // Check for common configuration errors
-      if (errorMessage.includes("pattern") || errorMessage.includes("secret") || errorMessage.includes("NEXTAUTH")) {
-        toast.error("OAuth not configured. Please check your .env.local file for FACEBOOK_CLIENT_ID, FACEBOOK_CLIENT_SECRET, and NEXTAUTH_SECRET");
-      } else if (errorMessage.includes("Configuration")) {
-        toast.error("Facebook OAuth is not configured. Please add FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET to .env.local");
       } else {
         toast.error(errorMessage);
       }
@@ -89,7 +54,7 @@ export const SocialLoginButtons = () => {
         variant="outline"
         size="lg"
         onClick={handleGoogleSignIn}
-        disabled={isGoogleLoading || isFacebookLoading || !isGoogleAvailable}
+        disabled={isGoogleLoading || !isGoogleAvailable}
         className="w-full border-2 hover:bg-gray-50 disabled:opacity-50"
         title={!isGoogleAvailable ? "Google OAuth is not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env.local" : undefined}
       >
@@ -119,30 +84,6 @@ export const SocialLoginButtons = () => {
               />
             </svg>
             Continue with Google
-          </>
-        )}
-      </Button>
-
-      <Button
-        type="button"
-        variant="outline"
-        size="lg"
-        onClick={handleFacebookSignIn}
-        disabled={isGoogleLoading || isFacebookLoading || !providers?.facebook}
-        className="w-full border-2 hover:bg-gray-50 disabled:opacity-50"
-        title={!providers?.facebook ? "Facebook OAuth is not configured. Add FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET to .env.local" : undefined}
-      >
-        {isFacebookLoading ? (
-          <>
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Connecting...
-          </>
-        ) : (
-          <>
-            <svg className="mr-2 h-5 w-5" fill="#1877F2" viewBox="0 0 24 24">
-              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-            </svg>
-            Continue with Facebook
           </>
         )}
       </Button>
