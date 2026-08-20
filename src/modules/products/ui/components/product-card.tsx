@@ -70,13 +70,13 @@ export const ProductCard = ({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  if (vendorSlug) router.push(`/vendor/${vendorSlug}`);
+                  if (vendorSlug) router.push(`/vendors/${vendorSlug}`);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && vendorSlug) {
                     e.preventDefault();
                     e.stopPropagation();
-                    router.push(`/vendor/${vendorSlug}`);
+                    router.push(`/vendors/${vendorSlug}`);
                   }
                 }}
                 className="text-xs text-gray-600 hover:text-gray-900 font-medium cursor-pointer"

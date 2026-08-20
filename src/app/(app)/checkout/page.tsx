@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { LoaderIcon } from "lucide-react";
 
 import { CheckoutView } from "@/modules/checkout/ui/views/checkout-view";
+import { CheckoutNavBrandingSync } from "./checkout-nav-branding-sync";
 
 function CheckoutViewSkeleton() {
   return (
@@ -17,8 +18,11 @@ function CheckoutViewSkeleton() {
 
 export default function CheckoutPage() {
   return (
-    <Suspense fallback={<CheckoutViewSkeleton />}>
-      <CheckoutView />
-    </Suspense>
+    <>
+      <CheckoutNavBrandingSync />
+      <Suspense fallback={<CheckoutViewSkeleton />}>
+        <CheckoutView />
+      </Suspense>
+    </>
   );
 }

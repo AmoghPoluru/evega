@@ -13,8 +13,9 @@ import { trpc } from "@/trpc/client";
 import type { ProductComment } from "@/payload-types";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
+import { getCustomerFacingVariantTypes } from "@/lib/products/customer-variant-types";
+import { getTotalVariantStock } from "@/lib/inventory/adjust-product-stock";
 import { useCart } from "@/modules/checkout/hooks/use-cart";
-import { ShippingAddressDisplay } from "./shipping-address-display";
 import { YouTubeEmbed } from "./youtube-embed";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
@@ -351,10 +352,11 @@ export const ProductView = ({ productId }: ProductViewProps) => {
         return Array.from(types);
       })()
     : [];
+  const customerVariantTypes = getCustomerFacingVariantTypes(variantTypes);
 
-  // Get available options for each variant type
+  // Get available options for each variant type (shopper-facing only)
   const variantOptions: Record<string, string[]> = {};
-  variantTypes.forEach((variantType) => {
+  customerVariantTypes.forEach((variantType) => {
     const options = new Set<string>();
     data?.variants?.forEach((v: any) => {
       const variantData = v.variantData || {};
@@ -366,33 +368,41 @@ export const ProductView = ({ productId }: ProductViewProps) => {
     variantOptions[variantType] = Array.from(options).sort();
   });
   
-  // Get selected variant - match all selected variant values
+  // Match shopper-selected variants (size is handled separately at fulfillment)
   const selectedVariant = hasVariants && data?.variants
     ? data.variants.find((v: any) => {
         const variantData = v.variantData || {};
-        // Check if all selected variant types match
-        return variantTypes.every((variantType) => {
+        return customerVariantTypes.every((variantType) => {
           const selectedValue = selectedVariants[variantType];
-          if (!selectedValue) return true; // Not required if not selected
+          if (!selectedValue) return true;
           return variantData[variantType] === selectedValue;
         });
       })
     : null;
-  
-  const stockForSelectedVariant = selectedVariant?.stock || 0;
+
+  const totalVariantStock = hasVariants && data?.variants
+    ? getTotalVariantStock({ id: productId, variants: data.variants })
+    : 0;
+
+  const stockForSelectedVariant = customerVariantTypes.length > 0
+    ? (selectedVariant?.stock || 0)
+    : totalVariantStock;
   
   // Price: use variant price if available, otherwise base price
   const variantPrice = selectedVariant && (selectedVariant as any).price !== undefined && (selectedVariant as any).price !== null
     ? (selectedVariant as any).price
     : (data?.price || 0);
 
-  const allRequiredSelected = true;
+  const allRequiredSelected =
+    customerVariantTypes.length === 0 ||
+    customerVariantTypes.every((variantType) => Boolean(selectedVariants[variantType]));
 
   // Handle Buy Now - add to cart and navigate to checkout page
   const handleBuyNow = () => {
     if (hasVariants) {
-      // Check if all required variants are selected
-      const missingRequired = variantTypes.filter((vt: string) => !selectedVariants[vt]);
+      const missingRequired = customerVariantTypes.filter(
+        (vt: string) => !selectedVariants[vt],
+      );
       if (missingRequired.length > 0) {
         toast.error(`Please select ${missingRequired.join(', ')}`);
         return;
@@ -404,19 +414,11 @@ export const ProductView = ({ productId }: ProductViewProps) => {
     }
 
     setIsBuyNowLoading(true);
-    
-    // Add product to cart with selected variants and quantity
-    // For backward compatibility, extract size and color if they exist
-    const size = selectedVariants.size || selectedVariants.blouseSize;
+
     const color = selectedVariants.color;
-    
+
     for (let i = 0; i < quantity; i++) {
-      addProduct(
-        productId,
-        size,
-        color,
-        variantPrice
-      );
+      addProduct(productId, undefined, color, variantPrice);
     }
 
     // Navigate to checkout page
@@ -561,10 +563,23 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                 {data.name}
               </h1>
 
-              {/* Visit Store Link */}
-              <Link href="#" className="text-sm text-blue-600 hover:text-orange-600 hover:underline">
-                Visit the Store
-              </Link>
+              {/* Vendor website */}
+              {typeof data.vendor === "object" &&
+                data.vendor !== null &&
+                data.vendor.website && (
+                  <a
+                    href={
+                      data.vendor.website.startsWith("http")
+                        ? data.vendor.website
+                        : `https://${data.vendor.website}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:text-orange-600 hover:underline"
+                  >
+                    Vendor website
+                  </a>
+                )}
 
               {/* Vendor Information */}
               {data?.vendor && (
@@ -583,7 +598,7 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                       <div className="flex flex-col">
                         <span className="text-xs text-gray-500">Sold by</span>
                         <Link
-                          href={data.vendor.slug ? `/vendor/${data.vendor.slug}` : "#"}
+                          href={data.vendor.slug ? `/vendors/${data.vendor.slug}` : "#"}
                           className="text-sm font-medium text-blue-600 hover:text-orange-600 hover:underline"
                         >
                           {data.vendor.name || "Vendor"}
@@ -593,41 +608,6 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                   )}
                 </div>
               )}
-
-              {/* Rating */}
-              <div className="flex items-center gap-2">
-                <div className="flex items-center">
-                  <span className="text-sm font-medium mr-1">4.8</span>
-                  <div className="flex text-orange-400">
-                    {[...Array(5)].map((_, i) => (
-                      <svg key={i} className="w-4 h-4 fill-current" viewBox="0 0 20 20">
-                        <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                      </svg>
-                    ))}
-                  </div>
-                  <ChevronDown className="w-4 h-4 ml-1 text-gray-600" />
-                </div>
-                <span className="text-sm text-blue-600">(18,613)</span>
-              </div>
-
-              {/* Best Choice Badge */}
-              <div className="inline-block">
-                <div className="bg-gray-800 text-white text-xs font-medium px-2 py-1 rounded">
-                  Best Choice
-                </div>
-              </div>
-
-              {/* Sustainability Badge */}
-              <div className="flex items-center gap-2 text-sm">
-                <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" />
-                </svg>
-                <span className="text-gray-700">1 sustainability feature</span>
-                <ChevronDown className="w-4 h-4 text-gray-600" />
-              </div>
-
-              {/* Popularity */}
-              <p className="text-sm text-gray-700">10K+ bought in past month</p>
 
               {/* Horizontal Divider */}
               <hr className="border-gray-300" />
@@ -646,26 +626,6 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                   </div>
                 )}
               </div>
-
-              {/* Free Returns */}
-              <div className="flex items-center gap-2 text-sm text-blue-600 cursor-pointer hover:text-orange-600">
-                <span className="font-medium">FREE Returns</span>
-                <ChevronDown className="w-4 h-4" />
-              </div>
-
-              {/* Payment Option */}
-              <p className="text-sm text-gray-700">
-                Get $60 off instantly: Pay $239.99 upon approval for the Store Card.
-              </p>
-
-              {/* Other Sellers */}
-              <p className="text-sm text-gray-700">
-                Available at a lower price from{" "}
-                <Link href="#" className="text-blue-600 hover:text-orange-600 hover:underline">
-                  other sellers
-                </Link>{" "}
-                that may not offer free shipping.
-              </p>
 
               {/* Horizontal Divider */}
               <hr className="border-gray-300" />
@@ -699,30 +659,8 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                   )}
                 </div>
 
-                {/* Premium Badge */}
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center">
-                    <span className="text-blue-400 font-bold text-lg">premium</span>
-                  </div>
-                </div>
-
-                {/* Delivery Info */}
-                <div className="space-y-1">
-                  <p className="text-sm">
-                    <span className="font-semibold">FREE delivery</span>{" "}
-                    <span className="font-bold">Friday, February 13</span>
-                  </p>
-                  <p className="text-sm">
-                    <span className="font-semibold">FREE delivery Tomorrow, February 9</span> for premium members. 
-                    Order within <span className="text-green-700 font-medium">12 hrs 57 mins</span>.
-                  </p>
-                </div>
-
-                {/* Shipping Address */}
-                <ShippingAddressDisplay />
-
                 {/* Dynamic Variant Selectors */}
-                {hasVariants && variantTypes.map((variantType) => {
+                {hasVariants && customerVariantTypes.length > 0 && customerVariantTypes.map((variantType) => {
                   const options = variantOptions[variantType] || [];
                   if (options.length === 0) return null;
                   
@@ -751,7 +689,7 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                             // Must match this option
                             if (variantData[variantType] !== option) return false;
                             // Must match all other selected variants
-                            return variantTypes.every((vt) => {
+                            return customerVariantTypes.every((vt) => {
                               if (vt === variantType) return true; // Skip current type
                               const otherSelected = selectedVariants[vt];
                               if (!otherSelected) return true; // Not selected, so any value is OK
@@ -815,7 +753,7 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                     )
                   ) : (
                     <p className="text-sm text-gray-500">
-                      Select {variantTypes.length > 0 ? variantTypes.join(', ') : 'variants'} to see availability
+                      Select {customerVariantTypes.join(', ')} to see availability
                     </p>
                   )
                 ) : (
@@ -842,7 +780,6 @@ export const ProductView = ({ productId }: ProductViewProps) => {
                 {/* Add to Cart Button */}
                 <CartButton 
                   productId={productId} 
-                  size={selectedVariants.size || selectedVariants.blouseSize}
                   color={selectedVariants.color}
                   variantPrice={selectedVariant ? variantPrice : undefined}
                   disabled={Boolean(hasVariants && (!allRequiredSelected || stockForSelectedVariant === 0))}

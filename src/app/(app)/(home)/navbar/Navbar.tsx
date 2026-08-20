@@ -14,6 +14,7 @@ import { CheckoutButton } from "@/modules/checkout/ui/components/checkout-button
 import { ProfileDropdown } from "@/components/profile-dropdown";
 import { isAppStaff, getUserRole, hasVendor } from "@/lib/access";
 import type { User } from "@/payload-types";
+import { useStorefrontNavBranding } from "@/lib/storefront-nav-branding";
 
 const poppins = Poppins({
   weight: ["700"],
@@ -22,6 +23,7 @@ const poppins = Poppins({
 
 export function Navbar() {
   const pathname = usePathname()
+  const layoutBranding = useStorefrontNavBranding()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const { data: session } = trpc.auth.session.useQuery()
   
@@ -59,7 +61,8 @@ export function Navbar() {
   return (
     <>
       <nav className={`h-20 flex border-b border-gray-700 justify-between font-medium bg-black items-center px-4 ${poppins.className}`}>
-        <StorefrontNavbarLogo />
+        <StorefrontNavbarLogo pathname={pathname} layoutBranding={layoutBranding} />
+
 
         <NavbarSidebar
           items={[]}

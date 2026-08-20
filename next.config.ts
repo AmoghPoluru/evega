@@ -1,8 +1,17 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { withPayload } from "@payloadcms/next/withPayload";
 import type { NextConfig } from "next";
 
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
+
 const nextConfig: NextConfig = {
   /* config options here */
+  // Cursor opens the parent Projects folder; keep module resolution inside evega.
+  outputFileTracingRoot: projectRoot,
+  turbopack: {
+    root: projectRoot,
+  },
   // Keep native sharp out of the app bundle so Vercel can load linux libvips.
   serverExternalPackages: ["sharp", "@img/sharp-linux-x64", "@img/sharp-libvips-linux-x64"],
   outputFileTracingIncludes: {
