@@ -46,7 +46,7 @@ const DEFAULT_VARIANT_TYPES = [
 const productFormSchema = z.object({
   name: z.string().min(1, "Product name is required"),
   description: z.string().optional(),
-  price: z.number().min(0.01, "Price must be greater than 0"),
+  price: z.coerce.number().min(0.01, "Price must be greater than 0"),
   image: z.string().optional(),
   cover: z.array(z.string()).optional(),
   videoSource: z.enum(["upload", "youtube"]).optional().default("upload"),
@@ -119,6 +119,58 @@ interface ProductFormProps {
   /** When `staff`, uses admin API and requires vendor picker. */
   context?: "vendor" | "staff";
   vendors?: VendorOption[];
+}
+
+/** Keep the raw typed text so decimals like `89.` and `0.50` are not stripped mid-edit. */
+function DecimalInput({
+  value,
+  onChange,
+  onBlur,
+  name,
+  placeholder,
+}: {
+  value: number | undefined | null;
+  onChange: (value: number | undefined) => void;
+  onBlur: () => void;
+  name?: string;
+  placeholder?: string;
+}) {
+  const [text, setText] = useState(() =>
+    value == null || Number.isNaN(Number(value)) ? "" : String(value),
+  );
+
+  return (
+    <Input
+      type="text"
+      inputMode="decimal"
+      placeholder={placeholder}
+      value={text}
+      name={name}
+      onChange={(event) => {
+        const next = event.target.value;
+        if (next !== "" && !/^\d*\.?\d{0,2}$/.test(next)) return;
+        setText(next);
+        if (next === "" || next === ".") {
+          onChange(undefined);
+          return;
+        }
+        const parsed = Number.parseFloat(next);
+        if (Number.isFinite(parsed)) onChange(parsed);
+      }}
+      onBlur={() => {
+        if (text === "" || text === ".") {
+          onChange(undefined);
+        } else {
+          const parsed = Number.parseFloat(text);
+          if (Number.isFinite(parsed)) {
+            onChange(parsed);
+            setText(String(parsed));
+          }
+        }
+        onBlur();
+      }}
+    />
+  );
 }
 
 export function ProductForm({
@@ -734,35 +786,12 @@ export function ProductForm({
                   <FormItem>
                     <FormLabel>Price (USD) *</FormLabel>
                     <FormControl>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="0.00"
-                        value={field.value === 0 ? "" : (field.value?.toString() ?? "")}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          // Allow empty string while typing
-                          if (val === "" || val === "-") {
-                            field.onChange(undefined as any);
-                            return;
-                          }
-                          // Only allow numbers and decimal point
-                          if (/^\d*\.?\d*$/.test(val)) {
-                            const num = parseFloat(val);
-                            if (!isNaN(num)) {
-                              field.onChange(num);
-                            }
-                          }
-                        }}
-                        onBlur={(e) => {
-                          const val = e.target.value;
-                          // On blur, if empty or invalid, set to 0 (will trigger validation)
-                          if (val === "" || isNaN(parseFloat(val))) {
-                            field.onChange(0);
-                          }
-                          field.onBlur();
-                        }}
+                      <DecimalInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
                         name={field.name}
+                        placeholder="0.00"
                       />
                     </FormControl>
                     <FormMessage />
@@ -1546,15 +1575,12 @@ export function ProductForm({
                               <FormItem>
                                 <FormLabel>Price (Optional)</FormLabel>
                                 <FormControl>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    placeholder="Base price"
-                                    value={field.value ?? ""}
-                                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                                  <DecimalInput
+                                    value={field.value}
+                                    onChange={field.onChange}
                                     onBlur={field.onBlur}
                                     name={field.name}
+                                    placeholder="Base price"
                                   />
                                 </FormControl>
                                 <FormMessage />
