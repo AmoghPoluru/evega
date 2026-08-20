@@ -12,21 +12,25 @@ export function findMatchingVariant(
   product: ProductInventoryDoc,
   size?: string | null,
   color?: string | null,
+  quantity = 1,
 ): ProductVariantRow | null {
   if (!product.variants?.length) return null;
 
+  const normalizedSize = size?.trim() || null;
+  const normalizedColor = color?.trim() || null;
+
+  if (normalizedSize || normalizedColor) {
+    return (
+      product.variants.find((v) =>
+        variantMatchesSelection(v, normalizedSize, normalizedColor),
+      ) ?? null
+    );
+  }
+
   return (
-    product.variants.find((v) => {
-      const variantData = v.variantData || {};
-      const sizeMatch =
-        !size ||
-        variantData.size === size ||
-        variantData.blouseSize === size ||
-        v.size === size ||
-        v.blouseSize === size;
-      const colorMatch = !color || variantData.color === color || v.color === color;
-      return sizeMatch && colorMatch;
-    }) ?? null
+    product.variants.find((v) => (v.stock ?? 0) >= quantity) ??
+    product.variants.find((v) => (v.stock ?? 0) > 0) ??
+    null
   );
 }
 
@@ -100,7 +104,7 @@ async function updateVariantStock(
   input: StockAdjustmentInput,
   delta: number,
 ): Promise<StockAdjustmentResult> {
-  const variant = findMatchingVariant(product, input.size, input.color);
+  const variant = findMatchingVariant(product, input.size, input.color, input.quantity);
   if (!variant) {
     throw new TRPCError({
       code: 'BAD_REQUEST',
@@ -125,8 +129,9 @@ async function updateVariantStock(
     });
   }
 
-  const updatedVariants = (product.variants ?? []).map((v) => {
-    if (variantMatchesSelection(v, input.size, input.color)) {
+  const variantIndex = (product.variants ?? []).findIndex((v) => v === variant);
+  const updatedVariants = (product.variants ?? []).map((v, index) => {
+    if (index === variantIndex) {
       return { ...v, stock: newStock };
     }
     return v;

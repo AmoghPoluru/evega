@@ -142,71 +142,29 @@ export const checkoutRouter = createTRPCRouter({
           throw new TRPCError({ code: "NOT_FOUND", message: `Product ${cartItem.productId} not found` });
         }
 
-        // Find matching variant
-        // Variants are stored in variantData JSON object: { variantData: { size: "M", color: "Red" }, stock: 10, price: 49.99 }
+        // Find matching variant (size optional — first in-stock variant is used when omitted)
         let variant = null;
         if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
-          // Product has variants - we need to find a matching one
-          // Check if cart item has variant information
-          const hasVariantInfo = (cartItem.size && cartItem.size.trim() !== '') || 
-                                 (cartItem.color && cartItem.color.trim() !== '');
-          
-          if (hasVariantInfo) {
-            // Try to find exact match based on provided size/color
-            // Variants store data in variantData JSON object
-            variant = product.variants.find((v: any) => {
-              const variantData = v.variantData || {};
-              const sizeMatch = !cartItem.size || !cartItem.size.trim() || variantData.size === cartItem.size || variantData.blouseSize === cartItem.size;
-              const colorMatch = !cartItem.color || !cartItem.color.trim() || variantData.color === cartItem.color;
-              return sizeMatch && colorMatch;
-            });
-          }
-          
-          // If no variant found and product has variants, provide helpful error
-          if (!variant) {
-            // Determine what variant fields are available in the product
-            const availableVariantFields: string[] = [];
-            if (product.variants.length > 0) {
-              const firstVariant = product.variants[0] as any;
-              const variantData = firstVariant.variantData || {};
-              if (variantData.size || variantData.blouseSize) availableVariantFields.push('size');
-              if (variantData.color) availableVariantFields.push('color');
-              if (variantData.material) availableVariantFields.push('material');
-            }
-            
-            const missingFields = availableVariantFields.filter(field => {
-              if (field === 'size') return !cartItem.size || !cartItem.size.trim();
-              if (field === 'color') return !cartItem.color || !cartItem.color.trim();
-              return true; // For other fields, assume missing
-            });
-            
-            if (missingFields.length > 0) {
-              throw new TRPCError({ 
-                code: "BAD_REQUEST", 
-                message: `Please select ${missingFields.join(' and ')} for ${product.name}` 
-              });
-            } else {
-              // Variant info was provided but doesn't match any existing variant
-              const providedInfo = [];
-              if (cartItem.size) providedInfo.push(`size: ${cartItem.size}`);
-              if (cartItem.color) providedInfo.push(`color: ${cartItem.color}`);
-              throw new TRPCError({ 
-                code: "BAD_REQUEST", 
-                message: `Variant not found for ${product.name} with ${providedInfo.join(', ')}. Please select a valid variant combination.` 
-              });
-            }
-          }
-        }
+          variant = findMatchingVariant(
+            product as ProductInventoryDoc,
+            cartItem.size,
+            cartItem.color,
+            cartItem.quantity,
+          );
 
-        // Validate stock
-        if (variant) {
+          if (!variant) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `${product.name} is out of stock`,
+            });
+          }
+
           if (variant.stock < cartItem.quantity) {
             const variantData = (variant as any).variantData || {};
-            const sizeDisplay = variantData.size || variantData.blouseSize || cartItem.size || '';
-            const colorDisplay = variantData.color || cartItem.color || '';
-            throw new TRPCError({ 
-              code: "BAD_REQUEST", 
-              message: `Not enough stock for ${product.name}${sizeDisplay ? ` (${sizeDisplay})` : ''}${colorDisplay ? ` - ${colorDisplay}` : ''}` 
+            const colorDisplay = variantData.color || cartItem.color || "";
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Not enough stock for ${product.name}${colorDisplay ? ` - ${colorDisplay}` : ""}`,
             });
           }
         }
@@ -292,13 +250,14 @@ export const checkoutRouter = createTRPCRouter({
                 product as ProductInventoryDoc,
                 cartItem.size,
                 cartItem.color,
+                cartItem.quantity || 1,
               )
             : null;
 
           if (hasVariants && !variant) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: `Variant not found for ${product.name}. Please select a valid size and color.`,
+              message: `${product.name} is out of stock`,
             });
           }
 

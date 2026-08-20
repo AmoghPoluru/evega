@@ -31,7 +31,7 @@ function corsHeaders(req: Request): Headers {
   return headers;
 }
 
-export const maxDuration = 120;
+export const maxDuration = 120; // storefront branding procedures live on appRouter
 
 const handler = (req: Request) =>
   fetchRequestHandler({

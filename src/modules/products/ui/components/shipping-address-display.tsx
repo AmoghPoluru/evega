@@ -5,7 +5,12 @@ import { MapPin, Edit } from "lucide-react";
 import { trpc } from "@/trpc/client";
 
 export function ShippingAddressDisplay() {
-  const { data: user } = trpc.addresses.getUserAddresses.useQuery();
+  const { data: session } = trpc.auth.session.useQuery();
+  const isLoggedIn = Boolean(session?.user);
+  const { data: user } = trpc.addresses.getUserAddresses.useQuery(undefined, {
+    enabled: isLoggedIn,
+    retry: false,
+  });
 
   const defaultAddress = user?.shippingAddresses?.find(
     (addr: any) => addr.isDefault
