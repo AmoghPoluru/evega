@@ -51,6 +51,7 @@ export function WhatsAppChannelCard() {
   const [channelJid, setChannelJid] = useState("");
   const [caption, setCaption] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [invite, setInvite] = useState("");
 
   const status = trpc.whatsappChannels.sessionStatus.useQuery(undefined, {
     enabled: pollingEnabled,
@@ -81,6 +82,14 @@ export function WhatsAppChannelCard() {
       setQr(null);
       setPollingEnabled(false);
       toast.success("WhatsApp channel session disconnected");
+    },
+    onError: (error) => toast.error(readableError(error.message)),
+  });
+
+  const resolveInvite = trpc.whatsappChannels.resolveInvite.useMutation({
+    onSuccess: (channel) => {
+      setChannelJid(channel.jid);
+      toast.success(`Found "${channel.name}" — ${channel.jid}`);
     },
     onError: (error) => toast.error(readableError(error.message)),
   });
@@ -183,6 +192,26 @@ export function WhatsAppChannelCard() {
                 onChange={(event) => setChannelJid(event.target.value)}
               />
             )}
+
+            {/* A channel share link carries an invite code, not the JID, so it
+                has to be resolved through the linked account. */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Or paste a channel link: https://whatsapp.com/channel/…"
+                value={invite}
+                onChange={(event) => setInvite(event.target.value)}
+              />
+              <Button
+                variant="outline"
+                disabled={!invite.trim() || resolveInvite.isPending}
+                onClick={() => resolveInvite.mutate({ invite })}
+              >
+                {resolveInvite.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Find id
+              </Button>
+            </div>
 
             <Textarea
               placeholder="Caption to post to the channel"

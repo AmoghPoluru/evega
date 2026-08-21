@@ -76,6 +76,14 @@ type NewsletterCapableSocket = {
   newsletterFetchAll?: () => Promise<
     Array<{ id: string; name?: string | null; subscribers?: number | null }>
   >;
+  newsletterMetadata?: (
+    type: "invite" | "jid",
+    key: string
+  ) => Promise<{
+    id: string;
+    name?: string | null;
+    subscribers?: number | null;
+  } | null>;
   sendMessage: (
     jid: string,
     content: Record<string, unknown>
@@ -102,6 +110,56 @@ export async function listChannels(vendorId: string): Promise<WhatsAppChannel[]>
     name: newsletter.name ?? newsletter.id,
     subscribers: newsletter.subscribers ?? null,
   }));
+}
+
+/**
+ * Pulls the invite code out of a channel share link (or accepts a bare code).
+ * A link like https://whatsapp.com/channel/0029Vb... carries the invite code,
+ * not the JID, and the public channel page does not expose the JID either.
+ */
+export function parseChannelInvite(input: string): string | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  const linkMatch = trimmed.match(
+    /(?:whatsapp\.com|wa\.me)\/channel\/([A-Za-z0-9_-]+)/i
+  );
+  const code = linkMatch ? linkMatch[1] : trimmed;
+
+  return /^[A-Za-z0-9_-]{10,64}$/.test(code) ? code : null;
+}
+
+/** Resolves a channel invite link / code to its `<digits>@newsletter` JID. */
+export async function resolveChannelInvite(
+  vendorId: string,
+  inviteOrLink: string
+): Promise<WhatsAppChannel> {
+  const code = parseChannelInvite(inviteOrLink);
+  if (!code) {
+    throw new Error(
+      "Paste a WhatsApp Channel link like https://whatsapp.com/channel/0029Vb... or its invite code."
+    );
+  }
+
+  const sock = await socketFor(vendorId);
+  if (typeof sock.newsletterMetadata !== "function") {
+    throw new Error(
+      "This Baileys build does not expose newsletterMetadata(); paste the channel JID manually instead."
+    );
+  }
+
+  const metadata = await sock.newsletterMetadata("invite", code);
+  if (!metadata?.id) {
+    throw new Error(
+      "WhatsApp did not return a channel for that link. Check the link and that the linked account can see the channel."
+    );
+  }
+
+  return {
+    jid: assertNewsletterJid(metadata.id),
+    name: metadata.name ?? metadata.id,
+    subscribers: metadata.subscribers ?? null,
+  };
 }
 
 /** Posts text, or an image with a caption, to one WhatsApp Channel. */

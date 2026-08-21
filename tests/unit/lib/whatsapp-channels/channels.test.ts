@@ -12,8 +12,10 @@ import {
   assertNotThrottled,
   isNewsletterJid,
   listChannels,
+  parseChannelInvite,
   postToChannel,
   resetPostThrottle,
+  resolveChannelInvite,
 } from "@/lib/whatsapp-channels/channels";
 
 function mockSocket(overrides: Record<string, unknown> = {}) {
@@ -152,6 +154,70 @@ describe("whatsapp-channels/channels", () => {
       await expect(listChannels("vendor-1")).rejects.toThrow(
         /newsletterFetchAll/,
       );
+    });
+  });
+
+  describe("invite resolution", () => {
+    it("pulls the invite code out of share links and bare codes", () => {
+      expect(
+        parseChannelInvite("https://whatsapp.com/channel/0029VbDh9jF6GcGJEguWYc2u"),
+      ).toBe("0029VbDh9jF6GcGJEguWYc2u");
+      expect(
+        parseChannelInvite("https://www.whatsapp.com/channel/0029VbDh9jF6GcGJEguWYc2u/"),
+      ).toBe("0029VbDh9jF6GcGJEguWYc2u");
+      expect(parseChannelInvite(" 0029VbDh9jF6GcGJEguWYc2u ")).toBe(
+        "0029VbDh9jF6GcGJEguWYc2u",
+      );
+    });
+
+    it("rejects unrelated links and short junk", () => {
+      expect(parseChannelInvite("")).toBeNull();
+      expect(parseChannelInvite("abc")).toBeNull();
+      expect(parseChannelInvite("https://example.com/channel/0029VbDh9jF6Gc")).toBeNull();
+    });
+
+    it("resolves a link to the newsletter JID via newsletterMetadata", async () => {
+      const newsletterMetadata = vi.fn().mockResolvedValue({
+        id: "120363123456789012@newsletter",
+        name: "Testvastra",
+        subscribers: 1,
+      });
+      mockSocket({ newsletterMetadata });
+
+      await expect(
+        resolveChannelInvite(
+          "vendor-1",
+          "https://whatsapp.com/channel/0029VbDh9jF6GcGJEguWYc2u",
+        ),
+      ).resolves.toEqual({
+        jid: "120363123456789012@newsletter",
+        name: "Testvastra",
+        subscribers: 1,
+      });
+      expect(newsletterMetadata).toHaveBeenCalledWith(
+        "invite",
+        "0029VbDh9jF6GcGJEguWYc2u",
+      );
+    });
+
+    it("never touches the socket for an unparseable link", async () => {
+      const newsletterMetadata = vi.fn();
+      mockSocket({ newsletterMetadata });
+
+      await expect(resolveChannelInvite("vendor-1", "nope")).rejects.toThrow(
+        /Paste a WhatsApp Channel link/,
+      );
+      expect(newsletterMetadata).not.toHaveBeenCalled();
+    });
+
+    it("explains an unknown channel", async () => {
+      mockSocket({ newsletterMetadata: vi.fn().mockResolvedValue(null) });
+      await expect(
+        resolveChannelInvite(
+          "vendor-1",
+          "https://whatsapp.com/channel/0029VbDh9jF6GcGJEguWYc2u",
+        ),
+      ).rejects.toThrow(/did not return a channel/);
     });
   });
 });

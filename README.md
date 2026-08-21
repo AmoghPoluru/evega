@@ -1097,8 +1097,8 @@ WhatsApp Web session, and never imports from the Cloud API module.
 | Path | Purpose |
 | --- | --- |
 | `src/lib/whatsapp-channels/session-manager.ts` | In-memory `Map<vendorId, socket>`, multi-file auth state, QR capture, logout. |
-| `src/lib/whatsapp-channels/channels.ts` | `listChannels`, `postToChannel`, JID validation, per-vendor throttle. |
-| `src/modules/whatsapp-channels/server/procedures.ts` | tRPC router `whatsappChannels` (`startSession`, `sessionStatus`, `listChannels`, `postToChannel`, `logout`). |
+| `src/lib/whatsapp-channels/channels.ts` | `listChannels`, `resolveChannelInvite`, `postToChannel`, JID validation, per-vendor throttle. |
+| `src/modules/whatsapp-channels/server/procedures.ts` | tRPC router `whatsappChannels` (`startSession`, `sessionStatus`, `listChannels`, `resolveInvite`, `postToChannel`, `logout`). |
 | `src/collections/WhatsAppChannelSessions.ts` | Payload collection `whatsapp-channel-sessions` mirroring link state per vendor. |
 | Vendor → Connected Channels | "WhatsApp Channel (beta)" card: QR linking, channel picker, post action. |
 
@@ -1144,6 +1144,15 @@ message is sent. Successful and failed posts are logged into the existing
 `social-posts` collection with channel `whatsapp-channel` when a product is
 supplied. Depending on the installed Baileys build, `newsletterFetchAll()` may
 be unavailable — the UI then falls back to pasting the channel JID manually.
+
+### Finding a channel's JID
+
+A channel share link (`https://whatsapp.com/channel/0029Vb…`) contains the
+*invite code*, not the JID, and the public channel page does not expose the JID
+either. Paste the link into the card's "Or paste a channel link" field and press
+**Find id**: `resolveInvite` calls Baileys' `newsletterMetadata("invite", code)`
+over the linked session and fills in the `<digits>@newsletter` JID. This needs a
+linked phone — there is no way to resolve it without one.
 
 Unit tests (`tests/unit/lib/whatsapp-channels/channels.test.ts`) mock the socket;
 CI never opens a real WhatsApp connection.

@@ -3,7 +3,11 @@ import { TRPCError } from "@trpc/server";
 import type { Payload } from "payload";
 
 import { createTRPCRouter, vendorProcedure } from "@/trpc/init";
-import { listChannels, postToChannel } from "@/lib/whatsapp-channels/channels";
+import {
+  listChannels,
+  postToChannel,
+  resolveChannelInvite,
+} from "@/lib/whatsapp-channels/channels";
 import {
   getOrCreateSession,
   getSessionStatus,
@@ -63,6 +67,20 @@ export const whatsappChannelsRouter = createTRPCRouter({
       throw trpcError(error);
     }
   }),
+
+  /** Turns a channel share link / invite code into its `@newsletter` JID. */
+  resolveInvite: vendorProcedure
+    .input(z.object({ invite: z.string().min(1, "Paste a channel link") }))
+    .mutation(async ({ ctx, input }) => {
+      const vendorId =
+        typeof ctx.session.vendor === "string" ? ctx.session.vendor : ctx.session.vendor.id;
+
+      try {
+        return await resolveChannelInvite(vendorId, input.invite);
+      } catch (error) {
+        throw trpcError(error);
+      }
+    }),
 
   postToChannel: vendorProcedure
     .input(
