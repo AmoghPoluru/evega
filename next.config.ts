@@ -13,7 +13,14 @@ const nextConfig: NextConfig = {
     root: projectRoot,
   },
   // Keep native sharp out of the app bundle so Vercel can load linux libvips.
-  serverExternalPackages: ["sharp", "@img/sharp-linux-x64", "@img/sharp-libvips-linux-x64"],
+  // Baileys is a Node-only library with native/dynamic requires; keep it out of
+  // the bundle (WhatsApp Channels only runs in a persistent Node process).
+  serverExternalPackages: [
+    "sharp",
+    "@img/sharp-linux-x64",
+    "@img/sharp-libvips-linux-x64",
+    "@whiskeysockets/baileys",
+  ],
   outputFileTracingIncludes: {
     "/**": [
       "./node_modules/sharp/**/*",

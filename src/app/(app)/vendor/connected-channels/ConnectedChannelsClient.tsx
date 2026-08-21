@@ -20,6 +20,7 @@ import { vendorPageTitles } from "@/lib/vendor-portal-labels";
 import type { PublicSocialConnection } from "@/lib/vendor-social-connections";
 import type { Product } from "@/payload-types";
 import { PostToSocialsDialog } from "../products/components/PostToSocialsDialog";
+import { WhatsAppChannelCard } from "./WhatsAppChannelCard";
 
 type PostableProduct = {
   id: string;
@@ -202,6 +203,8 @@ export function ConnectedChannelsClient() {
           )}
         </CardHeader>
       </Card>
+
+      <WhatsAppChannelCard />
 
       <section className="space-y-4">
         <div>

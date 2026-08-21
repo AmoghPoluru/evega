@@ -1085,6 +1085,69 @@ npx tsx src/scripts/set-whatsapp-all-vendors.ts
 npm run db:seed:whatsapp
 ```
 
+## WhatsApp Channels (unofficial, Baileys) — beta
+
+Branch: `feat/whatsapp-channels-baileys`.
+
+WhatsApp's official Cloud API (`src/lib/whatsapp.ts`) cannot post to **Channels**
+(newsletters). This feature adds a *separate* engine built on
+[Baileys](https://github.com/WhiskeySockets/Baileys), which drives a linked
+WhatsApp Web session, and never imports from the Cloud API module.
+
+| Path | Purpose |
+| --- | --- |
+| `src/lib/whatsapp-channels/session-manager.ts` | In-memory `Map<vendorId, socket>`, multi-file auth state, QR capture, logout. |
+| `src/lib/whatsapp-channels/channels.ts` | `listChannels`, `postToChannel`, JID validation, per-vendor throttle. |
+| `src/modules/whatsapp-channels/server/procedures.ts` | tRPC router `whatsappChannels` (`startSession`, `sessionStatus`, `listChannels`, `postToChannel`, `logout`). |
+| `src/collections/WhatsAppChannelSessions.ts` | Payload collection `whatsapp-channel-sessions` mirroring link state per vendor. |
+| Vendor → Connected Channels | "WhatsApp Channel (beta)" card: QR linking, channel picker, post action. |
+
+### ⚠️ Limitations — read before deploying
+
+- **Unofficial API.** This is a reverse-engineered WhatsApp Web client. Using it
+  violates WhatsApp's Terms of Service and the linked account can be rate
+  limited or **banned**. Use a dedicated business number, not a personal one.
+- **Cannot run on Vercel serverless.** Baileys holds a long-lived WebSocket and
+  persists auth state on disk; serverless functions are short-lived, have an
+  ephemeral filesystem, and each invocation may land on a different instance —
+  the session would never stay linked. Run it in a **persistent Node process**:
+  `npm run dev` locally, or a long-running host (VPS, Docker, Railway, Render,
+  Fly.io) for production. The code is deliberately isolated behind
+  `src/lib/whatsapp-channels/*` so the two modules can be lifted into a
+  standalone service later; the tRPC procedures would then call that service
+  over HTTP instead of importing these functions.
+- **The phone must stay linked.** A vendor links via WhatsApp → Settings →
+  Linked devices → Link a device, scanning the QR the UI renders. If the vendor
+  unlinks (or WhatsApp logs the device out), posting fails until re-linked.
+- **Rate limiting.** `channels.ts` enforces a per-vendor minimum gap between
+  posts (30s by default) on top of whatever WhatsApp enforces server-side.
+
+### Environment variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `WHATSAPP_CHANNELS_SESSION_DIR` | `./sessions` | Root directory for per-vendor Baileys auth state (`./sessions/{vendorId}`). Git-ignored; treat as secret material. |
+| `WHATSAPP_CHANNELS_POST_THROTTLE_SECONDS` | `30` | Minimum seconds between two channel posts by the same vendor. |
+
+### Local setup
+
+```bash
+npm install
+npm run dev                     # must be a persistent process, not a serverless invocation
+# Vendor → Connected Channels → "WhatsApp Channel (beta)" → Link WhatsApp
+# Scan the QR from the phone, wait for the card to flip to "Linked",
+# then pick a channel (or paste a `<id>@newsletter` JID) and post.
+```
+
+Channel JIDs always end in `@newsletter`; anything else is rejected before a
+message is sent. Successful and failed posts are logged into the existing
+`social-posts` collection with channel `whatsapp-channel` when a product is
+supplied. Depending on the installed Baileys build, `newsletterFetchAll()` may
+be unavailable — the UI then falls back to pasting the channel JID manually.
+
+Unit tests (`tests/unit/lib/whatsapp-channels/channels.test.ts`) mock the socket;
+CI never opens a real WhatsApp connection.
+
 ## Next Steps
 
 1. ✅ Create `Tenants` collection
