@@ -10,7 +10,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, Circle, Rocket } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, CheckCircle2, Circle, Rocket } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ChecklistItem = {
@@ -20,6 +21,9 @@ type ChecklistItem = {
   completed: boolean;
 };
 
+/**
+ * Setup path only — shows progress + the next incomplete step (not every row).
+ */
 export function OnboardingChecklist() {
   const { data: stats, isLoading: statsLoading } = trpc.vendor.dashboard.stats.useQuery();
   const { data: profile, isLoading: profileLoading } =
@@ -36,7 +40,9 @@ export function OnboardingChecklist() {
   );
   const hasProduct = (stats?.totalProducts ?? 0) > 0;
   const stripeConnected = Boolean(
-    stripeStatus?.isReady || stripeStatus?.payoutsEnabled || stripeStatus?.onboardingCompleted
+    stripeStatus?.isReady ||
+      stripeStatus?.payoutsEnabled ||
+      stripeStatus?.onboardingCompleted,
   );
 
   const hasMarketingSetup = Boolean(
@@ -47,7 +53,7 @@ export function OnboardingChecklist() {
         profile.marketingChannels.length > 0 ||
         profile.whatsappConfig.businessNumber.trim() ||
         profile.metaConfig.hasPageAccessToken ||
-        profile.metaConfig.hasInstagramAccessToken)
+        profile.metaConfig.hasInstagramAccessToken),
   );
 
   const items: ChecklistItem[] = [
@@ -65,13 +71,13 @@ export function OnboardingChecklist() {
     },
     {
       id: "stripe",
-      label: "Connect Stripe for payouts",
+      label: "Connect payments",
       href: "/vendor/stripe-onboarding",
       completed: stripeConnected,
     },
     {
       id: "marketing",
-      label: "Set up marketing channels",
+      label: "Post to Instagram",
       href: "/vendor/connected-channels",
       completed: hasMarketingSetup,
     },
@@ -79,6 +85,7 @@ export function OnboardingChecklist() {
 
   const completedCount = items.filter((item) => item.completed).length;
   const allComplete = completedCount === items.length;
+  const nextStep = items.find((item) => !item.completed);
 
   if (isLoading) {
     return (
@@ -87,52 +94,68 @@ export function OnboardingChecklist() {
           <Skeleton className="h-6 w-40" />
           <Skeleton className="h-4 w-56" />
         </CardHeader>
-        <CardContent className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
-          ))}
+        <CardContent>
+          <Skeleton className="h-12 w-full" />
         </CardContent>
       </Card>
     );
   }
 
-  if (allComplete) {
+  if (allComplete || !nextStep) {
     return null;
   }
 
   return (
     <Card className="border-primary/20 bg-primary/5">
-      <CardHeader>
+      <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <Rocket className="h-5 w-5 text-primary" />
-          <CardTitle className="text-lg">Getting Started</CardTitle>
+          <CardTitle className="text-lg">Next step</CardTitle>
         </div>
         <CardDescription>
-          {completedCount} of {items.length} setup steps complete — finish these to launch strong.
+          {completedCount} of {items.length} setup steps done
         </CardDescription>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${(completedCount / items.length) * 100}%` }}
+          />
+        </div>
       </CardHeader>
-      <CardContent className="space-y-2">
-        {items.map((item) => (
-          <Link
-            key={item.id}
-            href={item.href}
-            className={cn(
-              "flex items-center gap-3 rounded-md border px-3 py-2.5 text-sm transition-colors",
-              item.completed
-                ? "border-border/60 bg-muted/30 text-muted-foreground"
-                : "border-border bg-background hover:border-primary/30 hover:bg-accent/50"
-            )}
-          >
-            {item.completed ? (
-              <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
-            ) : (
-              <Circle className="h-5 w-5 shrink-0 text-muted-foreground" />
-            )}
-            <span className={cn("font-medium", item.completed && "line-through")}>
-              {item.label}
-            </span>
-          </Link>
-        ))}
+      <CardContent className="space-y-3">
+        <Link
+          href={nextStep.href}
+          className={cn(
+            "flex items-center gap-3 rounded-md border border-border bg-background px-3 py-3 text-sm transition-colors",
+            "hover:border-primary/30 hover:bg-accent/50",
+          )}
+        >
+          <Circle className="h-5 w-5 shrink-0 text-muted-foreground" />
+          <span className="flex-1 font-medium">{nextStep.label}</span>
+          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+        </Link>
+
+        <ul className="space-y-1.5 px-1">
+          {items.map((item) => (
+            <li
+              key={item.id}
+              className="flex items-center gap-2 text-xs text-muted-foreground"
+            >
+              {item.completed ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+              ) : (
+                <Circle className="h-3.5 w-3.5 opacity-40" />
+              )}
+              <span className={cn(item.completed && "line-through opacity-70")}>
+                {item.label}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <Button variant="outline" size="sm" className="w-full" asChild>
+          <Link href={nextStep.href}>Continue setup</Link>
+        </Button>
       </CardContent>
     </Card>
   );

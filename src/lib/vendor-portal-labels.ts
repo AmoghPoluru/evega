@@ -1,6 +1,6 @@
-/** Shared vendor portal navigation and page titles (My … branding). */
+/** Shared vendor portal navigation and page titles (shopkeeper-friendly wording). */
 
-export const vendorPortalBrandLabel = "My Website";
+export const vendorPortalBrandLabel = "Your store";
 
 export function vendorStorefrontHref(slug: string | null | undefined): string {
   return slug ? `/vendors/${slug}` : "/vendor/dashboard";
@@ -18,62 +18,67 @@ export function vendorStorefrontDisplayUrl(slug: string | null | undefined): str
 }
 
 export const vendorNavLabels = {
-  dashboard: "My Dashboard",
-  customers: "My Customers",
-  products: "My Products",
-  orders: "My Orders",
-  expenses: "My Expenses",
-  revenue: "My Revenue",
-  storeAppearance: "My Website Appearance",
-  analytics: "My Analytics",
-  payouts: "My Payouts",
-  notifications: "My Notifications",
-  settings: "My Settings",
-  connectedChannels: "Connected Channels",
+  dashboard: "Dashboard",
+  customers: "Customers",
+  products: "Products",
+  orders: "Orders",
+  expenses: "Expenses",
+  revenue: "Revenue",
+  storeAppearance: "Store look",
+  analytics: "Insights",
+  payouts: "Connect payments",
+  notifications: "Notifications",
+  settings: "Settings",
+  connectedChannels: "Post to Instagram",
 } as const;
 
 /** Collapsible sidebar section headers. */
 export const vendorNavGroupLabels = {
-  business: "My Business",
-  store: "Customize my Website",
-  account: "My Account",
+  business: "Business",
+  store: "Customize your store",
+  account: "Account",
+  more: "More",
 } as const;
 
 export const vendorPageTitles = {
-  dashboard: "My Dashboard",
-  customers: "My Customers",
-  products: "My Products",
-  orders: "My Orders",
-  orderDetail: "My Order",
-  expenses: "My Expenses",
-  revenue: "My Revenue",
-  storeAppearance: "My Website Appearance",
-  analytics: "My Analytics & Reports",
-  settings: "My Settings",
-  connectedChannels: "Connected Channels",
-  importProducts: "Import My Products",
-  newProduct: "Create My Product",
-  editProduct: "Edit My Product",
-  customizeTemplate: "Customize My Template",
-  createTemplate: "Create My Template",
-  productSnapshot: "My Product Snapshot",
+  dashboard: "Dashboard",
+  customers: "Customers",
+  products: "Products",
+  orders: "Orders",
+  orderDetail: "Order",
+  expenses: "Expenses",
+  revenue: "Revenue",
+  storeAppearance: "Store look",
+  analytics: "Insights & reports",
+  settings: "Settings",
+  connectedChannels: "Post to Instagram",
+  importProducts: "Import products",
+  newProduct: "Add product",
+  editProduct: "Edit product",
+  customizeTemplate: "Customize template",
+  createTemplate: "Create template",
+  productSnapshot: "Product snapshot",
 } as const;
 
 export const vendorBackLabels = {
-  orders: "Back to My Orders",
+  orders: "Back to orders",
 } as const;
 
-/** Dashboard stat card titles (My … branding, paired with Health of My Business). */
+/** Dashboard home — three calm at-a-glance metrics. */
 export const vendorDashboardStatLabels = {
-  businessHealth: "Health of My Business",
+  todaysOrders: "Today's orders",
+  pendingFulfillment: "Needs attention",
+  activeProducts: "Active products",
+  seeInsights: "See insights",
+  businessHealth: "Business health",
   businessHealthDescription: "Revenue from closed orders vs expenses",
-  customers: "My Customers",
+  customers: "Customers",
   customersDescription: "Potential, open order, confirmed loyal, and top customers",
   customersTotal: "Total in your list",
-  productSnapshot: "My Product Snapshot",
+  productSnapshot: "Product snapshot",
   productSnapshotDescription: "Most ordered, liked, visited, and favorited products",
   productSnapshotTotal: "Active products",
-  analytics: "My Analytics",
+  analytics: "Insights",
   analyticsDescription: "Today's orders, likes, potential customers, and business health",
   analyticsToday: "Today at a glance",
 } as const;

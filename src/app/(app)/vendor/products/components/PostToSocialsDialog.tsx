@@ -183,7 +183,7 @@ export function PostToSocialsDialog({
       return;
     }
     if (!openAiConfig?.hasApiKey) {
-      toast.error("Add your OpenAI API key on the dashboard first");
+      toast.error("Add your OpenAI API key in Settings first");
       return;
     }
     if (instruction.trim().length < 8 || brief.trim().length < 8) {
@@ -297,10 +297,10 @@ export function PostToSocialsDialog({
               {!openAiConfig?.hasApiKey && (
                 <p className="text-xs text-muted-foreground">
                   Add an{" "}
-                  <Link href="/vendor/dashboard" className="underline underline-offset-2">
+                  <Link href="/vendor/settings" className="underline underline-offset-2">
                     OpenAI API key
                   </Link>{" "}
-                  on the dashboard to generate sale banners.
+                  in Settings to generate sale banners.
                 </p>
               )}
             </div>

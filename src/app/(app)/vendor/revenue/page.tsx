@@ -71,7 +71,7 @@ export default function VendorRevenuePage() {
           </div>
           <p className="text-sm text-gray-600">
             All revenue comes from closed orders (Complete status). Add revenue here to create a
-            closed manual order, or mark orders Complete in My Orders.
+            closed manual order, or mark orders Complete in Orders.
           </p>
         </div>
 
