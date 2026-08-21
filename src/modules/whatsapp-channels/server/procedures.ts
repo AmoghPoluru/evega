@@ -67,9 +67,12 @@ export const whatsappChannelsRouter = createTRPCRouter({
   postToChannel: vendorProcedure
     .input(
       z.object({
-        channelJid: z.string().min(1),
+        channelJid: z.string().min(1, "Channel id is required"),
         caption: z.string().min(1, "Caption is required"),
-        imageUrl: z.string().url().optional(),
+        imageUrl: z
+          .string()
+          .url("Image URL must be a full public URL, e.g. https://example.com/a.jpg")
+          .optional(),
         // Optional: `social-posts` rows require a product, so a post is only
         // logged when the vendor picked one.
         productId: z.string().optional(),

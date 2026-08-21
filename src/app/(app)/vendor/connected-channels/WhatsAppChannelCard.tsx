@@ -20,6 +20,27 @@ import {
 } from "@/components/ui/native-select";
 import { trpc } from "@/trpc/client";
 
+/** tRPC serialises input validation failures as a JSON array of zod issues. */
+function readableError(message: string): string {
+  if (!message.trimStart().startsWith("[")) return message;
+
+  try {
+    const issues: unknown = JSON.parse(message);
+    if (!Array.isArray(issues)) return message;
+
+    const text = issues
+      .map((issue) => (issue as { message?: unknown }).message)
+      .filter((issueMessage): issueMessage is string =>
+        typeof issueMessage === "string"
+      )
+      .join(" ");
+
+    return text || message;
+  } catch {
+    return message;
+  }
+}
+
 /**
  * Unofficial WhatsApp Channels (Baileys) card. Requires the app to run in a
  * persistent Node process — see README. Beta / ToS risk is surfaced in the UI.
@@ -52,7 +73,7 @@ export function WhatsAppChannelCard() {
           : "Scan the QR code in WhatsApp → Linked devices.",
       );
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(readableError(error.message)),
   });
 
   const logout = trpc.whatsappChannels.logout.useMutation({
@@ -61,7 +82,7 @@ export function WhatsAppChannelCard() {
       setPollingEnabled(false);
       toast.success("WhatsApp channel session disconnected");
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(readableError(error.message)),
   });
 
   const post = trpc.whatsappChannels.postToChannel.useMutation({
@@ -70,7 +91,7 @@ export function WhatsAppChannelCard() {
       setImageUrl("");
       toast.success("Posted to the WhatsApp channel");
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(readableError(error.message)),
   });
 
   const pendingQr = connected ? null : (status.data?.qr ?? qr);
