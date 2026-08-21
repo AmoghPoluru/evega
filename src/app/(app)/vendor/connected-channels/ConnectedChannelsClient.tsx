@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/trpc/client";
 import { vendorPageTitles } from "@/lib/vendor-portal-labels";
 import type { PublicSocialConnection } from "@/lib/vendor-social-connections";
+import type { Product } from "@/payload-types";
 import { PostToSocialsDialog } from "../products/components/PostToSocialsDialog";
 
 type PostableProduct = {
@@ -62,8 +63,8 @@ export function ConnectedChannelsClient() {
   useEffect(() => {
     if (!productsData?.docs) return;
 
-    const pageProducts = productsData.docs
-      .map((product) => {
+    const pageProducts = (productsData.docs as Product[])
+      .map((product: Product) => {
         const imageUrl = getProductImageUrl(product.image);
         if (!imageUrl) return null;
         return {
