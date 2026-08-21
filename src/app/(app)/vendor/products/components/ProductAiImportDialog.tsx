@@ -127,7 +127,7 @@ export function ProductAiImportDialog({ trigger }: ProductAiImportDialogProps) {
     }
 
     if (!openAiConfig?.hasApiKey) {
-      toast.error("Add your OpenAI API key on the dashboard first");
+      toast.error("Add your OpenAI API key in Settings first");
       return;
     }
 
@@ -247,18 +247,18 @@ export function ProductAiImportDialog({ trigger }: ProductAiImportDialogProps) {
           <DialogDescription>
             Upload product photos. OpenAI suggests a name, description, and price for each image,
             then creates draft products in your catalog. Requires an{" "}
-            <Link href="/vendor/dashboard" className="text-primary underline-offset-4 hover:underline">
+            <Link href="/vendor/settings" className="text-primary underline-offset-4 hover:underline">
               OpenAI API key
             </Link>{" "}
-            saved on your dashboard.
+            in Settings.
           </DialogDescription>
         </DialogHeader>
 
         {!openAiConfig?.hasApiKey ? (
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Add your OpenAI API key on the{" "}
-            <Link href="/vendor/dashboard" className="font-medium underline-offset-4 hover:underline">
-              dashboard
+            Add your OpenAI API key in{" "}
+            <Link href="/vendor/settings" className="font-medium underline-offset-4 hover:underline">
+              Settings
             </Link>{" "}
             before importing with AI.
           </div>

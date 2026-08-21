@@ -119,8 +119,8 @@ export function VendorOpenAiKeyCard() {
           {hasSavedKey ? <Badge variant="secondary">Key saved</Badge> : null}
         </div>
         <CardDescription>
-          Connect your OpenAI API key to power AI features for your store. Your key is stored
-          securely and never shown after saving.
+          Optional — used for Import with AI and sale banners. Stored securely and never shown
+          again after saving.
         </CardDescription>
       </CardHeader>
       <CardContent>

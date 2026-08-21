@@ -39,7 +39,7 @@ export function ClosedOrderRevenueTable({ rows, isLoading }: ClosedOrderRevenueT
     return (
       <div className="rounded-lg border px-4 py-10 text-center text-sm text-muted-foreground">
         No closed sales yet. Add revenue from a store visit or expo, or mark orders as Complete in
-        My Orders.
+        Orders.
       </div>
     );
   }

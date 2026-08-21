@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowRight, ShoppingBag } from "lucide-react";
+import { ArrowRight, PackagePlus, ShoppingBag } from "lucide-react";
 import type { Order } from "@/payload-types";
 
 const statusColorMap: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -73,8 +73,8 @@ export function RecentOrdersWidget() {
     <Card className="h-full">
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div>
-          <CardTitle className="text-lg">Recent Orders</CardTitle>
-          <CardDescription>Your latest customer orders at a glance</CardDescription>
+          <CardTitle className="text-lg">Recent orders</CardTitle>
+          <CardDescription>What customers just bought</CardDescription>
         </div>
         <Button variant="ghost" size="sm" asChild>
           <Link href="/vendor/orders">
@@ -91,14 +91,20 @@ export function RecentOrdersWidget() {
             ))}
           </div>
         ) : orders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <ShoppingBag className="h-10 w-10 text-muted-foreground/50 mb-3" />
-            <p className="text-sm font-medium text-foreground">No orders yet</p>
-            <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-              When customers purchase from your store, their orders will appear here.
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+              <ShoppingBag className="h-7 w-7 text-muted-foreground" />
+            </div>
+            <p className="text-base font-medium text-foreground">No orders yet</p>
+            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+              Once someone buys from your store, their order shows up here so you can pack and
+              ship.
             </p>
-            <Button variant="outline" size="sm" className="mt-4" asChild>
-              <Link href="/vendor/products">Add products to get started</Link>
+            <Button size="sm" className="mt-5" asChild>
+              <Link href="/vendor/products/new">
+                <PackagePlus className="h-4 w-4" />
+                Add a product to get started
+              </Link>
             </Button>
           </div>
         ) : (
