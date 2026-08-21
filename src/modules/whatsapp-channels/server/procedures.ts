@@ -34,8 +34,14 @@ export const whatsappChannelsRouter = createTRPCRouter({
       typeof ctx.session.vendor === "string" ? ctx.session.vendor : ctx.session.vendor.id;
 
     try {
-      const session = await getOrCreateSession(vendorId);
+      // Always refresh so "Link WhatsApp" yields a fresh scannable QR.
+      const session = await getOrCreateSession(vendorId, { refresh: true });
       await upsertSessionRow(ctx.db, vendorId, session.connected ? "connected" : "pending");
+      if (!session.connected && !session.qr) {
+        throw new Error(
+          "WhatsApp did not return a QR code in time. Click Link WhatsApp again.",
+        );
+      }
       return { qr: session.qr, connected: session.connected };
     } catch (error) {
       console.error("[whatsappChannels.startSession] failed:", error);

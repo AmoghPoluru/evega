@@ -11,9 +11,7 @@
  *   and writes auth state to disk, both of which die with the function
  *   invocation. Run it in a persistent Node process (`npm run dev`, a VPS, a
  *   container, Railway/Render/Fly, etc.). The module-level `Map` below is the
- *   reason this file is the natural seam for extracting a standalone service:
- *   swap these functions for HTTP calls to that service and nothing else in the
- *   app changes.
+ *   natural seam for extracting a standalone service.
  */
 import path from "node:path";
 import { rm } from "node:fs/promises";
@@ -41,13 +39,23 @@ export type Session = {
   waiters: Array<() => void>;
 };
 
-/** vendorId -> live Baileys socket. Process-local; lost on restart. */
-const sessions = new Map<string, Session>();
+type SessionsGlobal = typeof globalThis & {
+  __whatsappChannelSessions?: Map<string, Session>;
+};
+
+/** Survive Next.js HMR / duplicate module instances in dev. */
+function getSessions(): Map<string, Session> {
+  const g = globalThis as SessionsGlobal;
+  if (!g.__whatsappChannelSessions) {
+    g.__whatsappChannelSessions = new Map();
+  }
+  return g.__whatsappChannelSessions;
+}
 
 const SESSIONS_ROOT = process.env.WHATSAPP_CHANNELS_SESSION_DIR || "./sessions";
 
 /** Milliseconds `startSession` waits for a QR (or an already-open socket). */
-const QR_WAIT_MS = 20_000;
+const QR_WAIT_MS = 25_000;
 
 /** Session directories are named after the vendor id, so keep it path-safe. */
 function sessionDir(vendorId: string): string {
@@ -62,20 +70,27 @@ function notifyWaiters(session: Session) {
   for (const resolve of waiters) resolve();
 }
 
-async function createSession(vendorId: string): Promise<Session> {
+function disconnectStatusCode(lastDisconnect: unknown): number | undefined {
+  if (!lastDisconnect || typeof lastDisconnect !== "object") return undefined;
+  const error = (lastDisconnect as { error?: unknown }).error;
+  if (!error || typeof error !== "object") return undefined;
+  const output = (error as { output?: { statusCode?: number } }).output;
+  return output?.statusCode;
+}
+
+async function bindSocket(vendorId: string, session: Session): Promise<void> {
   const { state, saveCreds } = await loadMultiFileAuthState(sessionDir(vendorId));
   const { version } = await fetchLatestBaileysVersion();
 
   const sock = makeWASocket({
     auth: state,
     version,
-    // QR is surfaced through the API as a data URL instead of the terminal.
     printQRInTerminal: false,
     syncFullHistory: false,
   });
 
-  const session: Session = { sock, connected: false, qr: null, waiters: [] };
-  sessions.set(vendorId, session);
+  session.sock = sock;
+  session.connected = false;
 
   sock.ev.on("creds.update", saveCreds);
 
@@ -85,7 +100,10 @@ async function createSession(vendorId: string): Promise<Session> {
     if (qr) {
       void QRCode.toDataURL(qr)
         .then((dataUrl) => {
+          // Ignore stale QR events from a replaced socket.
+          if (getSessions().get(vendorId)?.sock !== sock) return;
           session.qr = dataUrl;
+          console.log(`[whatsapp-channels] QR ready for vendor ${vendorId}`);
           notifyWaiters(session);
         })
         .catch((error: unknown) => {
@@ -94,45 +112,104 @@ async function createSession(vendorId: string): Promise<Session> {
     }
 
     if (connection === "open") {
+      if (getSessions().get(vendorId)?.sock !== sock) return;
       session.connected = true;
       session.qr = null;
+      console.log(`[whatsapp-channels] connected for vendor ${vendorId}`);
       notifyWaiters(session);
+      return;
     }
 
     if (connection === "close") {
+      if (getSessions().get(vendorId)?.sock !== sock) return;
+
       session.connected = false;
-      const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } })
-        ?.output?.statusCode;
-      // Drop the socket so the next call builds a fresh one. On a logout the
-      // stored creds are dead too and the vendor has to re-scan.
-      sessions.delete(vendorId);
-      notifyWaiters(session);
-      if (statusCode === DisconnectReason.loggedOut) {
-        console.warn(`[whatsapp-channels] vendor ${vendorId} logged out on the phone`);
+      const statusCode = disconnectStatusCode(lastDisconnect);
+      const loggedOut = statusCode === DisconnectReason.loggedOut;
+
+      console.warn(
+        `[whatsapp-channels] connection closed for vendor ${vendorId}`,
+        { statusCode, loggedOut },
+      );
+
+      if (loggedOut) {
+        getSessions().delete(vendorId);
+        notifyWaiters(session);
+        console.warn(
+          `[whatsapp-channels] vendor ${vendorId} logged out on the phone`,
+        );
+        return;
       }
+
+      // Baileys commonly closes with 515 (restart required) right after the
+      // first QR / pairing handshake. Reconnect with the same auth state
+      // instead of dropping the session (which made the QR "never work").
+      void bindSocket(vendorId, session).catch((error: unknown) => {
+        console.error(
+          `[whatsapp-channels] reconnect failed for vendor ${vendorId}:`,
+          error,
+        );
+        getSessions().delete(vendorId);
+        notifyWaiters(session);
+      });
     }
   });
+}
 
+async function createSession(vendorId: string): Promise<Session> {
+  // Placeholder sock; replaced immediately in bindSocket.
+  const session: Session = {
+    sock: null as unknown as WASocket,
+    connected: false,
+    qr: null,
+    waiters: [],
+  };
+  getSessions().set(vendorId, session);
+  await bindSocket(vendorId, session);
   return session;
+}
+
+async function endSocket(session: Session | undefined): Promise<void> {
+  if (!session?.sock) return;
+  try {
+    session.sock.end(undefined);
+  } catch {
+    // ignore
+  }
 }
 
 /**
  * Returns the vendor's live socket, creating and linking one if needed.
  * Resolves once a QR is available or the socket is already authenticated.
  */
-export async function getOrCreateSession(vendorId: string): Promise<Session> {
-  const existing = sessions.get(vendorId);
-  if (existing) return existing;
+export async function getOrCreateSession(
+  vendorId: string,
+  opts?: { refresh?: boolean },
+): Promise<Session> {
+  const sessions = getSessions();
 
-  const session = await createSession(vendorId);
+  if (opts?.refresh) {
+    const previous = sessions.get(vendorId);
+    sessions.delete(vendorId);
+    await endSocket(previous);
+  }
+
+  let session = sessions.get(vendorId);
+  if (!session) {
+    session = await createSession(vendorId);
+  }
+
   if (session.connected || session.qr) return session;
 
   await new Promise<void>((resolve) => {
     const timer = setTimeout(resolve, QR_WAIT_MS);
-    session.waiters.push(() => {
+    const done = () => {
       clearTimeout(timer);
       resolve();
-    });
+    };
+    session!.waiters.push(done);
+    // Race: QR / open may have landed between the check above and push.
+    if (session!.connected || session!.qr) done();
   });
 
   return session;
@@ -140,23 +217,24 @@ export async function getOrCreateSession(vendorId: string): Promise<Session> {
 
 /** Socket for an already-linked vendor; throws when the phone is not linked. */
 export async function requireConnectedSession(vendorId: string): Promise<WASocket> {
-  const session = sessions.get(vendorId);
+  const session = getSessions().get(vendorId);
   if (!session?.connected) {
     throw new Error(
-      "WhatsApp channel session is not connected. Scan the QR code from WhatsApp → Linked devices first."
+      "WhatsApp channel session is not connected. Scan the QR code from WhatsApp → Linked devices first.",
     );
   }
   return session.sock;
 }
 
 export function getSessionStatus(vendorId: string): SessionStatus {
-  const session = sessions.get(vendorId);
+  const session = getSessions().get(vendorId);
   if (!session) return { connected: false, qr: null };
   return { connected: session.connected, qr: session.qr };
 }
 
 /** Logs the vendor out of WhatsApp and deletes the on-disk auth state. */
 export async function logoutSession(vendorId: string): Promise<void> {
+  const sessions = getSessions();
   const session = sessions.get(vendorId);
   sessions.delete(vendorId);
 

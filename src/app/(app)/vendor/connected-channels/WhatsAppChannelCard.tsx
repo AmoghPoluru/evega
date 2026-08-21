@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -59,6 +59,11 @@ export function WhatsAppChannelCard() {
   });
   const connected = Boolean(status.data?.connected);
 
+  useEffect(() => {
+    if (status.data?.qr) setQr(status.data.qr);
+    if (status.data?.connected) setQr(null);
+  }, [status.data?.qr, status.data?.connected]);
+
   const channels = trpc.whatsappChannels.listChannels.useQuery(undefined, {
     enabled: connected,
     retry: false,
@@ -68,11 +73,13 @@ export function WhatsAppChannelCard() {
     onSuccess: (data) => {
       setQr(data.qr);
       setPollingEnabled(true);
-      toast.success(
-        data.connected
-          ? "WhatsApp channel session is already linked."
-          : "Scan the QR code in WhatsApp → Linked devices.",
-      );
+      if (data.connected) {
+        toast.success("WhatsApp channel session is already linked.");
+      } else if (data.qr) {
+        toast.success("Scan the QR code in WhatsApp → Linked devices.");
+      } else {
+        toast.error("No QR code yet. Try Link WhatsApp again.");
+      }
     },
     onError: (error) => toast.error(readableError(error.message)),
   });
@@ -147,6 +154,13 @@ export function WhatsAppChannelCard() {
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {!connected && startSession.isPending ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Waiting for WhatsApp QR code…
+          </div>
+        ) : null}
+
         {pendingQr ? (
           <div className="space-y-2">
             {/* Data-URL QR from the server; next/image adds nothing here. */}
