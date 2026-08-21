@@ -6,30 +6,27 @@ import { Button } from '@/components/ui/button';
 import logoImage from './Logo.png';
 
 /**
- * Logo Component
- * 
- * Displays the Evega logo as a clickable button that navigates to the home page.
- * Uses Next.js Image component for optimized image loading.
- * This is used in the navbar to navigate to the home page.
+ * Marketplace brand mark in the top navbar (home).
+ * Wide horizontal wordmark — no frame so the name stays clear.
  */
 export default function Logo() {
-  // Get router instance for programmatic navigation
   const router = useRouter();
 
   return (
     <Button
       variant="ghost"
-      onClick={() => router.push('/')} // Navigate to home page on click
-      className="p-0 h-auto hover:bg-transparent flex items-center"
+      onClick={() => router.push('/')}
+      className="h-auto max-w-[min(92vw,560px)] shrink-0 p-0 hover:bg-transparent flex items-center"
+      aria-label="Zvastra home"
     >
-      {/* Logo image - 80x80px with max size constraints */}
       <Image
-        className="cursor-pointer object-contain"
+        className="h-14 w-auto max-h-14 cursor-pointer object-contain object-left sm:h-16 sm:max-h-16"
         src={logoImage}
-        height={80}
-        width={80}
-        alt="Evega Logo"
-        style={{ maxHeight: '80px', maxWidth: '80px' }}
+        alt="Zvastra — Ethnic Fusion, Jewellery, Home"
+        height={72}
+        width={560}
+        priority
+        style={{ width: 'auto', maxWidth: 'min(92vw, 560px)' }}
       />
     </Button>
   );
