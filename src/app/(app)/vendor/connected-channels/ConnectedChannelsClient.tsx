@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Instagram, Loader2, PackagePlus } from "lucide-react";
+import { Instagram, Loader2, MessageCircle, PackagePlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { vendorPageTitles } from "@/lib/vendor-portal-labels";
 import type { PublicSocialConnection } from "@/lib/vendor-social-connections";
 import type { Product } from "@/payload-types";
 import { PostToSocialsDialog } from "../products/components/PostToSocialsDialog";
+import { PostToWhatsAppDialog } from "./PostToWhatsAppDialog";
 import { WhatsAppChannelCard } from "./WhatsAppChannelCard";
 
 type PostableProduct = {
@@ -44,6 +45,8 @@ export function ConnectedChannelsClient() {
   const [loadingConnections, setLoadingConnections] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
   const [postProduct, setPostProduct] = useState<PostableProduct | null>(null);
+  const [whatsAppProduct, setWhatsAppProduct] =
+    useState<PostableProduct | null>(null);
   const [page, setPage] = useState(1);
   const [productsWithImages, setProductsWithImages] = useState<PostableProduct[]>(
     [],
@@ -123,6 +126,17 @@ export function ConnectedChannelsClient() {
     (c) => c.platform === "instagram" && c.connected,
   );
 
+  const { data: marketingProfile } =
+    trpc.vendor.dashboard.getMarketingProfile.useQuery();
+  const whatsappStatus = trpc.whatsappChannels.sessionStatus.useQuery(undefined, {
+    refetchInterval: 10_000,
+  });
+
+  const whatsappReady = Boolean(
+    whatsappStatus.data?.connected &&
+      marketingProfile?.socialChannels.socialWhatsAppGroupJid?.trim(),
+  );
+
   const disconnectInstagram = async () => {
     setDisconnecting(true);
     try {
@@ -162,7 +176,7 @@ export function ConnectedChannelsClient() {
           {vendorPageTitles.connectedChannels}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Connect Instagram, then post any product photo in one click.
+          Connect Instagram and WhatsApp, then post any product photo.
         </p>
       </div>
 
@@ -210,7 +224,7 @@ export function ConnectedChannelsClient() {
         <div>
           <h2 className="text-lg font-semibold text-foreground">Your products</h2>
           <p className="text-sm text-muted-foreground">
-            Pick a photo and post it to Instagram.
+            Pick a photo and post it to Instagram or WhatsApp.
           </p>
         </div>
 
@@ -240,7 +254,7 @@ export function ConnectedChannelsClient() {
             {productsWithImages.map((product) => (
               <li
                 key={product.id}
-                className="flex items-center gap-4 px-3 py-3 sm:gap-6"
+                className="flex flex-wrap items-center gap-3 px-3 py-3 sm:gap-4"
               >
                 <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-muted">
                   <Image
@@ -251,18 +265,35 @@ export function ConnectedChannelsClient() {
                     sizes="80px"
                   />
                 </div>
-                <Button
-                  type="button"
-                  className="shrink-0"
-                  disabled={!instagram}
-                  onClick={() => setPostProduct(product)}
-                  title={
-                    instagram ? undefined : "Connect Instagram first to post"
-                  }
-                >
-                  <Instagram className="h-4 w-4" />
-                  Post this product on Instagram
-                </Button>
+                <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    className="shrink-0"
+                    disabled={!instagram}
+                    onClick={() => setPostProduct(product)}
+                    title={
+                      instagram ? undefined : "Connect Instagram first to post"
+                    }
+                  >
+                    <Instagram className="h-4 w-4" />
+                    Post this product on Instagram
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shrink-0"
+                    disabled={!whatsappReady}
+                    onClick={() => setWhatsAppProduct(product)}
+                    title={
+                      whatsappReady
+                        ? undefined
+                        : "Link WhatsApp and resolve JID above first"
+                    }
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Post to WhatsApp
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
@@ -291,6 +322,16 @@ export function ConnectedChannelsClient() {
             if (!open) setPostProduct(null);
           }}
           product={postProduct}
+        />
+      ) : null}
+
+      {whatsAppProduct ? (
+        <PostToWhatsAppDialog
+          open={Boolean(whatsAppProduct)}
+          onOpenChange={(open) => {
+            if (!open) setWhatsAppProduct(null);
+          }}
+          product={whatsAppProduct}
         />
       ) : null}
     </div>

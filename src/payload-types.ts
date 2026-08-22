@@ -435,6 +435,10 @@ export interface Vendor {
      */
     socialWhatsAppGroup?: string | null;
     /**
+     * Auto-filled from the invite link when WhatsApp is linked (e.g. 120363…@g.us). You can paste a JID manually if needed.
+     */
+    socialWhatsAppGroupJid?: string | null;
+    /**
      * Last promotional post in this WhatsApp group
      */
     socialWhatsAppGroupLastPostedAt?: string | null;
@@ -2238,6 +2242,7 @@ export interface VendorsSelect<T extends boolean = true> {
         socialFacebook?: T;
         socialFacebookLastPostedAt?: T;
         socialWhatsAppGroup?: T;
+        socialWhatsAppGroupJid?: T;
         socialWhatsAppGroupLastPostedAt?: T;
         socialNotes?: T;
       };

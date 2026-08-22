@@ -9,10 +9,17 @@ import {
   resolveChannelInvite,
 } from "@/lib/whatsapp-channels/channels";
 import {
+  isPostableWhatsAppJid,
+  resolveWhatsAppDestination,
+} from "@/lib/whatsapp-channels/resolve-destination";
+import {
   getOrCreateSession,
   getSessionStatus,
   logoutSession,
+  restoreSessionIfSaved,
 } from "@/lib/whatsapp-channels/session-manager";
+import { toMarketingProfileResponse } from "@/modules/marketing/marketing-profile-trpc";
+import type { Vendor } from "@/payload-types";
 
 /**
  * Unofficial WhatsApp Channels (Baileys) procedures.
@@ -28,31 +35,59 @@ function trpcError(error: unknown): TRPCError {
 }
 
 export const whatsappChannelsRouter = createTRPCRouter({
-  /** Creates or refreshes the vendor's session and returns a QR to scan. */
-  startSession: vendorProcedure.mutation(async ({ ctx }) => {
-    const vendorId =
-      typeof ctx.session.vendor === "string" ? ctx.session.vendor : ctx.session.vendor.id;
+  /**
+   * Opens / restores the vendor's WhatsApp link.
+   * Reuses saved device creds by default (persistent). Pass forceRelink to
+   * wipe and show a fresh QR.
+   */
+  startSession: vendorProcedure
+    .input(
+      z
+        .object({
+          forceRelink: z.boolean().optional(),
+        })
+        .optional(),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const vendorId =
+        typeof ctx.session.vendor === "string" ? ctx.session.vendor : ctx.session.vendor.id;
 
-    try {
-      // Always refresh so "Link WhatsApp" yields a fresh scannable QR.
-      const session = await getOrCreateSession(vendorId, { refresh: true });
-      await upsertSessionRow(ctx.db, vendorId, session.connected ? "connected" : "pending");
-      if (!session.connected && !session.qr) {
-        throw new Error(
-          "WhatsApp did not return a QR code in time. Click Link WhatsApp again.",
+      try {
+        const session = await getOrCreateSession(vendorId, {
+          forceRelink: input?.forceRelink === true,
+        });
+        await upsertSessionRow(
+          ctx.db,
+          vendorId,
+          session.connected ? "connected" : "pending",
         );
+        if (!session.connected && !session.qr) {
+          throw new Error(
+            "WhatsApp did not return a QR code in time. Click Link WhatsApp again.",
+          );
+        }
+        return { qr: session.qr, connected: session.connected };
+      } catch (error) {
+        console.error("[whatsappChannels.startSession] failed:", error);
+        throw trpcError(error);
       }
-      return { qr: session.qr, connected: session.connected };
-    } catch (error) {
-      console.error("[whatsappChannels.startSession] failed:", error);
-      throw trpcError(error);
-    }
-  }),
+    }),
 
-  sessionStatus: vendorProcedure.query(({ ctx }) => {
+  sessionStatus: vendorProcedure.query(async ({ ctx }) => {
     const vendorId =
       typeof ctx.session.vendor === "string" ? ctx.session.vendor : ctx.session.vendor.id;
-    return getSessionStatus(vendorId);
+
+    // After a server restart the in-memory socket is gone; reconnect from disk.
+    const live = await getSessionStatus(vendorId);
+    if (live.connected) return live;
+    if (live.hasSavedAuth) {
+      const restored = await restoreSessionIfSaved(vendorId);
+      if (restored.connected) {
+        await upsertSessionRow(ctx.db, vendorId, "connected");
+      }
+      return restored;
+    }
+    return live;
   }),
 
   logout: vendorProcedure.mutation(async ({ ctx }) => {
@@ -83,6 +118,90 @@ export const whatsappChannelsRouter = createTRPCRouter({
 
       try {
         return await resolveChannelInvite(vendorId, input.invite);
+      } catch (error) {
+        throw trpcError(error);
+      }
+    }),
+
+  /**
+   * Resolves the Settings WhatsApp group invite to `@g.us`, saves
+   * `socialWhatsAppGroup` + `socialWhatsAppGroupJid`, and returns the JID.
+   * Optional `groupLink` lets Settings pass the invite from the form before save.
+   */
+  syncGroupJidFromSettings: vendorProcedure
+    .input(
+      z
+        .object({
+          groupLink: z.string().optional(),
+        })
+        .optional(),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const vendorId =
+        typeof ctx.session.vendor === "string" ? ctx.session.vendor : ctx.session.vendor.id;
+
+      try {
+        const vendor = (await ctx.db.findByID({
+          collection: "vendors",
+          id: vendorId,
+          depth: 0,
+          overrideAccess: true,
+        })) as Vendor;
+
+        const groupLink =
+          input?.groupLink?.trim() ||
+          vendor.socialChannels?.socialWhatsAppGroup?.trim() ||
+          "";
+        const existingJid = vendor.socialChannels?.socialWhatsAppGroupJid?.trim() ?? "";
+        const linkChanged =
+          Boolean(groupLink) &&
+          groupLink !== (vendor.socialChannels?.socialWhatsAppGroup?.trim() ?? "");
+
+        if (!groupLink && !existingJid) {
+          throw new Error(
+            "Add a WhatsApp group invite link in Settings first.",
+          );
+        }
+
+        let jid =
+          !linkChanged && existingJid && isPostableWhatsAppJid(existingJid)
+            ? existingJid
+            : "";
+
+        if (!jid) {
+          if (!groupLink) {
+            throw new Error(
+              "WhatsApp group JID is missing. Paste the group or channel invite link in Settings.",
+            );
+          }
+          const resolved = await resolveWhatsAppDestination(vendorId, groupLink);
+          jid = resolved.jid;
+        }
+
+        await ctx.db.update({
+          collection: "vendors",
+          id: vendorId,
+          data: {
+            socialChannels: {
+              ...(vendor.socialChannels ?? {}),
+              socialWhatsAppGroup: groupLink || vendor.socialChannels?.socialWhatsAppGroup,
+              socialWhatsAppGroupJid: jid,
+            },
+          },
+          overrideAccess: true,
+        });
+
+        const updated = (await ctx.db.findByID({
+          collection: "vendors",
+          id: vendorId,
+          depth: 1,
+          overrideAccess: true,
+        })) as Vendor;
+
+        return {
+          jid,
+          profile: toMarketingProfileResponse(updated),
+        };
       } catch (error) {
         throw trpcError(error);
       }

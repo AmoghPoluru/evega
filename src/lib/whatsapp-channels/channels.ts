@@ -40,11 +40,30 @@ export function isNewsletterJid(jid: string): boolean {
   return /^[0-9]+@newsletter$/.test(jid.trim());
 }
 
+export function isGroupJid(jid: string): boolean {
+  return /^[0-9]+@g\.us$/i.test(jid.trim());
+}
+
+/** Channel (`@newsletter`) or group (`@g.us`) destinations we can post to. */
+export function isPostableJid(jid: string): boolean {
+  return isNewsletterJid(jid) || isGroupJid(jid);
+}
+
 export function assertNewsletterJid(jid: string): string {
   const trimmed = jid.trim();
   if (!isNewsletterJid(trimmed)) {
     throw new Error(
       "Invalid channel id. WhatsApp Channel JIDs look like 123456789@newsletter."
+    );
+  }
+  return trimmed;
+}
+
+export function assertPostableJid(jid: string): string {
+  const trimmed = jid.trim();
+  if (!isPostableJid(trimmed)) {
+    throw new Error(
+      "Invalid destination id. Use a WhatsApp Channel (…@newsletter) or group (…@g.us) JID.",
     );
   }
   return trimmed;
@@ -162,17 +181,17 @@ export async function resolveChannelInvite(
   };
 }
 
-/** Posts text, or an image with a caption, to one WhatsApp Channel. */
+/** Posts text, or an image with a caption, to a WhatsApp Channel or group. */
 export async function postToChannel(
   vendorId: string,
   channelJid: string,
   { text, mediaUrl, caption }: PostToChannelInput
 ): Promise<PostToChannelResult> {
-  const jid = assertNewsletterJid(channelJid);
+  const jid = assertPostableJid(channelJid);
   const body = caption?.trim() || text?.trim();
 
   if (!mediaUrl && !body) {
-    throw new Error("Add a caption or an image to post to a channel.");
+    throw new Error("Add a caption or an image to post.");
   }
 
   assertNotThrottled(vendorId);

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,11 +14,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select";
 import { trpc } from "@/trpc/client";
 
 /** tRPC serialises input validation failures as a JSON array of zod issues. */
@@ -42,39 +38,74 @@ function readableError(message: string): string {
 }
 
 /**
- * Unofficial WhatsApp Channels (Baileys) card. Requires the app to run in a
- * persistent Node process — see README. Beta / ToS risk is surfaced in the UI.
+ * Link WhatsApp (QR) and resolve the Settings invite → JID.
+ * Product posting lives beside Instagram on the product list.
  */
 export function WhatsAppChannelCard() {
   const [qr, setQr] = useState<string | null>(null);
   const [pollingEnabled, setPollingEnabled] = useState(false);
-  const [channelJid, setChannelJid] = useState("");
-  const [caption, setCaption] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [invite, setInvite] = useState("");
+  const autoSyncedJid = useRef<string | null>(null);
+
+  const utils = trpc.useUtils();
+  const { data: marketingProfile } =
+    trpc.vendor.dashboard.getMarketingProfile.useQuery();
+
+  const groupLink =
+    marketingProfile?.socialChannels.socialWhatsAppGroup?.trim() ?? "";
+  const groupJid =
+    marketingProfile?.socialChannels.socialWhatsAppGroupJid?.trim() ?? "";
+  const hasWhatsAppGroup = Boolean(groupLink);
 
   const status = trpc.whatsappChannels.sessionStatus.useQuery(undefined, {
-    enabled: pollingEnabled,
-    refetchInterval: 3000,
+    refetchInterval: pollingEnabled ? 3000 : 10_000,
   });
   const connected = Boolean(status.data?.connected);
 
   useEffect(() => {
     if (status.data?.qr) setQr(status.data.qr);
-    if (status.data?.connected) setQr(null);
+    if (status.data?.connected) {
+      setQr(null);
+      setPollingEnabled(true);
+    }
   }, [status.data?.qr, status.data?.connected]);
 
-  const channels = trpc.whatsappChannels.listChannels.useQuery(undefined, {
-    enabled: connected,
-    retry: false,
+  const syncGroupJid = trpc.whatsappChannels.syncGroupJidFromSettings.useMutation({
+    onSuccess: (data) => {
+      autoSyncedJid.current = data.jid;
+      void utils.vendor.dashboard.getMarketingProfile.invalidate();
+      toast.success(`WhatsApp JID ready — ${data.jid}`);
+    },
+    onError: (error) => {
+      autoSyncedJid.current = null;
+      toast.error(readableError(error.message));
+    },
   });
+
+  useEffect(() => {
+    if (!connected || !hasWhatsAppGroup) return;
+
+    if (groupJid) {
+      autoSyncedJid.current = groupJid;
+      return;
+    }
+
+    const resolveKey = `resolve:${groupLink}`;
+    if (syncGroupJid.isPending) return;
+    if (autoSyncedJid.current === resolveKey) return;
+    autoSyncedJid.current = resolveKey;
+    syncGroupJid.mutate({ groupLink });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, hasWhatsAppGroup, groupJid, groupLink, syncGroupJid.isPending]);
 
   const startSession = trpc.whatsappChannels.startSession.useMutation({
     onSuccess: (data) => {
       setQr(data.qr);
       setPollingEnabled(true);
       if (data.connected) {
-        toast.success("WhatsApp channel session is already linked.");
+        toast.success("WhatsApp is linked (saved device). Resolving JID…");
+        if (hasWhatsAppGroup) {
+          syncGroupJid.mutate({ groupLink });
+        }
       } else if (data.qr) {
         toast.success("Scan the QR code in WhatsApp → Linked devices.");
       } else {
@@ -88,24 +119,8 @@ export function WhatsAppChannelCard() {
     onSuccess: () => {
       setQr(null);
       setPollingEnabled(false);
-      toast.success("WhatsApp channel session disconnected");
-    },
-    onError: (error) => toast.error(readableError(error.message)),
-  });
-
-  const resolveInvite = trpc.whatsappChannels.resolveInvite.useMutation({
-    onSuccess: (channel) => {
-      setChannelJid(channel.jid);
-      toast.success(`Found "${channel.name}" — ${channel.jid}`);
-    },
-    onError: (error) => toast.error(readableError(error.message)),
-  });
-
-  const post = trpc.whatsappChannels.postToChannel.useMutation({
-    onSuccess: () => {
-      setCaption("");
-      setImageUrl("");
-      toast.success("Posted to the WhatsApp channel");
+      autoSyncedJid.current = null;
+      toast.success("WhatsApp disconnected");
     },
     onError: (error) => toast.error(readableError(error.message)),
   });
@@ -122,14 +137,28 @@ export function WhatsAppChannelCard() {
           </CardTitle>
           <CardDescription>
             {connected
-              ? "Linked. Posts go out from your own WhatsApp account."
-              : "Link your phone (WhatsApp → Linked devices) to post to a WhatsApp Channel."}
+              ? "Linked. Post products from the list below to your Settings group / channel."
+              : status.data?.hasSavedAuth
+                ? "Saved device found — reconnecting…"
+                : "Link your phone once; we keep the device linked across restarts."}
           </CardDescription>
           <p className="text-xs text-muted-foreground">
             Uses an unofficial WhatsApp Web session — WhatsApp may restrict or ban
             the account, and it only works while the app runs in a persistent
             Node process (not Vercel serverless).
           </p>
+          {!hasWhatsAppGroup ? (
+            <p className="text-xs text-amber-700">
+              Add a WhatsApp group or channel invite in{" "}
+              <Link
+                href="/vendor/settings"
+                className="font-medium underline underline-offset-2"
+              >
+                Settings
+              </Link>{" "}
+              first, then link WhatsApp here.
+            </p>
+          ) : null}
         </div>
         {connected ? (
           <Button
@@ -141,19 +170,73 @@ export function WhatsAppChannelCard() {
             Disconnect
           </Button>
         ) : (
-          <Button
-            onClick={() => startSession.mutate()}
-            disabled={startSession.isPending}
-          >
-            {startSession.isPending && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            )}
-            Link WhatsApp
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => startSession.mutate({})}
+              disabled={startSession.isPending || !hasWhatsAppGroup}
+              title={
+                hasWhatsAppGroup
+                  ? undefined
+                  : "Add a WhatsApp group or channel invite in Settings first"
+              }
+            >
+              {startSession.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {status.data?.hasSavedAuth ? "Reconnect" : "Link WhatsApp"}
+            </Button>
+            {pendingQr || status.data?.hasSavedAuth ? (
+              <Button
+                variant="outline"
+                onClick={() => startSession.mutate({ forceRelink: true })}
+                disabled={startSession.isPending || !hasWhatsAppGroup}
+              >
+                New QR
+              </Button>
+            ) : null}
+          </div>
         )}
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {hasWhatsAppGroup ? (
+          <div className="space-y-2 rounded-md border bg-muted/40 px-3 py-2">
+            <p className="text-xs font-medium text-foreground">From Settings</p>
+            <p className="font-mono text-[11px] text-muted-foreground break-all">
+              {groupLink}
+            </p>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-foreground">
+                WhatsApp JID
+              </label>
+              <Input
+                readOnly
+                className="bg-background font-mono text-xs"
+                value={groupJid}
+                placeholder={
+                  connected
+                    ? "Resolving from invite…"
+                    : "Fills after you link WhatsApp (scan QR)"
+                }
+              />
+            </div>
+            {connected && !groupJid ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={syncGroupJid.isPending}
+                onClick={() => syncGroupJid.mutate({ groupLink })}
+              >
+                {syncGroupJid.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Resolve JID
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
         {!connected && startSession.isPending ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -163,7 +246,6 @@ export function WhatsAppChannelCard() {
 
         {pendingQr ? (
           <div className="space-y-2">
-            {/* Data-URL QR from the server; next/image adds nothing here. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={pendingQr}
@@ -176,81 +258,10 @@ export function WhatsAppChannelCard() {
           </div>
         ) : null}
 
-        {connected ? (
-          <div className="space-y-3">
-            {channels.error ? (
-              <p className="text-xs text-muted-foreground">
-                {channels.error.message} Paste the channel JID below instead.
-              </p>
-            ) : null}
-
-            {channels.data && channels.data.length > 0 ? (
-              <NativeSelect
-                className="w-full"
-                value={channelJid}
-                onChange={(event) => setChannelJid(event.target.value)}
-              >
-                <NativeSelectOption value="">
-                  Select a channel…
-                </NativeSelectOption>
-                {channels.data.map((channel) => (
-                  <NativeSelectOption key={channel.jid} value={channel.jid}>
-                    {channel.name}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            ) : (
-              <Input
-                placeholder="123456789@newsletter"
-                value={channelJid}
-                onChange={(event) => setChannelJid(event.target.value)}
-              />
-            )}
-
-            {/* A channel share link carries an invite code, not the JID, so it
-                has to be resolved through the linked account. */}
-            <div className="flex gap-2">
-              <Input
-                placeholder="Or paste a channel link: https://whatsapp.com/channel/…"
-                value={invite}
-                onChange={(event) => setInvite(event.target.value)}
-              />
-              <Button
-                variant="outline"
-                disabled={!invite.trim() || resolveInvite.isPending}
-                onClick={() => resolveInvite.mutate({ invite })}
-              >
-                {resolveInvite.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Find id
-              </Button>
-            </div>
-
-            <Textarea
-              placeholder="Caption to post to the channel"
-              value={caption}
-              onChange={(event) => setCaption(event.target.value)}
-            />
-            <Input
-              placeholder="Image URL (optional, must be public)"
-              value={imageUrl}
-              onChange={(event) => setImageUrl(event.target.value)}
-            />
-
-            <Button
-              disabled={post.isPending || !channelJid || !caption.trim()}
-              onClick={() =>
-                post.mutate({
-                  channelJid,
-                  caption,
-                  imageUrl: imageUrl.trim() || undefined,
-                })
-              }
-            >
-              {post.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Post to channel
-            </Button>
+        {connected && syncGroupJid.isPending ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Resolving WhatsApp JID from Settings invite…
           </div>
         ) : null}
       </CardContent>

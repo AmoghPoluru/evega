@@ -29,7 +29,7 @@ export const vendorNavLabels = {
   payouts: "Connect payments",
   notifications: "Notifications",
   settings: "Settings",
-  connectedChannels: "Post to Instagram",
+  connectedChannels: "Post to social media",
 } as const;
 
 /** Collapsible sidebar section headers. */
@@ -51,7 +51,7 @@ export const vendorPageTitles = {
   storeAppearance: "Store look",
   analytics: "Insights & reports",
   settings: "Settings",
-  connectedChannels: "Post to Instagram",
+  connectedChannels: "Post to social media",
   importProducts: "Import products",
   newProduct: "Add product",
   editProduct: "Edit product",

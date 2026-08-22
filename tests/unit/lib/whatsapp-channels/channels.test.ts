@@ -38,7 +38,7 @@ describe("whatsapp-channels/channels", () => {
       expect(assertNewsletterJid("  123@newsletter  ")).toBe("123@newsletter");
     });
 
-    it("rejects groups, users and malformed JIDs", () => {
+    it("rejects users and malformed JIDs", () => {
       expect(isNewsletterJid("123@g.us")).toBe(false);
       expect(isNewsletterJid("15551234567@s.whatsapp.net")).toBe(false);
       expect(isNewsletterJid("abc@newsletter")).toBe(false);
@@ -47,11 +47,17 @@ describe("whatsapp-channels/channels", () => {
       expect(() => assertNewsletterJid("123@g.us")).toThrow(/Invalid channel id/);
     });
 
-    it("refuses to post to a non-newsletter JID", async () => {
+    it("allows posting to a group JID", async () => {
+      const { sendMessage } = mockSocket();
+      await postToChannel("vendor-1", "120363@g.us", { caption: "hi" });
+      expect(sendMessage).toHaveBeenCalledWith("120363@g.us", { text: "hi" });
+    });
+
+    it("refuses to post to a non-channel/group JID", async () => {
       const { sendMessage } = mockSocket();
       await expect(
-        postToChannel("vendor-1", "123@g.us", { caption: "hi" }),
-      ).rejects.toThrow(/Invalid channel id/);
+        postToChannel("vendor-1", "15551234567@s.whatsapp.net", { caption: "hi" }),
+      ).rejects.toThrow(/Invalid destination id/);
       expect(sendMessage).not.toHaveBeenCalled();
     });
   });

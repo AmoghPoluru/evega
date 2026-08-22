@@ -12,8 +12,14 @@
  *   invocation. Run it in a persistent Node process (`npm run dev`, a VPS, a
  *   container, Railway/Render/Fly, etc.). The module-level `Map` below is the
  *   natural seam for extracting a standalone service.
+ *
+ * Persistence: auth lives under `WHATSAPP_CHANNELS_SESSION_DIR` (default
+ * `./sessions/<vendorId>/`). After a successful QR scan, Link WhatsApp /
+ * server restarts reconnect from those files — they are only wiped on
+ * Disconnect or an explicit re-link.
  */
 import path from "node:path";
+import { access } from "node:fs/promises";
 import { rm } from "node:fs/promises";
 
 import makeWASocket, {
@@ -29,6 +35,8 @@ export type SessionStatus = {
   connected: boolean;
   /** QR code as a `data:image/png;base64,…` URL, or null when none is pending. */
   qr: string | null;
+  /** True when creds exist on disk (survives server restarts). */
+  hasSavedAuth: boolean;
 };
 
 export type Session = {
@@ -37,6 +45,8 @@ export type Session = {
   qr: string | null;
   /** Resolvers waiting for the first QR / open connection. */
   waiters: Array<() => void>;
+  /** Prevent infinite wipe/rebind loops if WhatsApp keeps rejecting. */
+  clearedDeadAuth?: boolean;
 };
 
 type SessionsGlobal = typeof globalThis & {
@@ -63,6 +73,19 @@ function sessionDir(vendorId: string): string {
     throw new Error("Invalid vendor id for WhatsApp channel session");
   }
   return path.join(SESSIONS_ROOT, vendorId);
+}
+
+export async function hasSavedAuth(vendorId: string): Promise<boolean> {
+  try {
+    await access(path.join(sessionDir(vendorId), "creds.json"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function wipeAuthFiles(vendorId: string): Promise<void> {
+  await rm(sessionDir(vendorId), { recursive: true, force: true });
 }
 
 function notifyWaiters(session: Session) {
@@ -133,10 +156,31 @@ async function bindSocket(vendorId: string, session: Session): Promise<void> {
       );
 
       if (loggedOut) {
+        // Dead creds on disk (401) — wipe once and re-pair so Link WhatsApp
+        // can still show a fresh QR instead of failing immediately.
+        if (!session.clearedDeadAuth) {
+          session.clearedDeadAuth = true;
+          session.qr = null;
+          console.warn(
+            `[whatsapp-channels] wiping dead auth for vendor ${vendorId} and re-pairing`,
+          );
+          void wipeAuthFiles(vendorId)
+            .then(() => bindSocket(vendorId, session))
+            .catch((error: unknown) => {
+              console.error(
+                `[whatsapp-channels] re-pair after logout failed for ${vendorId}:`,
+                error,
+              );
+              getSessions().delete(vendorId);
+              notifyWaiters(session);
+            });
+          return;
+        }
+
         getSessions().delete(vendorId);
         notifyWaiters(session);
         console.warn(
-          `[whatsapp-channels] vendor ${vendorId} logged out on the phone`,
+          `[whatsapp-channels] vendor ${vendorId} logged out; re-pair already attempted`,
         );
         return;
       }
@@ -178,28 +222,8 @@ async function endSocket(session: Session | undefined): Promise<void> {
   }
 }
 
-/**
- * Returns the vendor's live socket, creating and linking one if needed.
- * Resolves once a QR is available or the socket is already authenticated.
- */
-export async function getOrCreateSession(
-  vendorId: string,
-  opts?: { refresh?: boolean },
-): Promise<Session> {
-  const sessions = getSessions();
-
-  if (opts?.refresh) {
-    const previous = sessions.get(vendorId);
-    sessions.delete(vendorId);
-    await endSocket(previous);
-  }
-
-  let session = sessions.get(vendorId);
-  if (!session) {
-    session = await createSession(vendorId);
-  }
-
-  if (session.connected || session.qr) return session;
+async function waitForQrOrOpen(session: Session): Promise<void> {
+  if (session.connected || session.qr) return;
 
   await new Promise<void>((resolve) => {
     const timer = setTimeout(resolve, QR_WAIT_MS);
@@ -207,17 +231,74 @@ export async function getOrCreateSession(
       clearTimeout(timer);
       resolve();
     };
-    session!.waiters.push(done);
-    // Race: QR / open may have landed between the check above and push.
-    if (session!.connected || session!.qr) done();
+    session.waiters.push(done);
+    if (session.connected || session.qr) done();
   });
+}
 
+/**
+ * Returns the vendor's live socket, creating / reconnecting from disk auth.
+ *
+ * - Default: keep `./sessions/<vendorId>` creds (persistent link).
+ * - `forceRelink: true`: wipe creds and show a fresh QR (explicit re-pair only).
+ */
+export async function getOrCreateSession(
+  vendorId: string,
+  opts?: { forceRelink?: boolean },
+): Promise<Session> {
+  const sessions = getSessions();
+
+  if (opts?.forceRelink) {
+    const previous = sessions.get(vendorId);
+    sessions.delete(vendorId);
+    await endSocket(previous);
+    await wipeAuthFiles(vendorId);
+  }
+
+  let session = sessions.get(vendorId);
+  if (!session) {
+    session = await createSession(vendorId);
+  }
+
+  await waitForQrOrOpen(session);
   return session;
 }
 
-/** Socket for an already-linked vendor; throws when the phone is not linked. */
+/**
+ * Restore a linked device from disk after a server restart (no QR if creds ok).
+ * No-op when nothing is saved. Safe to call from polled status — only creates
+ * a socket once when none is in memory.
+ */
+export async function restoreSessionIfSaved(vendorId: string): Promise<SessionStatus> {
+  if (!(await hasSavedAuth(vendorId))) {
+    return { connected: false, qr: null, hasSavedAuth: false };
+  }
+
+  const existing = getSessions().get(vendorId);
+  if (existing) {
+    return {
+      connected: existing.connected,
+      qr: existing.qr,
+      hasSavedAuth: true,
+    };
+  }
+
+  const session = await getOrCreateSession(vendorId);
+  return {
+    connected: session.connected,
+    qr: session.qr,
+    hasSavedAuth: true,
+  };
+}
+
+/** Socket for an already-linked vendor; restores from disk after restarts. */
 export async function requireConnectedSession(vendorId: string): Promise<WASocket> {
-  const session = getSessions().get(vendorId);
+  let session = getSessions().get(vendorId);
+
+  if (!session?.connected && (await hasSavedAuth(vendorId))) {
+    session = await getOrCreateSession(vendorId);
+  }
+
   if (!session?.connected) {
     throw new Error(
       "WhatsApp channel session is not connected. Scan the QR code from WhatsApp → Linked devices first.",
@@ -226,10 +307,17 @@ export async function requireConnectedSession(vendorId: string): Promise<WASocke
   return session.sock;
 }
 
-export function getSessionStatus(vendorId: string): SessionStatus {
+export async function getSessionStatus(vendorId: string): Promise<SessionStatus> {
+  const saved = await hasSavedAuth(vendorId);
   const session = getSessions().get(vendorId);
-  if (!session) return { connected: false, qr: null };
-  return { connected: session.connected, qr: session.qr };
+  if (!session) {
+    return { connected: false, qr: null, hasSavedAuth: saved };
+  }
+  return {
+    connected: session.connected,
+    qr: session.qr,
+    hasSavedAuth: saved,
+  };
 }
 
 /** Logs the vendor out of WhatsApp and deletes the on-disk auth state. */
@@ -246,5 +334,5 @@ export async function logoutSession(vendorId: string): Promise<void> {
     }
   }
 
-  await rm(sessionDir(vendorId), { recursive: true, force: true });
+  await wipeAuthFiles(vendorId);
 }
