@@ -2,6 +2,8 @@ import crypto from "crypto";
 
 const GRAPH_API_VERSION = process.env.META_GRAPH_API_VERSION || "v21.0";
 export const INSTAGRAM_OAUTH_STATE_COOKIE = "ig_oauth_state";
+/** Where to send the browser after OAuth (staff Post to social vs vendor channels). */
+export const INSTAGRAM_OAUTH_RETURN_COOKIE = "ig_oauth_return";
 
 /** Instagram API with Instagram Login (Professional Business/Creator). No Facebook Page. */
 export const INSTAGRAM_LOGIN_SCOPES = [
@@ -71,13 +73,14 @@ export function createInstagramOAuthState(vendorId: string): string {
   return Buffer.from(`${payload}|${signature}`).toString("base64url");
 }
 
-export function verifyInstagramOAuthState(state: string, vendorId: string): boolean {
+/** Returns the vendor id embedded in a valid state, or null if invalid/expired. */
+export function parseAndVerifyInstagramOAuthState(state: string): string | null {
   try {
     const decoded = Buffer.from(state, "base64url").toString("utf8");
     const parts = decoded.split("|");
-    if (parts.length !== 4) return false;
+    if (parts.length !== 4) return null;
     const [stateVendorId, issuedAtRaw, nonce, signature] = parts;
-    if (!stateVendorId || !issuedAtRaw || !nonce || !signature) return false;
+    if (!stateVendorId || !issuedAtRaw || !nonce || !signature) return null;
     const expected = crypto
       .createHmac("sha256", oauthStateSecret())
       .update(`${stateVendorId}|${issuedAtRaw}|${nonce}`)
@@ -88,16 +91,20 @@ export function verifyInstagramOAuthState(state: string, vendorId: string): bool
       signatureBuffer.length !== expectedBuffer.length ||
       !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)
     ) {
-      return false;
+      return null;
     }
     const issuedAt = Number(issuedAtRaw);
     if (!Number.isFinite(issuedAt) || Date.now() - issuedAt > OAUTH_STATE_TTL_MS) {
-      return false;
+      return null;
     }
-    return stateVendorId === vendorId;
+    return stateVendorId;
   } catch {
-    return false;
+    return null;
   }
+}
+
+export function verifyInstagramOAuthState(state: string, vendorId: string): boolean {
+  return parseAndVerifyInstagramOAuthState(state) === vendorId;
 }
 
 export function buildInstagramAuthorizeUrl(state: string): string {

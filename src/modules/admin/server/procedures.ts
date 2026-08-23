@@ -24,6 +24,10 @@ import {
   updateVendorMarketingProfile,
 } from '@/modules/marketing/marketing-profile-trpc';
 import {
+  adminSocialRouter,
+  adminWhatsappChannelsRouter,
+} from '@/modules/admin/server/social-post-procedures';
+import {
   assertRegionUnique,
   buildPotentialVendorRegionData,
   formatPotentialVendorRegion,
@@ -766,6 +770,9 @@ export const adminRouter = createTRPCRouter({
         });
       }),
   }),
+
+  social: adminSocialRouter,
+  whatsappChannels: adminWhatsappChannelsRouter,
 
   products: createTRPCRouter({
     list: staffProcedure.input(listInputSchema).query(async ({ ctx, input }) => {

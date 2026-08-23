@@ -41,28 +41,49 @@ type PostToWhatsAppDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product: { id: string; name: string; price: number; imageUrl: string };
+  mode?: "vendor" | "staff";
+  vendorId?: string;
 };
 
 export function PostToWhatsAppDialog({
   open,
   onOpenChange,
   product,
+  mode = "vendor",
+  vendorId,
 }: PostToWhatsAppDialogProps) {
+  const isStaff = mode === "staff";
+  const staffVendorId = isStaff ? vendorId : undefined;
+
   const defaultCaption = useMemo(() => buildDefaultCaption(product), [product]);
   const [caption, setCaption] = useState(defaultCaption);
 
-  const { data: marketingProfile } =
-    trpc.vendor.dashboard.getMarketingProfile.useQuery(undefined, {
-      enabled: open,
-    });
-  const status = trpc.whatsappChannels.sessionStatus.useQuery(undefined, {
-    enabled: open,
-    refetchInterval: open ? 5000 : false,
+  const vendorProfile = trpc.vendor.dashboard.getMarketingProfile.useQuery(undefined, {
+    enabled: open && !isStaff,
   });
+  const staffProfile = trpc.admin.marketing.getProfile.useQuery(
+    { vendorId: staffVendorId! },
+    { enabled: open && isStaff && Boolean(staffVendorId) },
+  );
+
+  const vendorStatus = trpc.whatsappChannels.sessionStatus.useQuery(undefined, {
+    enabled: open && !isStaff,
+    refetchInterval: open && !isStaff ? 5000 : false,
+  });
+  const staffStatus = trpc.admin.whatsappChannels.sessionStatus.useQuery(
+    { vendorId: staffVendorId! },
+    {
+      enabled: open && isStaff && Boolean(staffVendorId),
+      refetchInterval: open && isStaff ? 5000 : false,
+    },
+  );
+
+  const marketingProfile = isStaff ? staffProfile.data : vendorProfile.data;
+  const status = isStaff ? staffStatus.data : vendorStatus.data;
 
   const groupJid =
     marketingProfile?.socialChannels.socialWhatsAppGroupJid?.trim() ?? "";
-  const connected = Boolean(status.data?.connected);
+  const connected = Boolean(status?.connected);
   const canPost = Boolean(connected && groupJid && caption.trim());
 
   useEffect(() => {
@@ -70,13 +91,23 @@ export function PostToWhatsAppDialog({
     setCaption(buildDefaultCaption(product));
   }, [open, product]);
 
-  const post = trpc.whatsappChannels.postToChannel.useMutation({
+  const vendorPost = trpc.whatsappChannels.postToChannel.useMutation({
     onSuccess: () => {
       toast.success("Posted to WhatsApp");
       onOpenChange(false);
     },
     onError: (error) => toast.error(error.message || "Failed to post"),
   });
+
+  const staffPost = trpc.admin.whatsappChannels.postToChannel.useMutation({
+    onSuccess: () => {
+      toast.success("Posted to WhatsApp");
+      onOpenChange(false);
+    },
+    onError: (error) => toast.error(error.message || "Failed to post"),
+  });
+
+  const postPending = isStaff ? staffPost.isPending : vendorPost.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,8 +118,9 @@ export function PostToWhatsAppDialog({
             Post to WhatsApp
           </DialogTitle>
           <DialogDescription>
-            Uses the product photo and posts to your Settings WhatsApp group /
-            channel.
+            Uses the product photo and posts to the Settings WhatsApp group /
+            channel
+            {isStaff ? " for this vendor" : ""}.
           </DialogDescription>
         </div>
 
@@ -104,16 +136,26 @@ export function PostToWhatsAppDialog({
 
         {!connected || !groupJid ? (
           <p className="text-sm text-amber-700">
-            Link WhatsApp and resolve the JID on{" "}
-            <Link
-              href="/vendor/connected-channels"
-              className="font-medium underline underline-offset-2"
-              onClick={() => onOpenChange(false)}
-            >
-              Post to social media
-            </Link>{" "}
-            first
-            {!groupJid ? " (Settings invite → JID)" : ""}.
+            {isStaff ? (
+              <>
+                This vendor needs WhatsApp linked and a JID resolved (vendor{" "}
+                <span className="font-medium">Post to social media</span>
+                ). Requires a persistent Node process — not Vercel serverless.
+              </>
+            ) : (
+              <>
+                Link WhatsApp and resolve the JID on{" "}
+                <Link
+                  href="/vendor/connected-channels"
+                  className="font-medium underline underline-offset-2"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Post to social media
+                </Link>{" "}
+                first
+                {!groupJid ? " (Settings invite → JID)" : ""}.
+              </>
+            )}
           </p>
         ) : null}
 
@@ -130,17 +172,23 @@ export function PostToWhatsAppDialog({
         </div>
 
         <Button
-          disabled={post.isPending || !canPost}
-          onClick={() =>
-            post.mutate({
+          disabled={postPending || !canPost || (isStaff && !staffVendorId)}
+          onClick={() => {
+            const payload = {
               channelJid: groupJid,
               caption: caption.trim(),
               imageUrl: absoluteMediaUrl(product.imageUrl),
               productId: product.id,
-            })
-          }
+            };
+            if (isStaff) {
+              if (!staffVendorId) return;
+              staffPost.mutate({ vendorId: staffVendorId, ...payload });
+            } else {
+              vendorPost.mutate(payload);
+            }
+          }}
         >
-          {post.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {postPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Post to WhatsApp
         </Button>
       </DialogContent>

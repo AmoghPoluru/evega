@@ -15,6 +15,7 @@ import {
   Store,
   LayoutTemplate,
   Sparkles,
+  Share2,
 } from "lucide-react";
 
 function isNavItemActive(href: string, pathname: string): boolean {
@@ -24,6 +25,7 @@ function isNavItemActive(href: string, pathname: string): boolean {
 const navItems = [
   { href: "/staff/vendors", label: "Vendors", icon: Store },
   { href: "/staff/digital-marketing", label: "Digital Marketing", icon: Megaphone },
+  { href: "/staff/post-to-social", label: "Post to social", icon: Share2 },
   { href: "/staff/potential-vendors", label: "Potential Vendors", icon: UserPlus },
   { href: "/staff/products", label: "Products", icon: Package },
   { href: "/staff/orders", label: "Orders", icon: ShoppingCart },
