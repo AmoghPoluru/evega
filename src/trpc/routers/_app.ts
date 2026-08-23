@@ -11,6 +11,7 @@ import { ordersRouter } from '@/modules/orders/server/procedures';
 import { addressesRouter } from '@/modules/addresses/server/procedures';
 import { adminRouter } from '@/modules/admin/server/procedures';
 import { socialRouter } from '@/modules/social/server/procedures';
+import { whatsappChannelsRouter } from '@/modules/whatsapp-channels/server/procedures';
 
 export const appRouter = createTRPCRouter({
   hello: baseProcedure
@@ -28,6 +29,7 @@ export const appRouter = createTRPCRouter({
   admin: adminRouter,
   vendor: vendorRouter,
   social: socialRouter,
+  whatsappChannels: whatsappChannelsRouter,
   products: productsRouter,
   productInteractions: productInteractionsRouter,
   checkout: checkoutRouter,

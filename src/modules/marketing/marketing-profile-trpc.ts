@@ -15,6 +15,10 @@ import {
   type MetaConfigInput,
   type MetaConfigStored,
 } from "@/lib/vendor-marketing-profile";
+import {
+  isPostableWhatsAppJid,
+  resolveWhatsAppJidForSave,
+} from "@/lib/whatsapp-channels/resolve-destination";
 
 export const whatsappConfigInputSchema = z.object({
   businessNumber: z.string().optional(),
@@ -37,6 +41,7 @@ export const marketingProfileUpdateBodySchema = z.object({
       socialInstagram: z.string().optional(),
       socialFacebook: z.string().optional(),
       socialWhatsAppGroup: z.string().optional(),
+      socialWhatsAppGroupJid: z.string().optional(),
       socialNotes: z.string().optional(),
       socialInstagramLastPostedAt: z.string().nullable().optional(),
       socialFacebookLastPostedAt: z.string().nullable().optional(),
@@ -81,6 +86,7 @@ export function toMarketingProfileResponse(vendor: Vendor) {
       socialInstagram: vendor.socialChannels?.socialInstagram ?? "",
       socialFacebook: vendor.socialChannels?.socialFacebook ?? "",
       socialWhatsAppGroup: vendor.socialChannels?.socialWhatsAppGroup ?? "",
+      socialWhatsAppGroupJid: vendor.socialChannels?.socialWhatsAppGroupJid ?? "",
       socialNotes: vendor.socialChannels?.socialNotes ?? "",
       socialInstagramLastPostedAt:
         vendor.socialChannels?.socialInstagramLastPostedAt ?? null,
@@ -213,6 +219,67 @@ export async function updateVendorMarketingProfile(
         )
       : undefined;
 
+  let socialChannels =
+    input.socialChannels !== undefined
+      ? buildSocialChannelsUpdate(existing.socialChannels, input.socialChannels)
+      : undefined;
+
+  if (socialChannels !== undefined) {
+    const groupLink = socialChannels.socialWhatsAppGroup ?? "";
+
+    if (!groupLink) {
+      socialChannels = { ...socialChannels, socialWhatsAppGroupJid: undefined };
+    } else if (isPostableWhatsAppJid(groupLink)) {
+      socialChannels = { ...socialChannels, socialWhatsAppGroupJid: groupLink };
+    } else {
+      // Always resolve from the invite link on save — JID is server-owned / read-only.
+      // Supports group (chat.whatsapp.com) and channel (whatsapp.com/channel) links.
+      try {
+        const jid = await resolveWhatsAppJidForSave({
+          vendorId,
+          groupLink,
+          existingLink: existing.socialChannels?.socialWhatsAppGroup,
+          existingJid: existing.socialChannels?.socialWhatsAppGroupJid,
+        });
+        socialChannels = {
+          ...socialChannels,
+          socialWhatsAppGroupJid: jid ?? undefined,
+        };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Could not resolve WhatsApp group JID";
+        console.warn("[marketing] could not resolve WhatsApp group JID:", message);
+
+        const sameLink =
+          groupLink === (existing.socialChannels?.socialWhatsAppGroup ?? "").trim();
+        const isBadLink =
+          /could not read a|channel link|paste a whatsapp|invite link/i.test(message) &&
+          !/not linked|link whatsapp|session/i.test(message);
+
+        // Invalid invite links should fail the save so the vendor can fix them.
+        // "Not linked" soft-fails so the invite can still be saved.
+        if (isBadLink && !/linked whatsapp|not connected|session/i.test(message)) {
+          // Only hard-fail truly unparseable links; session errors soft-fail.
+        }
+
+        if (
+          /could not read a whatsapp invite|could not read a group invite code/i.test(
+            message,
+          )
+        ) {
+          throw new Error(message);
+        }
+
+        socialChannels = {
+          ...socialChannels,
+          socialWhatsAppGroupJid: sameLink
+            ? existing.socialChannels?.socialWhatsAppGroupJid ?? undefined
+            : undefined,
+        };
+      }
+    }
+  }
+
   return db.update({
     collection: "vendors",
     id: vendorId,
@@ -221,9 +288,7 @@ export async function updateVendorMarketingProfile(
         logo: input.logo,
         ...(input.logo !== null ? { logoSource: "upload" as const } : {}),
       }),
-      ...(input.socialChannels !== undefined && {
-        socialChannels: buildSocialChannelsUpdate(existing.socialChannels, input.socialChannels),
-      }),
+      ...(socialChannels !== undefined && { socialChannels }),
       ...(marketingChannels !== undefined && { marketingChannels }),
       ...(input.whatsappConfig !== undefined && {
         whatsappConfig: buildWhatsAppConfigUpdate(existing.whatsappConfig, input.whatsappConfig),

@@ -42,7 +42,6 @@ import {
   isoToDatetimeLocalValue,
 } from "@/lib/vendor-marketing-profile";
 import type { Control } from "react-hook-form";
-
 const marketingChannelSchema = z.object({
   platform: z.enum([
     "facebook-group",
@@ -63,6 +62,7 @@ const marketingProfileSchema = z.object({
     socialInstagram: z.string().optional(),
     socialFacebook: z.string().optional(),
     socialWhatsAppGroup: z.string().optional(),
+    socialWhatsAppGroupJid: z.string().optional(),
     socialNotes: z.string().optional(),
     socialInstagramLastPostedAt: z.string().nullable().optional(),
     socialFacebookLastPostedAt: z.string().nullable().optional(),
@@ -210,9 +210,20 @@ export function DigitalMarketingForm({
   const queryError = isStaff ? staffProfileQuery.error : vendorProfileQuery.error;
 
   const vendorUpdateMutation = trpc.vendor.dashboard.updateMarketingProfile.useMutation({
-    onSuccess: () => {
-      toast.success("Marketing channels saved");
+    onSuccess: (data) => {
       void utils.vendor.dashboard.getMarketingProfile.invalidate();
+      const group = data.socialChannels.socialWhatsAppGroup?.trim();
+      const jid = data.socialChannels.socialWhatsAppGroupJid?.trim();
+      if (group && jid) {
+        toast.success("Marketing channels saved. WhatsApp JID updated.");
+      } else if (group && !jid) {
+        toast.success("Invite saved");
+        toast.message(
+          "Open Post to social media, link WhatsApp (scan QR), and the JID fills from this invite.",
+        );
+      } else {
+        toast.success("Marketing channels saved");
+      }
     },
     onError: (error) => {
       toast.error(error.message || "Failed to save marketing channels");
@@ -220,10 +231,21 @@ export function DigitalMarketingForm({
   });
 
   const staffUpdateMutation = trpc.admin.marketing.updateProfile.useMutation({
-    onSuccess: () => {
-      toast.success("Marketing channels saved");
+    onSuccess: (data) => {
       if (vendorId) {
         void utils.admin.marketing.getProfile.invalidate({ vendorId });
+      }
+      const group = data?.socialChannels?.socialWhatsAppGroup?.trim();
+      const jid = data?.socialChannels?.socialWhatsAppGroupJid?.trim();
+      if (group && jid) {
+        toast.success("Marketing channels saved. WhatsApp JID updated.");
+      } else if (group && !jid) {
+        toast.success("Marketing channels saved");
+        toast.message(
+          "WhatsApp JID is still empty. On Post to social media, link WhatsApp (scan QR) to resolve it from this invite.",
+        );
+      } else {
+        toast.success("Marketing channels saved");
       }
     },
     onError: (error) => {
@@ -238,6 +260,7 @@ export function DigitalMarketingForm({
         socialInstagram: "",
         socialFacebook: "",
         socialWhatsAppGroup: "",
+        socialWhatsAppGroupJid: "",
         socialNotes: "",
         socialInstagramLastPostedAt: null,
         socialFacebookLastPostedAt: null,
@@ -265,6 +288,9 @@ export function DigitalMarketingForm({
     name: "marketingChannels",
   });
 
+  const whatsappGroupLink = form.watch("socialChannels.socialWhatsAppGroup");
+  const whatsappConnectEnabled = Boolean(whatsappGroupLink?.trim());
+
   useEffect(() => {
     if (!data || isStaff) return;
     form.reset({
@@ -272,6 +298,7 @@ export function DigitalMarketingForm({
         socialInstagram: data.socialChannels.socialInstagram ?? "",
         socialFacebook: data.socialChannels.socialFacebook ?? "",
         socialWhatsAppGroup: data.socialChannels.socialWhatsAppGroup ?? "",
+        socialWhatsAppGroupJid: data.socialChannels.socialWhatsAppGroupJid ?? "",
         socialNotes: data.socialChannels.socialNotes ?? "",
         socialInstagramLastPostedAt:
           data.socialChannels.socialInstagramLastPostedAt ?? null,
@@ -311,6 +338,7 @@ export function DigitalMarketingForm({
         socialInstagram: data.socialChannels.socialInstagram ?? "",
         socialFacebook: data.socialChannels.socialFacebook ?? "",
         socialWhatsAppGroup: data.socialChannels.socialWhatsAppGroup ?? "",
+        socialWhatsAppGroupJid: data.socialChannels.socialWhatsAppGroupJid ?? "",
         socialNotes: data.socialChannels.socialNotes ?? "",
         socialInstagramLastPostedAt:
           data.socialChannels.socialInstagramLastPostedAt ?? null,
@@ -344,12 +372,21 @@ export function DigitalMarketingForm({
   }, [data, form, isStaff, vendorId]);
 
   const onSubmit = (values: MarketingProfileFormValues) => {
+    // JID is server-resolved and read-only — never trust a client value.
+    const payload = {
+      ...values,
+      socialChannels: {
+        ...values.socialChannels,
+        socialWhatsAppGroupJid: undefined,
+      },
+    };
+
     if (isStaff) {
       if (!vendorId) return;
-      staffUpdateMutation.mutate({ vendorId, ...values });
+      staffUpdateMutation.mutate({ vendorId, ...payload });
       return;
     }
-    vendorUpdateMutation.mutate(values);
+    vendorUpdateMutation.mutate(payload);
   };
 
   if (isStaff && !vendorId) {
@@ -460,16 +497,25 @@ export function DigitalMarketingForm({
                 name="socialChannels.socialWhatsAppGroup"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>WhatsApp group</FormLabel>
+                    <FormLabel>WhatsApp group / channel</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="https://chat.whatsapp.com/…"
+                        placeholder="https://chat.whatsapp.com/… or https://whatsapp.com/channel/…"
                         {...field}
                         value={field.value ?? ""}
                       />
                     </FormControl>
                     <FormDescription>
-                      Invite link for your customer WhatsApp group.
+                      Paste a group invite (
+                      <span className="font-mono text-[11px]">
+                        chat.whatsapp.com/…
+                      </span>
+                      ) or channel link (
+                      <span className="font-mono text-[11px]">
+                        whatsapp.com/channel/…
+                      </span>
+                      ). Link WhatsApp and fill the JID on{" "}
+                      <span className="font-medium">Post to social media</span>.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -712,7 +758,13 @@ export function DigitalMarketingForm({
                   Connect your WhatsApp Business Cloud API account to receive order, like, and
                   favorite notifications and to post products to WhatsApp.
                 </p>
+                {!whatsappConnectEnabled ? (
+                  <p className="mt-2 text-xs text-amber-700">
+                    Add a WhatsApp group invite link above to enable WhatsApp Business connection.
+                  </p>
+                ) : null}
               </div>
+              <fieldset disabled={!whatsappConnectEnabled} className="space-y-4 disabled:opacity-60">
               <FormField
                 control={form.control}
                 name="whatsappConfig.businessNumber"
@@ -797,6 +849,7 @@ export function DigitalMarketingForm({
                   </FormItem>
                 )}
               />
+              </fieldset>
             </div>
 
             <div className="space-y-4 border-t border-gray-200 pt-6">

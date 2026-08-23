@@ -45,3 +45,6 @@ next-env.d.ts
 playwright/.cache/
 
 certificates
+
+# Baileys WhatsApp Channels auth state (per-vendor linked-device creds)
+/sessions/

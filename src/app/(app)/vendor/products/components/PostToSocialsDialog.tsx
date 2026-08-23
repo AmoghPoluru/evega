@@ -28,6 +28,9 @@ interface PostToSocialsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product: { id: string; name: string; price: number; imageUrl?: string | null };
+  /** Staff console: post as this vendor instead of the logged-in vendor. */
+  mode?: "vendor" | "staff";
+  vendorId?: string;
 }
 
 function buildDefaultCaption(product: { id: string; name: string; price: number }) {
@@ -53,7 +56,12 @@ export function PostToSocialsDialog({
   open,
   onOpenChange,
   product,
+  mode = "vendor",
+  vendorId,
 }: PostToSocialsDialogProps) {
+  const isStaff = mode === "staff";
+  const staffVendorId = isStaff ? vendorId : undefined;
+
   const defaultCaption = useMemo(() => buildDefaultCaption(product), [product]);
   const [caption, setCaption] = useState(defaultCaption);
   const [instruction, setInstruction] = useState(DEFAULT_BANNER_INSTRUCTION_WITH_PHOTO);
@@ -65,9 +73,19 @@ export function PostToSocialsDialog({
   const [instagram, setInstagram] = useState<PublicSocialConnection | null>(null);
   const [statusLoaded, setStatusLoaded] = useState(false);
 
-  const { data: openAiConfig } = trpc.vendor.dashboard.getOpenAiConfig.useQuery(undefined, {
-    enabled: open,
+  const vendorOpenAi = trpc.vendor.dashboard.getOpenAiConfig.useQuery(undefined, {
+    enabled: open && !isStaff,
   });
+  const staffOpenAi = trpc.admin.social.getOpenAiConfig.useQuery(
+    { vendorId: staffVendorId! },
+    { enabled: open && isStaff && Boolean(staffVendorId) },
+  );
+  const openAiConfig = isStaff ? staffOpenAi.data : vendorOpenAi.data;
+
+  const staffIgStatus = trpc.admin.social.instagramStatus.useQuery(
+    { vendorId: staffVendorId! },
+    { enabled: open && isStaff && Boolean(staffVendorId) },
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -84,6 +102,17 @@ export function PostToSocialsDialog({
 
   useEffect(() => {
     if (!open) return;
+
+    if (isStaff) {
+      setStatusLoaded(!staffIgStatus.isLoading);
+      const ig = Array.isArray(staffIgStatus.data)
+        ? staffIgStatus.data.find((c) => c.platform === "instagram" && c.connected) ??
+          null
+        : null;
+      setInstagram(ig);
+      return;
+    }
+
     let cancelled = false;
     setStatusLoaded(false);
     fetch("/api/socials/status")
@@ -107,9 +136,9 @@ export function PostToSocialsDialog({
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, isStaff, staffIgStatus.data, staffIgStatus.isLoading]);
 
-  const generateBanner = trpc.social.generateBanner.useMutation({
+  const vendorGenerateBanner = trpc.social.generateBanner.useMutation({
     onSuccess: (data) => {
       setBannerUrl(data.imageUrl);
       toast.success("Banner ready. Preview it, then post.");
@@ -119,7 +148,19 @@ export function PostToSocialsDialog({
     },
   });
 
-  const postProduct = trpc.social.postProduct.useMutation({
+  const staffGenerateBanner = trpc.admin.social.generateBanner.useMutation({
+    onSuccess: (data) => {
+      setBannerUrl(data.imageUrl);
+      toast.success("Banner ready. Preview it, then post.");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to generate banner");
+    },
+  });
+
+  const generateBanner = isStaff ? staffGenerateBanner : vendorGenerateBanner;
+
+  const vendorPostProduct = trpc.social.postProduct.useMutation({
     onSuccess: (data) => {
       const ig = data.results.find((r) => r.channel === "instagram");
       if (ig?.status === "posted") {
@@ -138,6 +179,31 @@ export function PostToSocialsDialog({
       toast.error(error.message || "Failed to post to Instagram");
     },
   });
+
+  const staffPostProduct = trpc.admin.social.postProduct.useMutation({
+    onSuccess: (data) => {
+      const ig = data.results.find((r) => r.channel === "instagram");
+      if (ig?.status === "posted") {
+        toast.success("Posted to Instagram");
+        if (createAnother) {
+          setCaption(buildDefaultCaption(product));
+          setBannerUrl(null);
+          return;
+        }
+        onOpenChange(false);
+        return;
+      }
+      toast.error(
+        ig?.error ||
+          "Instagram post failed. Have the vendor connect Instagram under Post to social media.",
+      );
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to post to Instagram");
+    },
+  });
+
+  const postProduct = isStaff ? staffPostProduct : vendorPostProduct;
 
   const previewImageUrl = bannerUrl || product.imageUrl;
   const canPost = Boolean(caption.trim()) && Boolean(instagram) && Boolean(previewImageUrl);
@@ -183,14 +249,29 @@ export function PostToSocialsDialog({
       return;
     }
     if (!openAiConfig?.hasApiKey) {
-      toast.error("Add your OpenAI API key in Settings first");
+      toast.error(
+        isStaff
+          ? "This vendor needs an OpenAI API key in Settings first"
+          : "Add your OpenAI API key in Settings first",
+      );
       return;
     }
     if (instruction.trim().length < 8 || brief.trim().length < 8) {
       toast.error("Add both the generation instructions and the creative brief");
       return;
     }
-    generateBanner.mutate({
+    if (isStaff) {
+      if (!staffVendorId) return;
+      staffGenerateBanner.mutate({
+        vendorId: staffVendorId,
+        productId: product.id,
+        instruction: instruction.trim(),
+        brief: brief.trim(),
+        useSourceImage,
+      });
+      return;
+    }
+    vendorGenerateBanner.mutate({
       productId: product.id,
       instruction: instruction.trim(),
       brief: brief.trim(),
@@ -200,14 +281,29 @@ export function PostToSocialsDialog({
 
   const handleSubmit = () => {
     if (!instagram) {
-      toast.error("Connect Instagram in Connected Channels first");
+      toast.error(
+        isStaff
+          ? "This vendor has not connected Instagram yet"
+          : "Connect Instagram in Connected Channels first",
+      );
       return;
     }
     if (!caption.trim()) {
       toast.error("Write a caption before posting");
       return;
     }
-    postProduct.mutate({
+    if (isStaff) {
+      if (!staffVendorId) return;
+      staffPostProduct.mutate({
+        vendorId: staffVendorId,
+        productId: product.id,
+        channels: ["instagram"],
+        caption,
+        ...(bannerUrl ? { imageUrl: bannerUrl } : {}),
+      });
+      return;
+    }
+    vendorPostProduct.mutate({
       productId: product.id,
       channels: ["instagram"],
       caption,
@@ -235,10 +331,23 @@ export function PostToSocialsDialog({
                 </p>
               ) : (
                 <p className="text-muted-foreground">
-                  <Link href="/vendor/connected-channels" className="underline underline-offset-2">
-                    Connect Instagram
-                  </Link>{" "}
-                  to post this product.
+                  {isStaff ? (
+                    <>
+                      This vendor has not connected Instagram. They connect it under{" "}
+                      <span className="font-medium">Post to social media</span>, or
+                      impersonate them to connect.
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        href="/vendor/connected-channels"
+                        className="underline underline-offset-2"
+                      >
+                        Connect Instagram
+                      </Link>{" "}
+                      to post this product.
+                    </>
+                  )}
                 </p>
               )}
             </div>
@@ -296,11 +405,17 @@ export function PostToSocialsDialog({
               </div>
               {!openAiConfig?.hasApiKey && (
                 <p className="text-xs text-muted-foreground">
-                  Add an{" "}
-                  <Link href="/vendor/settings" className="underline underline-offset-2">
-                    OpenAI API key
-                  </Link>{" "}
-                  in Settings to generate sale banners.
+                  {isStaff ? (
+                    <>This vendor needs an OpenAI API key in Settings to generate banners.</>
+                  ) : (
+                    <>
+                      Add an{" "}
+                      <Link href="/vendor/settings" className="underline underline-offset-2">
+                        OpenAI API key
+                      </Link>{" "}
+                      in Settings to generate sale banners.
+                    </>
+                  )}
                 </p>
               )}
             </div>

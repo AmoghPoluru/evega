@@ -391,6 +391,15 @@ export const Vendors: CollectionConfig = {
           },
         },
         {
+          name: "socialWhatsAppGroupJid",
+          type: "text",
+          label: "WhatsApp group JID",
+          admin: {
+            description:
+              "Auto-filled from the invite link when WhatsApp is linked (e.g. 120363…@g.us). You can paste a JID manually if needed.",
+          },
+        },
+        {
           name: "socialWhatsAppGroupLastPostedAt",
           type: "date",
           label: "WhatsApp last posted",
