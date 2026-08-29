@@ -60,6 +60,7 @@ export const SocialPosts: CollectionConfig = {
         { label: "Instagram", value: "instagram" },
         { label: "Facebook", value: "facebook" },
         { label: "WhatsApp", value: "whatsapp" },
+        { label: "WhatsApp Channel", value: "whatsapp-channel" },
       ],
     },
     {

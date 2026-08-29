@@ -77,7 +77,7 @@ export function OnboardingChecklist() {
     },
     {
       id: "marketing",
-      label: "Post to Instagram",
+      label: "Post to social media",
       href: "/vendor/connected-channels",
       completed: hasMarketingSetup,
     },

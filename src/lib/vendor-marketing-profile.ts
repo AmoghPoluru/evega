@@ -2,6 +2,7 @@ type SocialChannelsInput = {
   socialInstagram?: string | null;
   socialFacebook?: string | null;
   socialWhatsAppGroup?: string | null;
+  socialWhatsAppGroupJid?: string | null;
   socialNotes?: string | null;
 };
 
@@ -44,6 +45,7 @@ function normalizeSocialChannels(
     socialInstagram: (channels?.socialInstagram ?? "").trim(),
     socialFacebook: (channels?.socialFacebook ?? "").trim(),
     socialWhatsAppGroup: (channels?.socialWhatsAppGroup ?? "").trim(),
+    socialWhatsAppGroupJid: (channels?.socialWhatsAppGroupJid ?? "").trim(),
     socialNotes: (channels?.socialNotes ?? "").trim(),
   };
 }
@@ -71,6 +73,7 @@ export function buildSocialChannelsUpdate(
     socialInstagram: next.socialInstagram || undefined,
     socialFacebook: next.socialFacebook || undefined,
     socialWhatsAppGroup: next.socialWhatsAppGroup || undefined,
+    socialWhatsAppGroupJid: next.socialWhatsAppGroupJid || undefined,
     socialNotes: next.socialNotes || undefined,
     socialInstagramLastPostedAt: resolveLastPostedAt(
       input.socialInstagramLastPostedAt,

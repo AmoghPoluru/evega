@@ -90,6 +90,7 @@ export interface Config {
     'product-comments': ProductComment;
     'social-posts': SocialPost;
     'vendor-social-connections': VendorSocialConnection;
+    'whatsapp-channel-sessions': WhatsappChannelSession;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -120,6 +121,7 @@ export interface Config {
     'product-comments': ProductCommentsSelect<false> | ProductCommentsSelect<true>;
     'social-posts': SocialPostsSelect<false> | SocialPostsSelect<true>;
     'vendor-social-connections': VendorSocialConnectionsSelect<false> | VendorSocialConnectionsSelect<true>;
+    'whatsapp-channel-sessions': WhatsappChannelSessionsSelect<false> | WhatsappChannelSessionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -432,6 +434,10 @@ export interface Vendor {
      * WhatsApp group invite link (https://chat.whatsapp.com/…)
      */
     socialWhatsAppGroup?: string | null;
+    /**
+     * Auto-filled from the invite link when WhatsApp is linked (e.g. 120363…@g.us). You can paste a JID manually if needed.
+     */
+    socialWhatsAppGroupJid?: string | null;
     /**
      * Last promotional post in this WhatsApp group
      */
@@ -1757,7 +1763,7 @@ export interface SocialPost {
   id: string;
   vendor: string | Vendor;
   product: string | Product;
-  channels: ('instagram' | 'facebook' | 'whatsapp')[];
+  channels: ('instagram' | 'facebook' | 'whatsapp' | 'whatsapp-channel')[];
   caption?: string | null;
   status: 'draft' | 'posted' | 'failed';
   /**
@@ -1786,6 +1792,20 @@ export interface VendorSocialConnection {
   username: string;
   accessToken: string;
   tokenExpiresAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Link state of the unofficial (Baileys) WhatsApp Channels session per vendor.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "whatsapp-channel-sessions".
+ */
+export interface WhatsappChannelSession {
+  id: string;
+  vendor: string | Vendor;
+  status: 'pending' | 'connected' | 'disconnected';
+  lastConnectedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1904,6 +1924,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'vendor-social-connections';
         value: string | VendorSocialConnection;
+      } | null)
+    | ({
+        relationTo: 'whatsapp-channel-sessions';
+        value: string | WhatsappChannelSession;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -2218,6 +2242,7 @@ export interface VendorsSelect<T extends boolean = true> {
         socialFacebook?: T;
         socialFacebookLastPostedAt?: T;
         socialWhatsAppGroup?: T;
+        socialWhatsAppGroupJid?: T;
         socialWhatsAppGroupLastPostedAt?: T;
         socialNotes?: T;
       };
@@ -2618,6 +2643,17 @@ export interface VendorSocialConnectionsSelect<T extends boolean = true> {
   username?: T;
   accessToken?: T;
   tokenExpiresAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "whatsapp-channel-sessions_select".
+ */
+export interface WhatsappChannelSessionsSelect<T extends boolean = true> {
+  vendor?: T;
+  status?: T;
+  lastConnectedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
