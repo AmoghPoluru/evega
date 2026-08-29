@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import type { VariantProps } from "class-variance-authority";
 import { buttonVariants } from "@/components/ui/button";
 
-const SHOPPING_URL = "https://evegasupplier-ind.vercel.app";
+const SHOPPING_URL = "https://www.b2bvastra.com";
 
 interface GoShoppingButtonProps {
   className?: string;
