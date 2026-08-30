@@ -1,13 +1,15 @@
+import {
+  resolveVendorWordSlot,
+  resolveVendorWordValue,
+  type VendorWordSlotPreset,
+} from "../vendor-words-shared";
 import type { HappyBannerDocFields } from "./types";
 
-export type HappyBannerVendorWordSlot = {
+export type HappyBannerVendorWordSlot = VendorWordSlotPreset & {
   key: "word1" | "word2";
-  label: string;
-  hint: string;
-  defaultValue: string;
 };
 
-const DEFAULT_SLOTS: HappyBannerVendorWordSlot[] = [
+const PRESET_SLOTS: HappyBannerVendorWordSlot[] = [
   {
     key: "word1",
     label: "Word 1",
@@ -26,29 +28,14 @@ const DEFAULT_SLOTS: HappyBannerVendorWordSlot[] = [
 export function getHappyBannerVendorWordSlots(
   banner: HappyBannerDocFields,
 ): HappyBannerVendorWordSlot[] {
-  const word1 = banner.vendorWords?.word1;
-  const word2 = banner.vendorWords?.word2;
-
-  return [
-    {
-      key: "word1",
-      label: word1?.label?.trim() || "Word 1",
-      hint: word1?.hint?.trim() || DEFAULT_SLOTS[0].hint,
-      defaultValue:
-        word1?.defaultValue?.trim() ||
-        banner.defaultWord1?.trim() ||
-        DEFAULT_SLOTS[0].defaultValue,
-    },
-    {
-      key: "word2",
-      label: word2?.label?.trim() || "Word 2",
-      hint: word2?.hint?.trim() || DEFAULT_SLOTS[1].hint,
-      defaultValue:
-        word2?.defaultValue?.trim() ||
-        banner.defaultWord2?.trim() ||
-        DEFAULT_SLOTS[1].defaultValue,
-    },
-  ];
+  return PRESET_SLOTS.map((preset) => ({
+    key: preset.key,
+    ...resolveVendorWordSlot(
+      banner.vendorWords?.[preset.key],
+      preset.key === "word1" ? banner.defaultWord1 : banner.defaultWord2,
+      preset,
+    ),
+  }));
 }
 
 export function getHappyBannerVendorWordDefaults(banner: HappyBannerDocFields): {
@@ -68,7 +55,7 @@ export function resolveVendorHappyBannerWords(
 ): { word1: string; word2: string } {
   const defaults = getHappyBannerVendorWordDefaults(banner);
   return {
-    word1: vendorWords?.word1?.trim() || defaults.word1,
-    word2: vendorWords?.word2?.trim() || defaults.word2,
+    word1: resolveVendorWordValue(vendorWords?.word1, defaults.word1),
+    word2: resolveVendorWordValue(vendorWords?.word2, defaults.word2),
   };
 }

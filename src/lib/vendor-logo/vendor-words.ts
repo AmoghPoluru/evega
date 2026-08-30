@@ -1,41 +1,43 @@
+import {
+  resolveVendorWordSlot,
+  resolveVendorWordValue,
+  type VendorWordSlot,
+} from "../vendor-words-shared";
 import { VENDOR_LOGO_PRESET_DEFAULTS } from "./presets";
 import type { VendorLogoDocFields, VendorLogoPreset } from "./types";
+
+function getWordSlots(doc: VendorLogoDocFields): { word1: VendorWordSlot; word2: VendorWordSlot } {
+  const preset = (doc.preset ?? "lotus-grace") as VendorLogoPreset;
+  const presetDefaults = VENDOR_LOGO_PRESET_DEFAULTS[preset];
+
+  return {
+    word1: resolveVendorWordSlot(doc.vendorWords?.word1, doc.defaultWord1, {
+      label: presetDefaults.word1Label,
+      hint: presetDefaults.word1Hint,
+      defaultValue: presetDefaults.word1Default,
+    }),
+    word2: resolveVendorWordSlot(doc.vendorWords?.word2, doc.defaultWord2, {
+      label: presetDefaults.word2Label,
+      hint: presetDefaults.word2Hint,
+      defaultValue: presetDefaults.word2Default,
+    }),
+  };
+}
 
 export function getVendorLogoWordDefaults(doc: VendorLogoDocFields): {
   word1: string;
   word2: string;
 } {
-  const preset = (doc.preset ?? "lotus-grace") as VendorLogoPreset;
-  const presetDefaults = VENDOR_LOGO_PRESET_DEFAULTS[preset];
+  const slots = getWordSlots(doc);
 
   return {
-    word1:
-      doc.vendorWords?.word1?.defaultValue?.trim() ||
-      doc.defaultWord1?.trim() ||
-      presetDefaults.word1Default,
-    word2:
-      doc.vendorWords?.word2?.defaultValue?.trim() ||
-      doc.defaultWord2?.trim() ||
-      presetDefaults.word2Default,
+    word1: slots.word1.defaultValue,
+    word2: slots.word2.defaultValue,
   };
 }
 
 export function getVendorLogoWordSlots(doc: VendorLogoDocFields) {
-  const preset = (doc.preset ?? "lotus-grace") as VendorLogoPreset;
-  const presetDefaults = VENDOR_LOGO_PRESET_DEFAULTS[preset];
-
-  return {
-    word1: {
-      label: doc.vendorWords?.word1?.label?.trim() || presetDefaults.word1Label,
-      hint: doc.vendorWords?.word1?.hint?.trim() || presetDefaults.word1Hint,
-      defaultValue: getVendorLogoWordDefaults(doc).word1,
-    },
-    word2: {
-      label: doc.vendorWords?.word2?.label?.trim() || presetDefaults.word2Label,
-      hint: doc.vendorWords?.word2?.hint?.trim() || presetDefaults.word2Hint,
-      defaultValue: getVendorLogoWordDefaults(doc).word2,
-    },
-  };
+  return getWordSlots(doc);
 }
 
 export function resolveVendorLogoWords(
@@ -43,11 +45,11 @@ export function resolveVendorLogoWords(
   vendorWords?: { word1?: string | null; word2?: string | null } | null,
 ): { word1: string; word2: string } {
   const defaults = getVendorLogoWordDefaults(doc);
-  const word1 = vendorWords?.word1?.trim() || defaults.word1;
+  const word1 = resolveVendorWordValue(vendorWords?.word1, defaults.word1);
   const letter = getMonogramLetter(word1);
   return {
     word1: letter,
-    word2: vendorWords?.word2?.trim() || letter,
+    word2: resolveVendorWordValue(vendorWords?.word2, letter),
   };
 }
 
